@@ -1,0 +1,21 @@
+{% extends 'common/base.html' %}
+{% comment %} templates/404.html {% endcomment %}
+{% block title %}Page Not Found (404){% endblock %}
+
+{% block content %}
+<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:80vh; text-align:center; padding:20px;">
+    <div style="font-size:72px; font-weight:800; color:var(--color-primary, #c0123c); line-height:1;">404</div>
+    <h2 style="font-size:22px; margin-top:16px; color:var(--color-text-primary, #111827);">Page Not Found</h2>
+    <p style="font-size:14px; color:var(--color-text-secondary, #6b7280); max-width:420px; margin-top:8px;">
+        {{ message|default:"The requested page or master record could not be found or may have been removed." }}
+    </p>
+    <div style="margin-top:24px; display:flex; gap:12px;">
+        <button type="button" onclick="history.back()" style="background:var(--color-bg-secondary, #e5e7eb); color:var(--color-text-primary, #111827); border:none; padding:8px 18px; border-radius:6px; font-weight:600; cursor:pointer;">
+            Go Back
+        </button>
+        <a href="{% url 'common:dashboard' %}" style="background:var(--color-primary, #c0123c); color:#fff; text-decoration:none; padding:8px 18px; border-radius:6px; font-weight:600; display:inline-block;">
+            Dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}

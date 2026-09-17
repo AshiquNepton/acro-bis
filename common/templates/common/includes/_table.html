@@ -1,0 +1,147 @@
+{% comment %}
+════════════════════════════════════════════════════════════════════
+  common/templates/common/includes/_table.html
+
+  Reusable data table with toolbar.
+  Include with:
+      {% include 'common/includes/_table.html' with t=table_config %}
+
+  ── table_config schema ─────────────────────────────────────────
+  {
+    'id'                 : str,   # unique id, e.g. 'dep-table'
+    'cols'               : [      # column definitions
+        {'key': 'NationalID',    'label': 'National ID'},
+        ...
+    ],
+    'toolbar'            : [      # optional toolbar buttons (left side)
+        {'label': 'Refresh', 'onclick': 'deptTableLoad()', 'icon': 'refresh'},
+    ],
+    'note_id'            : str,   # id for a status/record-count <span>
+    'note_text'          : str,   # initial text for the note span
+    'empty_text'         : str,   # shown when tbody is empty
+    'show_actions'       : True,  # add an empty Actions column (default True)
+    'search_fields'      : [      # enables the search widget when present
+        {'key': 'dept_name', 'label': 'Department'},
+        ...
+    ],
+    'search_placeholder' : str,   # placeholder per-form, e.g. 'Search departments…'
+  }
+════════════════════════════════════════════════════════════════════
+{% endcomment %}
+
+{% if t %}
+<div class="pf-table-wrap" id="{{ t.id }}-wrap">
+
+    {# ── Toolbar row: note (left)  ·  search (right) ────────────── #}
+    <div class="pf-table-toolbar">
+
+        {# ── LEFT: toolbar buttons + record-count note ── #}
+        <div class="pf-table-toolbar-left">
+
+            {% if t.toolbar %}
+                {% for btn in t.toolbar %}
+                    <button type="button"
+                            class="pf-tb-btn{% if btn.danger %} pf-tb-btn-danger{% endif %}"
+                            onclick="{{ btn.onclick }}">
+                        {% if btn.icon == 'refresh' %}
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                 style="width:13px;height:13px;display:inline-block;vertical-align:middle;margin-right:4px">
+                                <polyline points="23 4 23 10 17 10"/>
+                                <polyline points="1 20 1 14 7 14"/>
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10
+                                         M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                            </svg>
+                        {% endif %}
+                        {{ btn.label }}
+                    </button>
+                {% endfor %}
+                <div class="pf-tb-sep"></div>
+            {% endif %}
+
+            {% if t.note_id %}
+                <span id="{{ t.note_id }}" class="pf-table-note">
+                    {{ t.note_text|default:'' }}
+                </span>
+            {% endif %}
+
+        </div>{# /.pf-table-toolbar-left #}
+
+        {# ── RIGHT: search widget (only when search_fields provided) ── #}
+        {% if t.search_fields %}
+        <div class="pf-table-toolbar-right">
+            <div class="rpt-search-wrap" id="{{ t.id }}-search-wrap">
+
+                {# Field-selector button #}
+                <button type="button"
+                        class="rpt-search-field-btn"
+                        id="{{ t.id }}-search-field-btn"
+                        onclick="pfTblToggleDrop('{{ t.id }}')"
+                        title="Choose search field">
+                    <svg class="rpt-search-icon" viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="8"/>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    </svg>
+                    <span id="{{ t.id }}-search-field-label">All</span>
+                    <svg class="rpt-search-caret" viewBox="0 0 24 24">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                </button>
+
+                {# Field dropdown #}
+                <div class="rpt-search-drop" id="{{ t.id }}-search-drop" style="display:none">
+                    <div class="rpt-search-drop-item active"
+                         data-field=""
+                         onclick="pfTblSetField('{{ t.id }}','','All',this)">
+                        All fields
+                    </div>
+                    {% for sf in t.search_fields %}
+                    <div class="rpt-search-drop-item"
+                         data-field="{{ sf.key }}"
+                         onclick="pfTblSetField('{{ t.id }}','{{ sf.key }}','{{ sf.label }}',this)">
+                        {{ sf.label }}
+                    </div>
+                    {% endfor %}
+                </div>
+
+                {# Text input — placeholder comes from per-form config #}
+                <input type="text"
+                       class="rpt-search-input"
+                       id="{{ t.id }}-search-input"
+                       placeholder="{{ t.search_placeholder|default:'Search…' }}"
+                       autocomplete="off"
+                       oninput="pfTblSearch('{{ t.id }}')">
+
+            </div>{# /.rpt-search-wrap #}
+        </div>{# /.pf-table-toolbar-right #}
+        {% endif %}
+
+    </div>{# /.pf-table-toolbar #}
+
+    {# ── Table ──────────────────────────────────────────────────── #}
+    <div style="overflow-x:auto">
+        <table class="pf-tbl" id="{{ t.id }}">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    {% for col in t.cols %}
+                    <th>{{ col.label }}</th>
+                    {% endfor %}
+                    {% if t.show_actions != False %}
+                    <th></th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody id="{{ t.id }}-tbody">
+                <tr>
+                    <td colspan="{{ t.cols|length|add:2 }}"
+                        class="pf-tbl-empty">
+                        {{ t.empty_text|default:'No records yet.' }}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+</div>{# /.pf-table-wrap #}
+{% endif %}

@@ -1,0 +1,120 @@
+{% load static %}
+{% comment %} common/templates/common/includes/sidebar.html {% endcomment %}
+
+<aside class="sidebar-navbar" id="sidebar" style="overflow:visible">
+    {# overflow:visible is needed so the toggle diamond can sit half-outside the sidebar edge #}
+
+    <!-- Brand -->
+<!-- Brand -->
+<div class="sidebar-header">
+    <div class="logo-section" style="display:flex; align-items:center; gap:10px; width:100%;">
+
+        <!-- Module logo — always visible, shrinks when collapsed -->
+        {% if request.session.software_id == 3 %}
+            <img src="{% static 'hrms/images/icons/logo.png' %}"
+                 alt="HRMS"
+                 style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1.5px solid rgba(255,255,255,0.25);"
+                 onerror="this.style.display='none'">
+        {% elif request.session.software_id == 1 %}
+            <img src="{% static 'laundry/images/icons/logo.png' %}"
+                 alt="Laundry"
+                 style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1.5px solid rgba(255,255,255,0.25);"
+                 onerror="this.style.display='none'">
+        {% elif request.session.software_id == 2 %}
+            <img src="{% static 'restaurant/images/icons/logo.png' %}"
+                 alt="Restaurant"
+                 style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1.5px solid rgba(255,255,255,0.25);"
+                 onerror="this.style.display='none'">
+        {% else %}
+            <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.15);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;">🏢</div>
+        {% endif %}
+
+        <!-- Text — hidden when collapsed via CSS -->
+        <div style="overflow:hidden;white-space:nowrap;min-width:0;flex:1;">
+            <div class="logo-text">{{ request.session.module_name|default:"ERP" }}</div>
+            <div class="logo-subtext">{{ company_info.tagline|default:"Business System" }}</div>
+        </div>
+
+    </div>
+</div>
+
+    <!-- Navigation -->
+    <nav class="nav-sections" id="sidebarNav">
+        {% for section in navbar_config.sections %}
+        <div class="nav-section{% if section.active %} open{% endif %}"
+             id="section-{{ section.id }}">
+
+            <!-- Tab row -->
+            <div class="nav-tab{% if section.active %} active{% endif %}"
+                 onclick="toggleSection('{{ section.id }}', this)"
+                 title="{{ section.label }}">
+                <span class="nav-tab-icon">{{ section.icon|safe }}</span>
+                <span class="nav-tab-label">{{ section.label }}</span>
+                {% if section.items %}
+                <span class="nav-tab-arrow">▾</span>
+                {% endif %}
+            </div>
+
+            <!-- Dropdown opens DOWNWARD inline -->
+            {% if section.items %}
+            <div class="nav-subitems" id="subitems-{{ section.id }}">
+                {% for item in section.items %}
+                <a href="{% if item.url and item.url != '#' %}{% url item.url %}{% else %}javascript:void(0){% endif %}"
+                class="nav-subitem{% if item.active %} active{% endif %}"
+                onclick="{% if item.onclick %}{{ item.onclick }};return false;{% else %}handleSubitemClick(event, '{{ section.id }}'){% endif %}">
+                    <span class="subitem-label">{{ item.label }}</span>
+                    {% if item.count %}<span class="subitem-badge">{{ item.count }}</span>
+                    {% elif item.status %}<span class="subitem-status">{{ item.status }}</span>{% endif %}
+                </a>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+        </div>
+        {% endfor %}
+    </nav>
+
+    <!-- Toggle button: diamond on the right edge, vertically centred -->
+{% comment %} <button class="sidebar-toggle-btn"
+        onclick="toggleSidebar()"
+        title="Toggle Sidebar">
+
+    <svg class="notch-shape"
+         viewBox="0 0 26 64"
+         fill="none"
+         xmlns="http://www.w3.org/2000/svg"
+         preserveAspectRatio="none">
+        <path d="
+            M0,0
+            C0,0  14,2  18,12
+            C21,20  26,26  26,32
+            C26,38  21,44  18,52
+            C14,62  0,64  0,64
+            Z
+        " fill="var(--color-primary, #c0123c)"/>
+    </svg>
+
+    <span class="toggle-arrow">«</span>
+</button> {% endcomment %}
+
+    <!-- ── Footer ───────────────────────────────────────────── -->
+    <div class="sidebar-footer" id="sidebarFooter">
+        <button class="sidebar-collapse-btn"
+                onclick="toggleSidebar()"
+                title="Toggle Sidebar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 class="collapse-arrow-icon">
+                <polyline points="15 18 9 12 15 6"/>
+            </svg>
+        </button>
+        <img src="{% static 'common/images/icons/nepton.png' %}"
+             alt="Nepton"
+             class="sidebar-footer__logo">
+        <div class="sidebar-footer__text">
+            <span class="sidebar-footer__copy">© Nepton Business System</span>
+            <span class="sidebar-footer__rights">All rights reserved</span>
+        </div>
+    </div>
+
+</aside>

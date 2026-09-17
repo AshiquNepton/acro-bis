@@ -1,0 +1,219 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   common/static/common/css/list_modal.css
+   
+   Reusable ListModal / Position Entry Screen component.
+   Unified with UtilityModal engine and theme_constants.py buttons:
+     • Identical modal frame to Select Item (UtilityModal)
+     • Standardized modal dimensions (480px × 260px)
+     • Theme-compliant buttons (.pf-tb-btn) with theme_constants.py SVGs
+     • Signature blue-bordered DataGridView (#2b78c5) from list.png
+     • Continuous vertical & horizontal gridlines to the bottom border
+     • Inline cell data entry (row by row)
+     • Soft-blue row selection (#b5d5ff)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Standardized Window Sizing (480px × 260px) ─────────────────────────── */
+.utm-modal.utm-modal--standard {
+    width: 480px !important;
+    max-width: 95vw !important;
+    height: 260px;
+    min-height: 220px;
+    max-height: 90vh !important;
+    border-radius: var(--radius-large, 8px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ── Modal Content Container ────────────────────────────────────────────── */
+.lm-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    background: #ffffff;
+    overflow: hidden;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* ── Grid Body (Tight margins matching list.png) ────────────────────────── */
+.lm-body {
+    flex: 1;
+    padding: 6px 8px 4px;
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.lm-grid-wrap {
+    flex: 1;
+    border: 1px solid #2b78c5; /* Signature blue border from list.png */
+    background: #ffffff;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    position: relative;
+}
+
+/* Custom Scrollbar matching desktop ERP */
+.lm-grid-wrap::-webkit-scrollbar {
+    width: 16px;
+}
+
+.lm-grid-wrap::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-left: 1px solid #2b78c5;
+}
+
+.lm-grid-wrap::-webkit-scrollbar-thumb {
+    background: #bababa;
+    border: 3px solid #f1f1f1;
+    border-radius: 4px;
+}
+
+.lm-grid-wrap::-webkit-scrollbar-thumb:hover {
+    background: #969696;
+}
+
+/* ── Grid Table ─────────────────────────────────────────────────────────── */
+.lm-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 11.5px;
+    table-layout: fixed;
+}
+
+/* ── Table Header ───────────────────────────────────────────────────────── */
+.lm-table thead {
+    background: #edf3f8;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.lm-table th {
+    font-size: 11px;
+    font-weight: 700;
+    color: #1e548a;
+    padding: 3px 6px;
+    border-right: 1px solid #2b78c5;
+    border-bottom: 1px solid #2b78c5;
+    text-align: left;
+    white-space: nowrap;
+    background: #edf3f8;
+    height: 22px;
+    box-sizing: border-box;
+}
+
+.lm-table th.lm-col-sn {
+    width: 44px;
+    text-align: left;
+    padding-left: 8px;
+}
+
+.lm-table th.lm-col-scroll-spacer {
+    width: 16px;
+    min-width: 16px;
+    max-width: 16px;
+    padding: 0;
+    border-right: none;
+    border-bottom: 1px solid #2b78c5;
+}
+
+/* ── Table Rows ─────────────────────────────────────────────────────────── */
+.lm-table tbody tr {
+    height: 21px;
+    box-sizing: border-box;
+    cursor: default;
+}
+
+/* Selection Highlight matching list.png soft blue */
+.lm-table tbody tr.selected {
+    background: #b5d5ff !important;
+}
+
+.lm-table tbody tr.selected td {
+    background: #b5d5ff !important;
+}
+
+.lm-table tbody tr.is-default td.lm-col-data::after {
+    content: ' (Default)';
+    font-size: 10px;
+    color: #6a1b9a;
+    font-weight: 700;
+    margin-left: 6px;
+}
+
+.lm-table td {
+    height: 21px;
+    padding: 0 6px;
+    border-right: 1px solid #d4e2ee;
+    border-bottom: 1px solid #dbe6f2;
+    color: #222222;
+    white-space: nowrap;
+    vertical-align: middle;
+    box-sizing: border-box;
+}
+
+.lm-table td.lm-col-sn {
+    text-align: left;
+    padding-left: 8px;
+    font-weight: 700;
+    color: #111111;
+    font-size: 11px;
+    width: 44px;
+}
+
+.lm-table td.lm-col-data {
+    padding: 0 4px;
+}
+
+.lm-table td.lm-col-scroll-spacer {
+    width: 16px;
+    min-width: 16px;
+    max-width: 16px;
+    padding: 0;
+    border-right: none;
+}
+
+/* Editable Cell Input Field */
+.lm-cell-input {
+    width: 100%;
+    height: 19px;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 11.5px;
+    color: #111111;
+    padding: 0 2px;
+    box-sizing: border-box;
+}
+
+.lm-table tbody tr.selected .lm-cell-input {
+    color: #000000;
+    font-weight: 500;
+}
+
+/* ── Unified Action Bar for Both Modals ─────────────────────────────────── */
+.lm-action-bar {
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    padding: 6px 14px 7px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+/* ── Z-Index Layering: Ensure ListModal sits safely above any other modal ── */
+.utm-bd:has(.utm-modal--standard),
+.utm-bd:has(.lm-container),
+div[id*="list-modal-bd"],
+div[id*="-dialog-"] {
+    z-index: 100005 !important;
+}
+

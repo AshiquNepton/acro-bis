@@ -1,0 +1,188 @@
+/* ══════════════════════════════════════════════════════════════════
+   common/static/common/css/loader.css
+   Universal page loader — shared across all modules.
+
+   Usage:  window.erpLoader.show('Saving...')
+           window.erpLoader.hide()
+           window.erpLoader.progress(60)   ← 0-100
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── Overlay ──────────────────────────────────────────────────── */
+#erp-loader {
+    position        : fixed;
+    inset           : 0;
+    z-index         : 99999;
+    display         : flex;
+    flex-direction  : column;
+    align-items     : center;
+    justify-content : center;
+    gap             : 18px;
+    background      : rgba(245, 245, 248, 0.88);
+    backdrop-filter : blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+
+    opacity    : 1;
+    visibility : visible;
+    transition : opacity .28s ease, visibility .28s ease;
+}
+
+#erp-loader.erp-loader--hidden {
+    opacity        : 0;
+    visibility     : hidden;
+    pointer-events : none;
+}
+
+/* dark overlay when theme is dark */
+:root[data-theme="dark"] #erp-loader {
+    background: rgba(12, 12, 18, 0.90);
+}
+
+/* ── Logo wrapper ─────────────────────────────────────────────── */
+.erp-loader__logo-wrap {
+    position : relative;
+    display  : flex;
+}
+
+/* ── Logo card ────────────────────────────────────────────────── */
+.erp-loader__logo {
+    width           : 100px;
+    height          : 100px;
+    border-radius   : 32px;
+    background      : #ffffff;
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+    box-shadow      : 0 6px 28px rgba(0, 0, 0, 0.10),
+                      0 1px  6px rgba(0, 0, 0, 0.06);
+    overflow        : hidden;
+    flex-shrink     : 0;
+    position        : relative;
+    transition      : box-shadow .3s ease;
+}
+
+:root[data-theme="dark"] .erp-loader__logo {
+    background : #1e1e2a;
+    box-shadow : 0 6px 28px rgba(0, 0, 0, 0.40),
+                 0 1px  6px rgba(0, 0, 0, 0.20);
+}
+
+/* ── Ring — inside the card, clips to overflow:hidden ────────── */
+.erp-loader__ring {
+    position       : absolute;
+    inset          : 0;
+    width          : 100%;
+    height         : 100%;
+    border         : none;
+    animation      : none;
+    pointer-events : none;
+    z-index        : 3;
+}
+
+.erp-loader__ring svg {
+    position  : absolute;
+    inset     : 0;
+    width     : 100%;
+    height    : 100%;
+    animation : erp-ring-spin 1.4s linear infinite;
+}
+
+.erp-loader__ring:has(svg) {
+    border    : none;
+    animation : none;
+}
+
+/* ── Logo image — circular, centred ──────────────────────────── */
+.erp-loader__logo img {
+    width         : 60px;
+    height        : 60px;
+    object-fit    : cover;
+    border-radius : 50%;
+    display       : none;
+    position      : absolute;
+    top           : 50%;
+    left          : 50%;
+    transform     : translate(-50%, -50%);
+    z-index       : 2;
+    flex-shrink   : 0;
+}
+
+.erp-loader__logo img.erp-logo--loaded {
+    display : block;
+}
+
+/* ── Fallback SVG icon ────────────────────────────────────────── */
+.erp-loader__logo .erp-loader__icon {
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+    position        : relative;
+    z-index         : 2;
+}
+
+.erp-loader__logo .erp-loader__icon svg {
+    width           : 44px;
+    height          : 44px;
+    stroke          : var(--color-primary);
+    fill            : none;
+    stroke-width    : 1.6;
+    stroke-linecap  : round;
+    stroke-linejoin : round;
+}
+
+.erp-loader__logo img.erp-logo--loaded + .erp-loader__icon {
+    display : none;
+}
+
+/* ── Module label ─────────────────────────────────────────────── */
+.erp-loader__module {
+    font-size      : 10px;
+    font-weight    : 700;
+    letter-spacing : 2px;
+    text-transform : capitalize;
+    color          : var(--color-primary);
+    margin-top     : -6px;
+    opacity        : 0.85;
+}
+
+/* ── Status message ───────────────────────────────────────────── */
+.erp-loader__msg {
+    font-size      : 13px;
+    font-weight    : 400;
+    color          : var(--color-text-secondary, #77778a);
+    letter-spacing : .25px;
+    min-height     : 18px;
+    text-align     : center;
+    max-width      : 240px;
+    line-height    : 1.5;
+}
+
+:root[data-theme="dark"] .erp-loader__msg {
+    color : #9999b0;
+}
+
+/* ── Progress bar ─────────────────────────────────────────────── */
+.erp-loader__bar-wrap {
+    width         : 160px;
+    height        : 2.5px;
+    background    : color-mix(in srgb, var(--color-primary) 15%, transparent);
+    border-radius : 999px;
+    overflow      : hidden;
+    display       : none;
+}
+
+.erp-loader__bar {
+    height        : 100%;
+    width         : 0%;
+    background    : linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--color-primary) 60%, transparent) 0%,
+        var(--color-primary) 100%
+    );
+    border-radius : 999px;
+    transition    : width .25s ease;
+}
+
+/* ── Keyframes ────────────────────────────────────────────────── */
+@keyframes erp-ring-spin {
+    to { transform: rotate(360deg); }
+}

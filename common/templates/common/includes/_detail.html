@@ -1,0 +1,163 @@
+{% comment %}
+════════════════════════════════════════════════════════════════════
+  common/templates/common/includes/_detail.html  v1.1
+
+  Universal read-only detail view.
+  Include with:  {% include 'common/includes/_detail.html' with d=detail_config %}
+
+  v1.1 changes:
+  - Action buttons now render d.icon (full <svg> from TOOLBAR_ICONS)
+    passed from the view via theme_constants.TOOLBAR_ICONS.
+    No duplicate SVG definitions here.
+  - Photo uses onload/onerror for reliable display.
+  - serve_url is used directly (view should pass reverse('common:serve_doc')).
+
+  detail_config schema: see employee_detail_view.py
+════════════════════════════════════════════════════════════════════
+{% endcomment %}
+{% load static %}
+
+{% if d %}
+<div class="dtl-page">
+
+    {# ── Hero card ─────────────────────────────────────────────── #}
+    <div class="dtl-hero">
+
+        {# Photo — onload/onerror for reliable display #}
+        <div class="dtl-hero-photo" id="dtl-photo-wrap">
+            {% if d.photo %}
+            <img id="dtl-photo-img"
+                 src="{{ d.serve_url }}?path={{ d.photo|urlencode }}"
+                 alt="{{ d.title }}"
+                 style="display:none"
+                 onload="this.style.display='block';var ph=document.getElementById('dtl-photo-ph');if(ph)ph.style.display='none';"
+                 onerror="this.style.display='none';var ph=document.getElementById('dtl-photo-ph');if(ph)ph.style.display='flex';">
+            {% endif %}
+            <div class="dtl-hero-photo-ph" id="dtl-photo-ph"
+                 {% if d.photo %}style="display:none"{% endif %}>
+                <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+        </div>
+
+        {# Identity #}
+        <div class="dtl-hero-identity">
+            <h1 class="dtl-hero-title">{{ d.title|default:'—' }}</h1>
+            {% if d.subtitle %}<p class="dtl-hero-sub">{{ d.subtitle }}</p>{% endif %}
+
+            {% if d.meta %}
+            <div class="dtl-hero-meta">
+                {% for m in d.meta %}
+                <div class="dtl-hero-meta-row">
+                    {% if m.icon == 'email' %}
+                    <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                    {% elif m.icon == 'phone' %}
+                    <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.91A16 16 0 0 0 14 14.91l.9-.9a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                    {% elif m.icon == 'office' %}
+                    <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+                    {% elif m.icon == 'location' %}
+                    <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                    {% elif m.icon == 'calendar' %}
+                    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    {% else %}
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                    {% endif %}
+                    <span>{{ m.value }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if d.badges %}
+            <div class="dtl-hero-badges">
+                {% for b in d.badges %}
+                <span class="dtl-badge dtl-badge--{{ b.color|default:'grey' }}">{{ b.label }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        {# Actions — icon comes from view via TOOLBAR_ICONS, no duplicate SVG here #}
+        {% if d.actions %}
+        <div class="dtl-hero-actions">
+            {% for a in d.actions %}
+            {% if a.url %}
+            <a href="{{ a.url }}" class="dtl-action-btn dtl-action-btn--{{ a.style|default:'default' }}">
+                {% if a.icon %}{{ a.icon|safe }}{% endif %}
+                {{ a.label }}
+            </a>
+            {% else %}
+            <button type="button"
+                    class="dtl-action-btn dtl-action-btn--{{ a.style|default:'default' }}"
+                    onclick="{{ a.onclick }}">
+                {% if a.icon %}{{ a.icon|safe }}{% endif %}
+                {{ a.label }}
+            </button>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+    </div>{# /dtl-hero #}
+
+    {# ── Info sections ─────────────────────────────────────────── #}
+    {% if d.sections %}
+    <div class="dtl-body">
+    <div class="dtl-sections">
+        {% for sec in d.sections %}
+        <div class="dtl-section">
+            <div class="dtl-section-hdr">
+                <span class="dtl-section-hdr-icon">
+                    {% if sec.icon == 'user' %}
+                    <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    {% elif sec.icon == 'phone' %}
+                    <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.91a16 16 0 0 0 6.09 6.09l.9-.9a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                    {% elif sec.icon == 'file' %}
+                    <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    {% elif sec.icon == 'money' %}
+                    <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    {% elif sec.icon == 'map' %}
+                    <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                    {% elif sec.icon == 'calendar' %}
+                    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    {% elif sec.icon == 'office' %}
+                    <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+                    {% else %}
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                    {% endif %}
+                </span>
+                <span class="dtl-section-hdr-title">{{ sec.title }}</span>
+            </div>
+
+            <div class="dtl-fields dtl-fields--cols-{{ sec.cols|default:2 }}">
+                {% for f in sec.fields %}
+                <div class="dtl-field {% if f.span %}dtl-field--span-{{ f.span }}{% endif %}">
+                    <span class="dtl-field-label">{{ f.label }}</span>
+                    <span class="dtl-field-value dtl-field-value--{{ f.type|default:'text' }}">
+                        {% if f.type == 'email' and f.value %}
+                        <a href="mailto:{{ f.value }}">{{ f.value }}</a>
+                        {% elif f.type == 'tel' and f.value %}
+                        <a href="tel:{{ f.value }}">{{ f.value }}</a>
+                        {% elif f.type == 'url' and f.value %}
+                        <a href="{{ f.value }}" target="_blank" rel="noopener">{{ f.value }}</a>
+                        {% elif f.type == 'badge' and f.value %}
+                        <span class="dtl-badge dtl-badge--auto">{{ f.value }}</span>
+                        {% elif f.type == 'multiline' and f.value %}
+                        <span style="white-space:pre-line">{{ f.value }}</span>
+                        {% elif f.value %}
+                        {{ f.value }}
+                        {% else %}
+                        <span class="dtl-field-empty">—</span>
+                        {% endif %}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+
+        </div>
+        {% endfor %}
+    </div>
+    </div
+    {% endif %}
+
+</div>
+{% endif %}

@@ -1,0 +1,97 @@
+{% comment %}
+  common/templates/common/includes/generic_form.html  v5
+  ─────────────────────────────────────────────────────────────────
+  Inline _pfConfig registration for any profile_form-based form.
+  Include AFTER <script src="profile_form.js">.
+
+  Required {% include ... with %} variables:
+    form_id, save_url, delete_url, lookup_url,
+    lookup_field, lookup_db_field,
+    delete_id_field, delete_label_field
+
+  Optional:
+    hero_name_field, hero_row1_field, hero_row2_field, hero_sub_field,
+    hero_default_name, hero_photo_field,
+    auto_load_id   ← PK to auto-load (edit mode)
+    on_close       ← JS for Close button (default: history.back())
+{% endcomment %}
+<script>
+(function () {
+    'use strict';
+
+    var FORM_ID = '{{ form_id }}';
+    if (!FORM_ID) {
+        console.error('[generic_form] form_id rendered empty');
+        return;
+    }
+
+    var cfg = {
+        saveUrl          : '{{ save_url }}',
+        deleteUrl        : '{{ delete_url }}',
+        lookupUrl        : '{{ lookup_url }}',
+        lookupField      : '{{ lookup_field }}',
+        lookupDbField    : '{{ lookup_db_field }}',
+        debounce         : 500,
+        deleteIdField    : '{{ delete_id_field }}',
+        deleteLabelField : '{{ delete_label_field }}',
+        heroNameField    : '{{ hero_name_field }}',
+        heroRow1Field    : '{{ hero_row1_field }}',
+        heroRow2Field    : '{{ hero_row2_field }}',
+        heroSubField     : '{{ hero_sub_field }}',
+        heroDefaultName  : '{{ hero_default_name }}',
+        heroPhotoField   : '{{ hero_photo_field }}',
+        onSaveSuccess    : function (d) {
+            var fn = window['on_save_success_' + FORM_ID];
+            if (typeof fn === 'function') fn(d);
+        },
+        onPopulate       : function (data) {
+            var fn = window['on_populate_' + FORM_ID];
+            if (typeof fn === 'function') fn(data);
+        },
+    };
+
+    /* Register — works whether DOM is ready or not */
+    if (typeof window.pfRegister === 'function') {
+        window.pfRegister(FORM_ID, cfg);
+    } else {
+        window._pfConfig = window._pfConfig || {};
+        window._pfConfig[FORM_ID] = cfg;
+    }
+
+    /* Toolbar stubs */
+    window.gfClose  = window.gfClose || function () {
+        {% if on_close %}{{ on_close|safe }};{% else %}history.back();{% endif %}
+    };
+    window.gfSave   = function () { if (typeof pfActSave   === 'function') pfActSave(FORM_ID);   };
+    window.gfNew    = function () { if (typeof pfActNew    === 'function') pfActNew(FORM_ID);    };
+    window.gfDelete = function () { if (typeof pfActDelete === 'function') pfActDelete(FORM_ID); };
+
+    /* Auto-load */
+    var _autoId = '{{ auto_load_id }}';
+    if (!_autoId || _autoId === 'None' || _autoId === 'undefined') {
+        try { _autoId = (new URLSearchParams(window.location.search)).get('id') || ''; }
+        catch (e) { _autoId = ''; }
+    }
+    _autoId = (_autoId || '').trim();
+
+    if (_autoId) {
+        function _doAutoLoad() {
+            var keyEl = document.querySelector(
+                '#' + FORM_ID + ' [name="{{ lookup_field }}"]'
+            );
+            if (!keyEl) return;
+            keyEl.value = _autoId;
+            setTimeout(function () {
+                if (window.erpLoader) erpLoader.show('Loading\u2026');
+                if (typeof pfLookupNow === 'function') pfLookupNow(FORM_ID);
+            }, 80);
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', _doAutoLoad);
+        } else {
+            _doAutoLoad();
+        }
+    }
+
+}());
+</script>

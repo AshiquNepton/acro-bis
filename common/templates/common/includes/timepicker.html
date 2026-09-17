@@ -1,0 +1,73 @@
+{% comment %}
+════════════════════════════════════════════════════════════
+  common/templates/common/includes/timepicker.html  v1.0
+
+  Drop-in replacement for <input type="time"> — mirrors
+  datepicker.html exactly in structure and usage.
+
+  Display : HH:MM AM/PM  (12-hour)
+  Submit  : HH:MM        (24-hour, Django-compatible)
+
+  Usage — in profile_form.html or any form template:
+      {% include "common/includes/timepicker.html" with field=field %}
+
+  field dict keys (same conventions as datepicker):
+      field.name        — form field name (required)
+      field.value       — initial value in HH:MM 24-h (optional)
+      field.placeholder — ignored (kept for API parity)
+
+  The hidden input carries the 24-h HH:MM value to Django.
+  The visible trigger shows the 12-h display string.
+
+  JS dependency : timepicker.js  (tpToggle / tpStep / tpConfirm / tpClear)
+  CSS dependency: timepicker.css
+════════════════════════════════════════════════════════════
+{% endcomment %}
+
+{% with tpname=field.name tpval=field.value|default:'' tpid="tp_"|add:field.name %}
+
+{# ── Hidden input — carries HH:MM (24-h) to Django on submit ── #}
+<input type="hidden"
+       id="{{ tpname }}"
+       name="{{ tpname }}"
+       value="{{ tpval }}">
+
+{# ── Visible trigger ─────────────────────────────────────────── #}
+<div class="tp-input-wrap" id="{{ tpid }}_wrap"
+     onclick="tpToggle('{{ tpid }}', event)">
+
+    <span class="tp-display{% if tpval %} has-value{% endif %}"
+          id="{{ tpid }}_display">
+        {% if tpval %}
+            {# Convert HH:MM (24-h) → HH:MM AM/PM at render time #}
+            <script>
+            (function(){
+                var raw = '{{ tpval }}';
+                if (/^\d{1,2}:\d{2}$/.test(raw)) {
+                    var parts = raw.split(':');
+                    var h = parseInt(parts[0], 10);
+                    var m = parts[1];
+                    var ampm = h < 12 ? 'AM' : 'PM';
+                    var h12  = h % 12 || 12;
+                    var hh   = ('0' + h12).slice(-2);
+                    document.currentScript.parentNode.textContent = hh + ':' + m + ' ' + ampm;
+                }
+            }());
+            </script>
+        {% else %}
+            Choose Time
+        {% endif %}
+    </span>
+
+    {# Clock icon — mirrors calendar icon in datepicker.html #}
+    <svg class="tp-icon" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="1.5">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M12 7v5l3 3" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+</div>
+
+{# ── Dropdown panel — populated by timepicker.js ─────────────── #}
+<div class="tp-panel" id="{{ tpid }}_panel"></div>
+
+{% endwith %}

@@ -1,0 +1,910 @@
+/* ================================================================
+   common/static/common/css/rpt_filter.css   v1.0
+
+   Report Filter / Options / Edit Filter modal styles.
+   Extracted from rpt_filter.js _injectStyles() and all inline
+   style="" attributes throughout the file.
+
+   Deliberately reuses the same CSS variables and naming patterns
+   from profile_form.css and pf_select.css — no new design tokens
+   are introduced.
+
+   Load order:  colors.css → profile_form.css → pf_select.css
+                → datepicker.css → rpt_filter.css
+   ================================================================ */
+
+
+/* ════════════════════════════════════════════════════════════════
+   1.  FILTER MODAL — HEADER FIELDS  (.rptf-hdr)
+   Two fluid grid rows above the filter row table.
+   Mirrors .pf-hero-fields / .pf-hf-cell from profile_form.css
+   ════════════════════════════════════════════════════════════════ */
+
+.rptf-hdr {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0 0 10px 0;
+    border-bottom: 1px solid var(--color-border-light, #e8e8e8);
+    margin-bottom: 10px;
+    flex-shrink: 0;
+}
+
+/* Each row is a fluid grid — columns share space equally, min 140 px */
+.rptf-hdr-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 6px 12px;
+}
+
+/* Individual field cell — mirrors .pf-hf-cell */
+.rptf-hdr-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+/* Label — mirrors .pf-hf-lbl */
+.rptf-hdr-field label {
+    font-size: 10.5px;
+    color: var(--color-text-secondary, #666);
+    font-weight: 600;
+    text-transform: capitalize;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+}
+
+/* Inputs & native selects inside header — mirrors .pf-hf-ctl controls */
+.rptf-hdr-field input,
+.rptf-hdr-field select {
+    font-size: 12px;
+    padding: 4px 8px;
+    border: 1px solid var(--color-border-medium, #ccc);
+    border-radius: var(--radius-xs, 3px);
+    background: var(--color-form-input-bg, #fff);
+    color: var(--color-form-input-text, #222);
+    outline: none;
+    font-family: inherit;
+    box-sizing: border-box;
+    width: 100%;
+    height: 28px;
+    transition: border-color 0.15s;
+}
+.rptf-hdr-field input:focus,
+.rptf-hdr-field select:focus {
+    border-color: var(--color-primary, #8b0000);
+}
+
+/* pfSel and datepicker custom wrappers fill the cell width */
+.rptf-hdr-field .pf-sel-wrap,
+.rptf-hdr-field .pf-datepicker-wrap {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   2.  FILTER ROW TABLE — shared inputs & selects
+   ════════════════════════════════════════════════════════════════ */
+
+/* Native <select> used in filter rows (field picker, operator) */
+.rfr-sel {
+    width: 100%;
+    font-size: 12px;
+    padding: 3px 6px;
+    border: 1px solid var(--color-border-medium, #ccc);
+    border-radius: var(--radius-xs, 3px);
+    background: var(--color-form-input-bg, #fff);
+    color: var(--color-form-input-text, #222);
+    outline: none;
+    font-family: inherit;
+}
+.rfr-sel:focus {
+    border-color: var(--color-primary, #8b0000);
+}
+
+/* Text / number / time input in the value cell */
+.rfr-inp {
+    width: 100%;
+    font-size: 12px;
+    padding: 3px 6px;
+    border: 1px solid var(--color-border-medium, #ccc);
+    border-radius: var(--radius-xs, 3px);
+    background: var(--color-form-input-bg, #fff);
+    color: var(--color-form-input-text, #222);
+    outline: none;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+.rfr-inp:focus {
+    border-color: var(--color-primary, #8b0000);
+}
+
+/* Selected row highlight — mirrors .ropt-sel */
+tr.rfr-selected td {
+    background: var(--color-primary-light, rgba(139, 0, 0, 0.08)) !important;
+}
+
+/* Value-cell container (needs position:relative for autocomplete) */
+.rfr-td-input {
+    padding: 4px 6px;
+    position: relative;
+}
+
+/* Delete row button */
+.rfr-del-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 6px;
+    color: var(--color-danger, #dc2626);
+    font-size: 14px;
+    line-height: 1;
+    border-radius: var(--radius-xs, 3px);
+    transition: background 0.1s;
+    flex-shrink: 0;
+}
+.rfr-del-btn:hover {
+    background: rgba(220, 38, 38, 0.1);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   3.  AUTOCOMPLETE DROPDOWN
+   Consistent with .pf-sel-popup / .pf-sel-opt from pf_select.css
+   ════════════════════════════════════════════════════════════════ */
+
+.rfr-ac {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 3000;
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border-medium, #ccc);
+    border-radius: 0 0 var(--radius-small, 4px) var(--radius-small, 4px);
+    max-height: 180px;
+    overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.rfr-ac-item {
+    padding: 5px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--color-text-primary, #222);
+}
+.rfr-ac-item:hover,
+.rfr-ac-item.rfr-ac-active {
+    background: var(--color-primary, #8b0000);
+    color: #fff;
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   4.  REPORT OPTIONS MODAL  (.ropt-*)
+   ════════════════════════════════════════════════════════════════ */
+
+/* Two-panel layout: scrollable grid + narrow arrow panel */
+.ropt-layout {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    gap: 0;
+}
+
+.ropt-grid-wrap {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+    border: 1px solid var(--color-border, #ddd);
+    border-radius: var(--radius-xs, 3px) 0 0 var(--radius-xs, 3px);
+}
+
+/* Arrow button panel — sits to the right of the grid */
+.ropt-arrow-panel {
+    width: 44px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 1px solid var(--color-border, #ddd);
+    border-left: none;
+    border-radius: 0 var(--radius-xs, 3px) var(--radius-xs, 3px) 0;
+    background: var(--color-surface-alt, #f8f8f8);
+}
+
+/* Up / Down arrow buttons — mirrors .pf-tb-btn sizing */
+.ropt-arrow-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-small, 4px);
+    border: 1px solid var(--color-border-medium, #ccc);
+    background: var(--color-surface, #fff);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.12s, border-color 0.12s;
+    color: var(--color-text, #333);
+}
+.ropt-arrow-btn:hover {
+    background: var(--color-primary, #8b0000);
+    border-color: var(--color-primary, #8b0000);
+    color: #fff;
+}
+.ropt-arrow-btn:hover svg {
+    stroke: #fff;
+}
+.ropt-arrow-btn svg {
+    width: 14px;
+    height: 14px;
+    stroke: var(--color-text-secondary, #555);
+    fill: none;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: stroke 0.12s;
+}
+
+/* Options grid table — mirrors .pf-tbl */
+.ropt-grid {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+.ropt-grid th {
+    background: var(--color-surface-alt, #f5f5f5);
+    padding: 5px 8px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-secondary, #666);
+    border-bottom: 2px solid var(--color-border, #ddd);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+.ropt-grid td {
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--color-border, #eee);
+    vertical-align: middle;
+}
+.ropt-grid tbody tr {
+    cursor: pointer;
+    transition: background 0.1s;
+}
+.ropt-grid tbody tr:hover {
+    background: var(--color-hover, rgba(0, 0, 0, 0.04));
+}
+.ropt-grid tbody tr.ropt-sel {
+    background: var(--color-primary-light, rgba(139, 0, 0, 0.08));
+}
+
+/* Inline editable text input inside options grid */
+.ropt-inp {
+    width: 100%;
+    font-size: 11px;
+    padding: 2px 5px;
+    border: 1px solid var(--color-border-medium, #ccc);
+    border-radius: var(--radius-xs, 3px);
+    background: var(--color-form-input-bg, #fff);
+    box-sizing: border-box;
+    font-family: inherit;
+}
+
+/* Checkbox inside options grid */
+.ropt-chk {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    accent-color: var(--color-primary, #8b0000);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   5.  REPORT FIELD EDIT OVERLAY  (.ref-*)
+   Small confirmation / edit overlay — mirrors .pf-menu-dd shadow
+   ════════════════════════════════════════════════════════════════ */
+
+.ref-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 2100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ref-box {
+    background: var(--color-surface, #fff);
+    border-radius: var(--radius-large, 6px);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+    width: 400px;
+    overflow: hidden;
+    animation: ref-si 0.18s cubic-bezier(0.22, 0.68, 0, 1.2);
+}
+
+@keyframes ref-si {
+    from { transform: scale(0.95); opacity: 0; }
+    to   { transform: scale(1);    opacity: 1; }
+}
+
+/* Header bar — same primary background as .pf-tb-btn-danger / toolbar */
+.ref-hdr {
+    background: var(--color-primary, #8b0000);
+    color: #fff;
+    padding: 9px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.ref-hdr-close {
+    background: none;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0 4px;
+}
+
+.ref-body {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Label + control row — mirrors .pf-hf-cell inline layout */
+.ref-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.ref-lbl {
+    font-size: 11.5px;
+    color: var(--color-text-secondary, #666);
+    width: 100px;
+    flex-shrink: 0;
+    text-align: right;
+}
+
+/* Inputs / selects — mirrors .pf-field-ctl controls */
+.ref-inp,
+.ref-sel {
+    flex: 1;
+    font-size: 12px;
+    padding: 4px 8px;
+    border: 1px solid var(--color-border, #ccc);
+    border-radius: var(--radius-xs, 3px);
+    background: var(--color-form-input-bg, #fff);
+    color: var(--color-form-input-text, #222);
+    outline: none;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+.ref-inp:focus,
+.ref-sel:focus {
+    border-color: var(--color-primary, #8b0000);
+}
+
+/* Footer — mirrors .pf-toolbar layout */
+.ref-footer {
+    padding: 10px 14px;
+    border-top: 1px solid var(--color-border, #eee);
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+/* Buttons — mirrors .pf-tb-btn */
+.ref-btn {
+    padding: 6px 18px;
+    border-radius: var(--radius-small, 4px);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    font-family: inherit;
+}
+.ref-btn-ok {
+    background: var(--color-primary, #8b0000);
+    color: #fff;
+}
+.ref-btn-ok:hover {
+    opacity: 0.88;
+}
+.ref-btn-cancel {
+    background: var(--color-surface-alt, #f5f5f5);
+    border: 1px solid var(--color-border, #ccc);
+    color: var(--color-text, #333);
+}
+.ref-btn-cancel:hover {
+    background: var(--color-hover, rgba(0, 0, 0, 0.05));
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   6.  GET FIELDS MODAL  (.gf-*)
+   Two-panel table/field browser
+   ════════════════════════════════════════════════════════════════ */
+
+/* Panel header bar — mirrors .pf-section-hdr style */
+.gf-panel-hdr {
+    padding: 6px 10px;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--color-text-secondary, #666);
+    text-transform: capitalize;
+    letter-spacing: 0.4px;
+    background: var(--color-surface-alt, #f8f8f8);
+    border-bottom: 1px solid var(--color-border, #ddd);
+    flex-shrink: 0;
+}
+
+/* Scrollable list container */
+.gf-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+
+/* Table name items */
+.gf-item {
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--color-text-primary, #222);
+    border-bottom: 1px solid var(--color-border-light, #f0f0f0);
+    transition: background 0.1s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.gf-item:hover {
+    background: var(--color-hover, rgba(0, 0, 0, 0.04));
+}
+.gf-item.gf-active {
+    background: var(--color-primary, #8b0000);
+    color: #fff;
+}
+
+/* Field name items */
+.gf-field-item {
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--color-text-primary, #222);
+    border-bottom: 1px solid var(--color-border-light, #f0f0f0);
+    transition: background 0.1s;
+}
+.gf-field-item:hover {
+    background: var(--color-primary-light, rgba(139, 0, 0, 0.08));
+    color: var(--color-primary, #8b0000);
+}
+
+/* Search box inside each panel — mirrors pf_select.css search */
+.gf-search {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--color-border, #ddd);
+    flex-shrink: 0;
+}
+.gf-search input {
+    width: 100%;
+    font-size: 12px;
+    padding: 4px 8px;
+    border: 1px solid var(--color-border-medium, #ccc);
+    border-radius: var(--radius-xs, 3px);
+    background: var(--color-form-input-bg, #fff);
+    outline: none;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+.gf-search input:focus {
+    border-color: var(--color-primary, #8b0000);
+}
+
+/* Empty state text */
+.gf-empty {
+    padding: 20px;
+    text-align: center;
+    color: var(--color-text-tertiary, #aaa);
+    font-size: 12px;
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   7.  REPORT VIEW  (.rpt-report-*)
+   Full-screen overlay report viewer
+   ════════════════════════════════════════════════════════════════ */
+
+/* Outer page shell */
+.rpt-report-page {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--color-bg, #f5f5f5);
+}
+
+/* Toolbar — dark primary bar, same brand color as .pf-sidenav-item.active accent */
+.rpt-report-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    background: var(--color-primary, #8b0000);
+    flex-shrink: 0;
+}
+
+/* Icon+label button in the report toolbar */
+.rpt-tb-btn {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 10px;
+    background: none;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    font-size: 10px;
+    font-family: inherit;
+    border-radius: var(--radius-small, 4px);
+    transition: background 0.12s;
+    white-space: nowrap;
+    min-width: 44px;
+}
+.rpt-tb-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+.rpt-tb-btn svg {
+    width: 16px;
+    height: 16px;
+    stroke: #fff;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Vertical separator between toolbar button groups */
+.rpt-tb-sep {
+    width: 1px;
+    height: 32px;
+    background: rgba(255, 255, 255, 0.2);
+    margin: 0 4px;
+}
+
+/* ▼ dropdown trigger button */
+.rpt-tb-menu-arrow {
+    background: none;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    padding: 0 4px;
+    font-size: 14px;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+}
+.rpt-tb-menu-arrow:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: var(--radius-xs, 3px);
+}
+
+/* Scrollable data body */
+.rpt-report-body {
+    flex: 1;
+    overflow: auto;
+    padding: 0;
+}
+
+/* Data table — mirrors .pf-tbl */
+.rpt-report-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    background: var(--color-surface, #fff);
+}
+.rpt-report-tbl th {
+    background: var(--color-primary, #8b0000);
+    color: #fff;
+    padding: 7px 10px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 11px;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    white-space: nowrap;
+}
+.rpt-report-tbl td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--color-border, #eee);
+    vertical-align: middle;
+    white-space: nowrap;
+}
+.rpt-report-tbl tbody tr:nth-child(odd)  { background: var(--color-surface, #fff); }
+.rpt-report-tbl tbody tr:nth-child(even) { background: var(--color-surface-alt, #f9f9f9); }
+.rpt-report-tbl tbody tr:hover           { background: var(--color-primary-light, rgba(139, 0, 0, 0.06)) !important; }
+
+/* Serial-number column */
+.rpt-report-sn {
+    width: 38px;
+    color: var(--color-text-tertiary, #999);
+    text-align: center;
+}
+
+/* Total row appended by rptReportTotal() */
+.rpt-total-row {
+    font-weight: 700;
+    background: var(--color-primary-light, rgba(139, 0, 0, 0.08));
+}
+.rpt-total-row td {
+    padding: 6px 10px;
+}
+.rpt-total-row td:first-child {
+    text-align: center;
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   8.  FILTER MENU DROPDOWN  (.rfm-*)
+   Small floating menu (Edit Filter etc.)
+   Reuses .pf-menu-dd / .pf-menu-item patterns
+   ════════════════════════════════════════════════════════════════ */
+
+/* Container — mirrors .pf-menu-dd */
+#rpt-filter-menu {
+    position: fixed;
+    background: var(--color-bg-card, #fff);
+    border: 1px solid var(--color-border-light, #e0e0e0);
+    border-radius: var(--radius-small, 6px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
+    z-index: 10001;
+    min-width: 160px;
+    padding: 4px 0;
+    display: none;
+}
+
+/* Menu item — mirrors .pf-menu-item */
+.rfm-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    color: var(--color-text-primary, #222);
+    font-size: 13px;
+}
+.rfm-item:hover {
+    background: var(--color-hover-primary, #f0f4ff);
+    color: var(--color-primary, #8b0000);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   9.  SAVE REPORT STYLE MODAL  (.sr-*)
+   ════════════════════════════════════════════════════════════════ */
+
+/* Name input — mirrors .pf-field-ctl input sizing */
+.sr-name-inp {
+    width: 100%;
+    font-size: 13px;
+    padding: 6px 10px;
+    border: 1px solid var(--color-border-medium, #ccc);
+    border-radius: var(--radius-xs, 3px);
+    background: var(--color-form-input-bg, #fff);
+    color: var(--color-form-input-text, #222);
+    outline: none;
+    box-sizing: border-box;
+    font-family: inherit;
+    flex-shrink: 0;
+}
+.sr-name-inp:focus {
+    border-color: var(--color-primary, #8b0000);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   10. FILTER TABLE WRAPPER  (the inline <table> grid in the modal)
+   Provides a bounded scrollable area for the filter rows
+   ════════════════════════════════════════════════════════════════ */
+
+.rfr-table-wrap {
+    flex: 1;
+    min-height: 120px;
+    overflow-y: auto;
+    border: 1px solid var(--color-border-light, #e0e0e0);
+    border-radius: var(--radius-small, 4px);
+}
+
+/* Column headers inside the filter table */
+.rfr-table-wrap table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+.rfr-table-wrap thead tr {
+    background: var(--color-bg-tertiary, #f5f5f5);
+}
+.rfr-table-wrap th {
+    padding: 6px 8px;
+    border-bottom: 2px solid var(--color-border-light, #ddd);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--color-text-tertiary, #888);
+    text-align: left;
+}
+.rfr-table-wrap th:first-child { text-align: center; }
+
+/* Body rows */
+.rfr-table-wrap tbody tr {
+    cursor: pointer;
+    border-bottom: 1px solid var(--color-border-light, #eee);
+    transition: background 0.1s;
+}
+.rfr-table-wrap tbody tr:hover {
+    background: var(--color-hover, rgba(0, 0, 0, 0.03));
+}
+
+/* SN cell */
+.rfr-sn {
+    padding: 5px 8px;
+    text-align: center;
+    color: var(--color-text-tertiary, #aaa);
+    font-size: 11px;
+}
+
+/* Operator cell */
+.rfr-op-cell {
+    padding: 4px 8px;
+}
+
+/* Operator placeholder dash for the first row */
+.rfr-op-dash {
+    font-size: 11px;
+    color: var(--color-text-tertiary, #888);
+    padding: 0 4px;
+}
+
+/* Delete button cell */
+.rfr-del-cell {
+    padding: 4px 6px;
+    text-align: center;
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   11. RESPONSIVE ADJUSTMENTS
+   ════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 640px) {
+    /* Header fields stack to a single column on mobile */
+    .rptf-hdr-row {
+        grid-template-columns: 1fr;
+    }
+
+    /* Report view toolbar wraps */
+    .rpt-report-toolbar {
+        flex-wrap: wrap;
+        gap: 2px;
+    }
+    .rpt-tb-btn {
+        padding: 3px 7px;
+        font-size: 9px;
+        min-width: 36px;
+    }
+
+    /* Autocomplete stays usable on small screens */
+    .rfr-ac {
+        max-height: 140px;
+    }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   12. UTILITY MODAL Z-INDEX FIX
+   Backdrop sits above footer bar (9997) and below alerts (10000)
+   ════════════════════════════════════════════════════════════════ */
+
+#rptf-filter-bd,
+#rptf-gf-bd,
+#rpt-opt-modal-bd,
+#rptf-ref-bd,
+#rpt-sr-modal-bd,
+#rpt-ef-modal-bd {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 9998 !important;
+}
+
+#rptf-filter-bd .utm-modal,
+#rptf-gf-bd .utm-modal,
+#rpt-opt-modal-bd .utm-modal,
+#rptf-ref-bd .utm-modal,
+#rpt-sr-modal-bd .utm-modal,
+#rpt-ef-modal-bd .utm-modal {
+    position: relative !important;
+    z-index: 9999 !important;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   13. COLOR PICKER  (.rpt-cp-*)
+   Used in the Add/Edit Report Field modal (ref-color-wrap)
+   ════════════════════════════════════════════════════════════════ */
+
+.rpt-cp-wrap {
+    display: flex;
+    flex-direction: row;          /* ← explicit */
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+}
+
+.rpt-cp-input {
+    width: 36px;
+    height: 28px;
+    padding: 1px 2px;
+    cursor: pointer;
+    border: 1px solid var(--color-border-medium, #ccc);
+    border-radius: var(--radius-xs, 3px);
+    flex-shrink: 0;
+    background: var(--color-form-input-bg, #fff);
+}
+.rpt-cp-input:focus {
+    outline: none;
+    border-color: var(--color-primary, #8b0000);
+}
+
+.rpt-cp-swatch {
+    display: inline-block;
+    width: 52px;
+    height: 22px;
+    border-radius: var(--radius-xs, 3px);
+    border: 1px solid var(--color-border-medium, #ccc);
+    flex-shrink: 0;
+    background: transparent;
+    transition: background 0.15s;
+}
+
+.rpt-cp-label {
+    font-size: 11px;
+    min-width: 64px;
+    font-family: var(--font-mono, monospace);
+    color: var(--color-text-tertiary, #aaa);
+    font-style: italic;
+    letter-spacing: 0.3px;
+}
+.rpt-cp-label--active {
+    color: var(--color-text-secondary, #555);
+    font-style: normal;
+}
+
+.rpt-cp-clear {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    border: 1px solid var(--color-border-medium, #ccc);
+    border-radius: var(--radius-xs, 3px);
+    background: var(--color-surface, #fff);
+    color: var(--color-danger, #dc2626);
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.12s, border-color 0.12s;
+}
+.rpt-cp-clear:hover {
+    background: rgba(220, 38, 38, 0.08);
+    border-color: var(--color-danger, #dc2626);
+}

@@ -1,0 +1,48 @@
+{% comment %}
+════════════════════════════════════════════════════════════
+  common/templates/common/includes/datepicker.html  v1.3
+  Display: DD-MM-YYYY  |  Submit: YYYY-MM-DD
+════════════════════════════════════════════════════════════
+{% endcomment %}
+
+{% with dpname=field.name dpval=field.value|default:'' dpid="dp_"|add:field.name %}
+
+<input type="hidden"
+       id="{{ dpname }}"
+       name="{{ dpname }}"
+       value="{{ dpval }}">
+
+<div class="dp-input-wrap" id="{{ dpid }}_wrap"
+     tabindex="0"
+     role="button"
+     aria-label="Choose date for {{ dpname }}"
+     onclick="dpToggle('{{ dpid }}', event)"
+     onkeydown="if(event.key==='Enter'||event.key===' '){ dpToggle('{{ dpid }}', event); event.preventDefault(); }">
+    <span class="dp-display{% if dpval %} has-value{% endif %}"
+          id="{{ dpid }}_display">
+        {% if dpval %}
+            <script>
+            (function(){
+                var raw='{{ dpval }}';
+                if(/^\d{4}-\d{2}-\d{2}$/.test(raw)){
+                    var p=raw.split('-');
+                    document.currentScript.parentNode.textContent=p[2]+'-'+p[1]+'-'+p[0];
+                }
+            }());
+            </script>
+        {% else %}
+            Choose Date
+        {% endif %}
+    </span>
+    <svg class="dp-icon" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="1.5">
+        <rect x="3" y="4" width="18" height="18" rx="3"/>
+        <path d="M16 2v4M8 2v4M3 10h18"/>
+        <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"
+              stroke-linecap="round"/>
+    </svg>
+</div>
+
+<div class="dp-calendar" id="{{ dpid }}_cal"></div>
+
+{% endwith %}

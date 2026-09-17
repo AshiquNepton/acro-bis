@@ -1,0 +1,1432 @@
+/*
+════════════════════════════════════════════════════════════════════
+  common/static/common/css/profile_form.css   v3.0
+
+  Universal profile-card form engine styles.
+  • Sticky top action bar (Close / New / Save / Delete)
+  • Hero card — fully optional, all elements configurable
+  • Optional: toolbar, header-fields strip, sidenav, tabs
+  • All colours via CSS variables from colors.css
+════════════════════════════════════════════════════════════════════
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+
+/* ══════════════════════════════════════════════════════════════
+   PAGE WRAPPER
+   ══════════════════════════════════════════════════════════════ */
+.pf-page {
+    font-family: 'DM Sans', 'Segoe UI', sans-serif;
+    background: var(--color-bg-primary);
+    min-height: 100%;
+    padding: 16px 20px 24px;
+    box-sizing: border-box;
+    color: var(--color-text-primary);
+}
+
+/* ── pf-action-bar removed in v3.2 — use pf-toolbar for all buttons ── */
+
+/* ══════════════════════════════════════════════════════════════
+   UNIFIED HERO CARD
+   Three-zone layout:  [photo] [identity] [header fields]
+   ══════════════════════════════════════════════════════════════ */
+.pf-hero-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-large, 12px);
+    padding: 18px 22px;
+    display: flex;
+    align-items: center;       /* vertically centre all three zones */
+    gap: 20px;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow-small, 0 1px 4px rgba(0,0,0,0.06));
+    flex-wrap: wrap;           /* wraps gracefully on narrow screens */
+    position: relative;
+    z-index: 1;
+}
+
+/* ── Zone 1: Photo / Avatar ─────────────────────────────────── */
+.pf-hero-photo {
+    width: 88px;
+    height: 88px;
+    border-radius: var(--radius-medium, 10px);
+    border: 2px solid var(--color-border-light);
+    background: var(--color-bg-tertiary);
+    flex-shrink: 0;
+    cursor: pointer;
+    overflow: hidden;
+    position: relative;
+    transition: border-color 0.15s;
+    user-select: none;
+}
+.pf-hero-photo:hover { border-color: var(--color-primary); }
+
+/* Loaded image */
+.pf-hero-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: none;          /* JS shows it once src is loaded */
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+/* Show image when it has a src set */
+.pf-hero-photo img[src]:not([src=""]) { display: block; }
+
+/* Placeholder person icon (shown when no photo) */
+.pf-hero-photo-ph {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-tertiary);
+    z-index: 0;
+}
+.pf-hero-photo-ph svg {
+    width: 38px;
+    height: 38px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Camera overlay — appears on hover */
+.pf-hero-photo-ov {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.42);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.18s;
+    z-index: 2;
+}
+.pf-hero-photo:hover .pf-hero-photo-ov { opacity: 1; }
+.pf-hero-photo-ov svg {
+    width: 24px;
+    height: 24px;
+    stroke: #fff;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Static icon variant (no upload) */
+.pf-hero-photo--static { cursor: default; pointer-events: none; }
+.pf-hero-photo--static:hover { border-color: var(--color-border-light); }
+.pf-hero-icon {
+    font-size: 34px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+/* Duplicate avatar fallback — hidden by default;
+   JS in pfInit removes it if a real photo box already exists */
+.pf-hero-photo--hero-fallback { display: none; }
+
+/* Extra duplicate photo fields (shouldn't happen) */
+.pf-avatar-extra { display: none; }
+
+/* ── Zone 2: Identity (name + meta rows + badges) ───────────── */
+.pf-hero-identity {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 160px;
+    flex-shrink: 0;
+    align-self: flex-start;
+    padding-top: 2px;
+}
+
+.pf-hero-name {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 260px;
+}
+
+.pf-hero-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 3px;
+}
+
+.pf-hero-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+}
+.pf-hero-row svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    stroke: var(--color-text-tertiary);
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.pf-hero-badges {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+.pf-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: var(--radius-pill, 999px);
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.pf-badge-active  { background: #f0fdf4; color: #15803d; }
+.pf-badge-danger  { background: #fff1f2; color: #dc2626; }
+.pf-badge-warning { background: #fffbeb; color: #92400e; }
+.pf-badge-info    { background: #eff6ff; color: #1d4ed8; }
+.pf-badge-sub     {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border-light);
+}
+
+/* Thin divider between identity and fields zones */
+.pf-hero-identity + .pf-hero-fields {
+    border-left: 1px solid var(--color-border-light);
+    padding-left: 20px;
+    margin-left: 0;
+}
+
+/* ── Zone 3: Header fields (label above, input below) ────────── */
+.pf-hero-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    align-items: flex-end;   /* inputs baseline-align */
+    flex: 1;
+    min-width: 0;
+}
+
+/* Each field cell */
+.pf-hf-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 80px;
+}
+
+/* Label — small grey, same style as the reference image */
+.pf-hf-lbl {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--color-text-tertiary);
+    white-space: nowrap;
+    letter-spacing: 0.1px;
+    line-height: 1;
+}
+.pf-hf-req {
+    color: var(--color-form-label-required, #dc2626);
+    margin-left: 2px;
+}
+
+/* Control wrapper */
+.pf-hf-ctl {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Shared input / select style */
+.pf-hf-ctl input:not([type=checkbox]),
+.pf-hf-ctl select {
+    border: 1px solid var(--color-border-medium);
+    border-radius: var(--radius-xs, 4px);
+    padding: 4px 9px;
+    font-size: 12.5px;
+    font-family: inherit;
+    color: var(--color-form-input-text);
+    background: var(--color-form-input-bg);
+    height: 30px;
+    box-sizing: border-box;
+    outline: none;
+    width: 100%;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    min-width: 60px;
+}
+.pf-hf-ctl input:focus,
+.pf-hf-ctl select:focus {
+    border-color: var(--color-form-input-border-focus);
+    box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb,99,102,241), 0.13);
+}
+.pf-hf-ctl input[readonly] {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-tertiary);
+    cursor: default;
+}
+
+/* Text input with optional lookup button */
+.pf-hf-input-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.pf-hf-input-row input { flex: 1; }
+
+/* Lookup button inside header fields */
+.pf-lookup-btn {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-medium);
+    border-radius: var(--radius-xs, 4px);
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+    padding: 0;
+}
+.pf-lookup-btn:hover {
+    background: var(--color-hover-primary, #f0f4ff);
+    border-color: var(--color-primary);
+}
+.pf-lookup-btn svg {
+    width: 14px;
+    height: 14px;
+    stroke: var(--color-text-secondary);
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.pf-lookup-btn:hover svg { stroke: var(--color-primary); }
+
+/* Checkbox cell */
+.pf-hf-check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    font-size: 12.5px;
+    color: var(--color-text-primary);
+}
+.pf-hf-check input[type=checkbox] {
+    width: 14px;
+    height: 14px;
+    accent-color: var(--color-primary);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   TOOLBAR  (optional row of icon-buttons below hero)
+   ══════════════════════════════════════════════════════════════ */
+.pf-toolbar {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-medium, 8px);
+    padding: 6px 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow-xs, 0 1px 2px rgba(0,0,0,0.04));
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    position: sticky;
+    top: 0;
+}
+
+.pf-tb-btn {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    min-width: 0;
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-small);
+    cursor: pointer;
+    font-size: 11.5px;
+    font-weight: 500;
+    font-family: inherit;
+    background: var(--color-bg-tertiary);        /* ← solid background */
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    transition: background var(--transition-fast),
+                border-color var(--transition-fast),
+                color var(--transition-fast),
+                box-shadow var(--transition-fast);
+    flex-shrink: 0;
+    line-height: 1.2;
+    box-shadow: var(--shadow-xs);
+}
+.pf-tb-btn:hover {
+    background: var(--color-hover-primary);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    box-shadow: var(--shadow-small);
+}
+.pf-tb-btn-danger {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #dc2626;
+}
+.pf-tb-btn-danger:hover {
+    background: #fee2e2;
+    border-color: #f87171;
+    color: #b91c1c;
+    box-shadow: 0 2px 6px rgba(220,38,38,0.15);
+}
+/* AFTER */
+.pf-tb-btn-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    font-size: 15px;
+    line-height: 1;
+}
+.pf-tb-btn-icon svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    display: block;
+}
+.pf-tb-sep {
+    width: 1px;
+    height: 34px;
+    background: var(--color-border-light);
+    margin: 0 3px;
+    flex-shrink: 0;
+}
+
+/* ── pf-header-strip removed in v3.1 — absorbed into .pf-hero-card Zone 3 ── */
+
+/* ══════════════════════════════════════════════════════════════
+   BODY LAYOUT  — sidenav + content
+   ══════════════════════════════════════════════════════════════ */
+.pf-body-wrap {
+    display: grid;
+    gap: 0;
+    align-items: start;
+}
+/* with sidenav */
+.pf-body-wrap--with-nav  { grid-template-columns: 196px 1fr; gap: 14px; }
+/* without sidenav */
+.pf-body-wrap--no-nav    { grid-template-columns: 1fr; }
+
+/* ── Sidenav ── */
+.pf-sidenav {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-large, 12px);
+    overflow: hidden;
+    box-shadow: var(--shadow-xs, 0 1px 2px rgba(0,0,0,0.04));
+    position: sticky;
+    top: 14px;
+}
+.pf-sidenav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.12s;
+    border-bottom: 1px solid var(--color-border-light);
+    text-decoration: none;
+    user-select: none;
+}
+.pf-sidenav-item:last-child { border-bottom: none; }
+.pf-sidenav-item svg {
+    width: 16px;
+    height: 16px;
+    stroke: var(--color-text-tertiary);
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex-shrink: 0;
+    transition: stroke 0.12s;
+}
+.pf-sidenav-item:hover {
+    background: var(--color-hover-primary, #f0f4ff);
+    color: var(--color-primary);
+    border-left-color: var(--color-border-primary, var(--color-primary));
+}
+.pf-sidenav-item:hover svg { stroke: var(--color-primary); }
+.pf-sidenav-item.active {
+    background: var(--color-hover-primary, #f0f4ff);
+    color: var(--color-primary);
+    font-weight: 600;
+    border-left-color: var(--color-primary);
+}
+.pf-sidenav-item.active svg { stroke: var(--color-primary); }
+
+/* ── Content panel ── */
+.pf-content {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-light);
+    box-shadow: var(--shadow-xs, 0 1px 2px rgba(0,0,0,0.04));
+    overflow: hidden;
+    position: relative;
+}
+/* Hero card present → content card gets flat top (they touch visually) */
+.pf-body-wrap--has-header .pf-content {
+    border-radius: 0 0 var(--radius-large, 12px) var(--radius-large, 12px);
+}
+/* No hero → content card gets full rounded corners */
+.pf-body-wrap--no-header .pf-content {
+    border-radius: var(--radius-large, 12px);
+}
+
+/* ── Tab strip ── */
+.pf-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--color-border-light);
+    padding: 0 14px;
+    background: color-mix(in srgb, var(--color-primary) 6%, var(--color-bg-card));
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.pf-tabs::-webkit-scrollbar { display: none; }
+
+.pf-tab {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 11px 14px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: color 0.12s, border-color 0.12s;
+    user-select: none;
+    flex-shrink: 0;
+}
+.pf-tab svg {
+    width: 14px;
+    height: 14px;
+    stroke: var(--color-text-tertiary);
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex-shrink: 0;
+    transition: stroke 0.12s;
+}
+.pf-tab:hover { color: var(--color-primary); }
+.pf-tab:hover svg { stroke: var(--color-primary); }
+.pf-tab.active {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+    font-weight: 600;
+}
+.pf-tab.active svg { stroke: var(--color-primary); }
+
+/* ── Tab panes ── */
+.pf-pane        { display: none; padding: 18px 18px 22px; }
+.pf-pane.active { display: block; }
+
+/* ══════════════════════════════════════════════════════════════
+   FIELD GRID  (inside panes)
+   ══════════════════════════════════════════════════════════════ */
+.pf-field-grid { display: grid; gap: 0 18px; align-items: start; }
+.pf-cols-1 { grid-template-columns: 1fr; }
+.pf-cols-2 { grid-template-columns: 1fr 1fr; }
+.pf-cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+.pf-cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+/* ── Field block ── */
+.pf-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--color-border-light);
+}
+.pf-field:last-child { border-bottom: none; }
+
+.pf-field-lbl {
+    font-size: 10.5px;
+    font-weight: 400;
+    color: var(--color-text-tertiary);
+    text-transform: capitalize;
+    letter-spacing: 0.5px;
+    line-height: 1.3;
+}
+.pf-field-lbl .req { color: var(--color-form-label-required, #dc2626); margin-left: 2px; }
+
+/* ── Field controls ── */
+.pf-field-ctl input,
+.pf-field-ctl select,
+.pf-field-ctl textarea {
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-xs, 4px);
+    padding: 5px 9px;
+    font-size: 12.5px;
+    font-family: inherit;
+    color: var(--color-form-input-text);
+    background: var(--color-form-input-bg);
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+    height: 30px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.pf-field-ctl textarea {
+    height: auto;
+    min-height: 58px;
+    resize: vertical;
+}
+.pf-field-ctl input:focus,
+.pf-field-ctl select:focus,
+.pf-field-ctl textarea:focus {
+    border-color: var(--color-form-input-border-focus);
+    box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb, 99,102,241), 0.10);
+    background: var(--color-bg-card);
+}
+.pf-field-ctl input[type=date],
+.pf-field-ctl input[type=time],
+.pf-field-ctl input[type=datetime-local],
+.pf-field-ctl input[type=month] { background: #f8faff; }
+.pf-field-ctl input[readonly]  {
+    background: var(--color-bg-tertiary) !important;
+    color: var(--color-text-secondary);
+    cursor: default;
+}
+.pf-field-ctl input:disabled,
+.pf-field-ctl select:disabled,
+.pf-field-ctl textarea:disabled {
+    background: var(--color-disabled-bg, #f5f5f5) !important;
+    color: var(--color-disabled-text, #aaa) !important;
+    border-color: var(--color-disabled-border, #e0e0e0) !important;
+    cursor: not-allowed;
+}
+.pf-field-ctl input[type=file]     { height: auto; padding: 3px; }
+.pf-field-ctl input[type=checkbox] { width: auto; height: auto; }
+
+/* Inline browse row */
+.pf-field-row               { display: flex; gap: 5px; align-items: center; }
+.pf-field-row .pf-field-ctl { flex: 1; }
+.pf-browse-btn {
+    padding: 0 9px;
+    height: 30px;
+    border: 1px solid var(--color-border-medium);
+    border-radius: var(--radius-xs, 4px);
+    background: var(--color-bg-tertiary);
+    font-size: 12px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.12s;
+    font-family: inherit;
+}
+.pf-browse-btn:hover {
+    background: var(--color-hover-primary, #f0f4ff);
+    border-color: var(--color-primary);
+}
+
+/* ── Photo field ── */
+.pf-photo-wrap { display: flex; flex-direction: column; gap: 6px; }
+.pf-photo-box {
+    width: 88px;
+    height: 98px;
+    border: 2px dashed var(--color-border-medium);
+    border-radius: var(--radius-small, 6px);
+    background: var(--color-bg-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    overflow: hidden;
+    font-size: 26px;
+    transition: border-color 0.12s, background 0.12s;
+    position: relative;
+}
+.pf-photo-box:hover {
+    border-color: var(--color-primary);
+    background: var(--color-hover-primary, #f0f4ff);
+}
+.pf-photo-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: none;
+    position: absolute;
+    inset: 0;
+}
+.pf-photo-actions { display: flex; gap: 5px; }
+.pf-photo-btn {
+    padding: 3px 9px;
+    font-size: 11px;
+    font-family: inherit;
+    border: 1px solid var(--color-border-medium);
+    border-radius: var(--radius-xs, 4px);
+    background: var(--color-bg-tertiary);
+    cursor: pointer;
+    transition: all 0.12s;
+}
+.pf-photo-btn:hover     { background: var(--color-hover-primary, #f0f4ff); border-color: var(--color-primary); }
+.pf-photo-btn-del       { color: #dc2626; border-color: #fecaca; }
+.pf-photo-btn-del:hover { background: #fef2f2; }
+
+/* ── Section header ── */
+.pf-section-hdr {
+    grid-column: 1 / -1;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--color-primary);
+    text-transform: capitalize;
+    letter-spacing: 0.8px;
+    padding: 10px 0 4px;
+    border-bottom: 1px solid var(--color-border-light);
+    margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.pf-section-hdr::before {
+    content: '';
+    width: 3px;
+    height: 12px;
+    background: var(--gradient-primary, var(--color-primary));
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+/* ── Radio / Checkbox ── */
+.pf-radio-group { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; padding-top: 2px; }
+.pf-radio-lbl   { display: flex; align-items: center; gap: 5px; font-size: 12.5px; cursor: pointer; }
+.pf-check-wrap  { display: flex; align-items: center; gap: 6px; padding-top: 2px; }
+.pf-check-lbl   { font-size: 12.5px; cursor: pointer; }
+
+/* ── Lookup states ── */
+.pf-found    { border-color: #22c55e !important; }
+.pf-notfound { border-color: #f59e0b !important; }
+
+/* ══════════════════════════════════════════════════════════════
+   DROPDOWN MENU
+   ══════════════════════════════════════════════════════════════ */
+.pf-menu-dd {
+    position: fixed;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-small, 6px);
+    box-shadow: var(--shadow-dropdown, 0 8px 24px rgba(0,0,0,0.12));
+    z-index: 9000;
+    min-width: 176px;
+    padding: 4px 0;
+    font-size: 12.5px;
+    font-family: 'DM Sans', 'Segoe UI', sans-serif;
+}
+/* ── ADD these rules to profile_form.css, inside the DROPDOWN MENU section ──
+   They style the icon | label layout inside each menu item.           */
+
+.pf-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: background 0.1s;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+}
+.pf-menu-item:hover  { background: var(--color-hover-primary); }
+.pf-menu-item-danger { color: #dc2626; }
+.pf-menu-item-danger:hover { background: #fef2f2; }
+
+.pf-menu-item-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: var(--color-text-tertiary);   /* grey at rest */
+}
+.pf-menu-item-icon svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    display: block;
+}
+.pf-menu-item:hover .pf-menu-item-icon {
+    color: var(--color-primary);          /* theme color on hover */
+}
+.pf-menu-item-danger .pf-menu-item-icon,
+.pf-menu-item-danger:hover .pf-menu-item-icon {
+    color: #dc2626;
+}
+
+.pf-menu-item-label {
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.3;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   TOAST
+   ══════════════════════════════════════════════════════════════ */
+.pf-toast {
+    position: fixed;
+    top: 12px;
+    right: 16px;
+    z-index: 10500;
+    padding: 9px 16px;
+    border-radius: var(--radius-small, 6px);
+    font-size: 12.5px;
+    font-weight: 500;
+    box-shadow: var(--shadow-medium, 0 4px 12px rgba(0,0,0,0.1));
+    transition: opacity 0.3s;
+    pointer-events: none;
+    font-family: 'DM Sans', 'Segoe UI', sans-serif;
+}
+.pf-toast-s { background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; }
+.pf-toast-e { background: #fff1f2; border: 1px solid #fecaca; color: #dc2626; }
+.pf-toast-w { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+.pf-toast-i { background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; }
+
+/* ══════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ══════════════════════════════════════════════════════════════ */
+@media (max-width: 960px) {
+    .pf-body-wrap--with-nav { grid-template-columns: 1fr; }
+    .pf-sidenav {
+        position: static;
+        display: flex;
+        border-radius: var(--radius-large, 12px);
+        overflow-x: auto;
+    }
+    .pf-sidenav-item {
+        border-bottom: none;
+        border-left: none;
+        border-bottom: 3px solid transparent;
+        flex: 1;
+        justify-content: center;
+        min-width: max-content;
+        padding: 10px 14px;
+    }
+    .pf-cols-3 { grid-template-columns: 1fr 1fr; }
+    .pf-cols-4 { grid-template-columns: 1fr 1fr; }
+
+    /* Hero card: identity column wraps to its own row on tablets */
+    .pf-hero-identity + .pf-hero-fields {
+        border-left: none;
+        padding-left: 0;
+        border-top: 1px solid var(--color-border-light);
+        padding-top: 12px;
+        margin-top: 4px;
+        width: 100%;
+    }
+}
+@media (max-width: 640px) {
+    .pf-page { padding-left: 12px; padding-right: 12px; }
+    .pf-cols-2,
+    .pf-cols-3,
+    .pf-cols-4 { grid-template-columns: 1fr; }
+    /* Hero card stacks vertically on mobile */
+    .pf-hero-card { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .pf-hero-identity + .pf-hero-fields {
+        border-left: none;
+        padding-left: 0;
+        border-top: 1px solid var(--color-border-light);
+        padding-top: 10px;
+        width: 100%;
+    }
+    .pf-hero-name { font-size: 17px; max-width: 100%; }
+    .pf-hero-fields { gap: 8px 12px; }
+}
+.pf-pane {
+    container-type: inline-size;
+    container-name: pf-pane;
+}
+ 
+@container pf-pane (max-width: 700px) {
+    .pf-cols-3 { grid-template-columns: 1fr 1fr !important; }
+    .pf-cols-4 { grid-template-columns: 1fr 1fr !important; }
+}
+ 
+@container pf-pane (max-width: 460px) {
+    .pf-cols-2,
+    .pf-cols-3,
+    .pf-cols-4 { grid-template-columns: 1fr !important; }
+}
+ 
+/* ── Media query fallback for older browsers ── */
+@media (max-width: 860px) {
+    /* Inside the content panel, 3-col and 4-col become 2-col */
+    .pf-content .pf-cols-3,
+    .pf-content .pf-cols-4 {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+ 
+@media (max-width: 640px) {
+    /* Below 640px everything single column */
+    .pf-content .pf-cols-2,
+    .pf-content .pf-cols-3,
+    .pf-content .pf-cols-4 {
+        grid-template-columns: 1fr;
+    }
+    /* Hero card fields wrap tighter */
+    .pf-hero-fields {
+        gap: 6px 10px;
+    }
+    .pf-hf-cell {
+        min-width: 100px;
+    }
+}
+ 
+@media (max-width: 480px) {
+    /* Very small screens: hero fields stack fully */
+    .pf-hero-card {
+        padding: 12px 14px;
+        gap: 10px;
+    }
+    .pf-hero-fields {
+        flex-direction: column;
+        gap: 6px;
+    }
+    .pf-hf-cell {
+        width: 100% !important;   /* override any Python-set width */
+        min-width: unset;
+    }
+    .pf-toolbar {
+        gap: 3px;
+        padding: 4px 8px;
+    }
+    .pf-tb-btn {
+        padding: 5px 8px;
+        font-size: 11px;
+        gap: 4px;
+    }
+}
+ 
+.pf-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    font-family: inherit;
+}
+ 
+/* Header */
+.pf-tbl thead tr {
+    background: var(--color-bg-tertiary);
+    border-bottom: 2px solid var(--color-border-light);
+}
+.pf-tbl th {
+    padding: 7px 10px;
+    text-align: left;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--color-text-tertiary);
+    text-transform: capitalize;
+    letter-spacing: .5px;
+    white-space: nowrap;
+    user-select: none;
+}
+ 
+/* Body rows */
+.pf-tbl td {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--color-border-light);
+    color: var(--color-text-primary);
+    vertical-align: middle;
+}
+.pf-tbl tbody tr:last-child td { border-bottom: none; }
+.pf-tbl tbody tr:hover td      { background: var(--color-bg-tertiary); }
+ 
+/* Empty state */
+.pf-tbl-empty {
+    text-align: center !important;
+    color: var(--color-text-tertiary) !important;
+    font-style: italic;
+    padding: 24px !important;
+}
+ 
+/* Actions cell — right-aligned, no wrap */
+.pf-tbl td:last-child { white-space: nowrap; text-align: right; padding-right: 8px; }
+.pf-tbl th:last-child { text-align: right; }
+ 
+/* Row action buttons — inherit pf-tb-btn sizing but smaller */
+.pf-tbl .pf-tb-btn {
+    padding: 3px 8px;
+    font-size: 11px;
+}
+
+/* ── 2.  Invalid field highlight  (.pf-invalid on the wrapper div) ────────── */
+.pf-field.pf-invalid .pf-field-ctl input:not([type=checkbox]):not([type=radio]),
+.pf-field.pf-invalid .pf-field-ctl select,
+.pf-field.pf-invalid .pf-field-ctl textarea {
+    border-color     : #dc2626 !important;
+    background-color : #fff5f5 !important;
+}
+.pf-field.pf-invalid .pf-field-ctl input:focus,
+.pf-field.pf-invalid .pf-field-ctl select:focus,
+.pf-field.pf-invalid .pf-field-ctl textarea:focus {
+    box-shadow: 0 0 0 2px rgba(220,38,38,.18);
+}
+ 
+/* Same treatment for header-strip cells */
+.pf-hf-cell.pf-invalid .pf-hf-ctl input:not([type=checkbox]),
+.pf-hf-cell.pf-invalid .pf-hf-ctl select {
+    border-color     : #dc2626 !important;
+    background-color : #fff5f5 !important;
+}
+ 
+/* ── 3.  Inline "This field is required" message ──────────────────────────── */
+.pf-field-error {
+    font-size   : 10.5px;
+    color       : #dc2626;
+    margin-top  : 2px;
+    line-height : 1.4;
+    display     : block;
+}
+ 
+/* ── 4.  Shake animation on the first invalid field ──────────────────────── */
+@keyframes pf-shake {
+    0%, 100% { transform: translateX(0);    }
+    20%       { transform: translateX(-5px); }
+    40%       { transform: translateX( 5px); }
+    60%       { transform: translateX(-3px); }
+    80%       { transform: translateX( 3px); }
+}
+.pf-field.pf-shake .pf-field-ctl,
+.pf-hf-cell.pf-shake .pf-hf-ctl {
+    animation: pf-shake .38s ease;
+}
+
+/* ── 2.  Invalid field highlight  (.pf-invalid on the wrapper div) ────────── */
+.pf-field.pf-invalid .pf-field-ctl input:not([type=checkbox]):not([type=radio]),
+.pf-field.pf-invalid .pf-field-ctl select,
+.pf-field.pf-invalid .pf-field-ctl textarea {
+    border-color     : #dc2626 !important;
+    background-color : #fff5f5 !important;
+}
+.pf-field.pf-invalid .pf-field-ctl input:focus,
+.pf-field.pf-invalid .pf-field-ctl select:focus,
+.pf-field.pf-invalid .pf-field-ctl textarea:focus {
+    box-shadow: 0 0 0 2px rgba(220,38,38,.18);
+}
+ 
+/* Same treatment for header-strip cells */
+.pf-hf-cell.pf-invalid .pf-hf-ctl input:not([type=checkbox]),
+.pf-hf-cell.pf-invalid .pf-hf-ctl select {
+    border-color     : #dc2626 !important;
+    background-color : #fff5f5 !important;
+}
+ 
+/* ── 3.  Inline "This field is required" message ──────────────────────────── */
+.pf-field-error {
+    font-size   : 10.5px;
+    color       : #dc2626;
+    margin-top  : 2px;
+    line-height : 1.4;
+    display     : block;
+}
+ 
+/* ── 4.  Shake animation on the first invalid field ──────────────────────── */
+@keyframes pf-shake {
+    0%, 100% { transform: translateX(0);    }
+    20%       { transform: translateX(-5px); }
+    40%       { transform: translateX( 5px); }
+    60%       { transform: translateX(-3px); }
+    80%       { transform: translateX( 3px); }
+}
+.pf-field.pf-shake .pf-field-ctl,
+.pf-hf-cell.pf-shake .pf-hf-ctl {
+    animation: pf-shake .38s ease;
+}
+ 
+/* ── Field length limit errors (from server field_errors response) ────────── */
+/* Amber style to distinguish from "required" red errors */
+.pf-field-error--limit {
+    color       : #b45309;   /* amber-700 */
+    font-size   : 10.5px;
+    margin-top  : 2px;
+    line-height : 1.4;
+    display     : block;
+}
+ 
+/* Border stays red when the wrapper has pf-invalid + limit error */
+.pf-field.pf-invalid:has(.pf-field-error--limit) .pf-field-ctl input,
+.pf-field.pf-invalid:has(.pf-field-error--limit) .pf-field-ctl select,
+.pf-field.pf-invalid:has(.pf-field-error--limit) .pf-field-ctl textarea,
+.pf-hf-cell.pf-invalid:has(.pf-field-error--limit) .pf-hf-ctl input,
+.pf-hf-cell.pf-invalid:has(.pf-field-error--limit) .pf-hf-ctl select {
+    border-color     : #d97706 !important;   /* amber border */
+    background-color : #fffbeb !important;   /* amber-50 bg */
+}
+ 
+/* Fallback for browsers that don't support :has() */
+.pf-field-error--limit ~ input,
+.pf-field-error--limit ~ select,
+.pf-field-error--limit ~ textarea {
+    border-color     : #d97706 !important;
+    background-color : #fffbeb !important;
+}
+
+/* ── Toolbar search ─────────────────────────────────────────── */
+.pf-tb-search-wrap {
+    display: inline-flex;
+    align-items: center;
+    position: relative;
+    gap: 0;
+    border: 0.5px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-primary);
+    height: 30px;
+    overflow: visible;          /* let the dropdown escape */
+}
+
+.pf-tb-search-icon {
+    width: 14px;
+    height: 14px;
+    margin: 0 6px;
+    stroke: var(--color-text-tertiary);
+    flex-shrink: 0;
+    pointer-events: none;
+}
+
+/* Field-selector button (only present when fields list is given) */
+.pf-tb-search-field-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 8px 0 8px;
+    border: none;
+    border-right: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-md) 0 0 var(--border-radius-md);
+    background: var(--color-background-secondary);
+    color: var(--color-text-secondary);
+    font-size: 11px;
+    height: 100%;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.pf-tb-search-field-btn:hover { background: var(--color-background-tertiary); }
+
+.pf-tb-search-caret {
+    width: 12px; height: 12px;
+    stroke: var(--color-text-tertiary);
+    flex-shrink: 0;
+}
+
+/* Field dropdown */
+.pf-tb-search-drop {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    min-width: 160px;
+    background: var(--color-background-primary);
+    border: 0.5px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-md);
+    box-shadow: none;
+    z-index: 300;
+    overflow: hidden;
+}
+.pf-tb-search-drop-item {
+    padding: 7px 12px;
+    font-size: 12px;
+    color: var(--color-text-primary);
+    cursor: pointer;
+}
+.pf-tb-search-drop-item:hover { background: var(--color-background-secondary); }
+.pf-tb-search-drop-item.active {
+    background: var(--color-background-info);
+    color: var(--color-text-info);
+    font-weight: 500;
+}
+
+/* Text input */
+.pf-tb-search-input {
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--color-text-primary);
+    font-size: 12px;
+    padding: 0 6px;
+    width: 180px;
+    height: 100%;
+}
+.pf-tb-search-input::placeholder { color: var(--color-text-tertiary); }
+
+/* Clear button */
+.pf-tb-search-clear {
+    border: none;
+    background: transparent;
+    color: var(--color-text-tertiary);
+    font-size: 11px;
+    padding: 0 6px;
+    height: 100%;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+}
+.pf-tb-search-clear:hover { color: var(--color-text-primary); }
+
+/* Skipped field — muted amber tint, stays editable */
+.pf-field.pf-field-skipped .pf-field-lbl,
+.pf-hf-cell.pf-field-skipped .pf-hf-lbl {
+    color: var(--color-text-warning, #92400e);
+    opacity: 0.7;
+}
+
+.pf-field.pf-field-skipped .pf-field-ctl input,
+.pf-field.pf-field-skipped .pf-field-ctl select,
+.pf-field.pf-field-skipped .pf-field-ctl textarea,
+.pf-hf-cell.pf-field-skipped input,
+.pf-hf-cell.pf-field-skipped select {
+    background-color: var(--color-background-warning, #fffbeb);
+    border-color: var(--color-border-warning, #fcd34d);
+    color: var(--color-text-secondary);
+}
+
+/* ── search_add widget ──────────────────────────────────────────── */
+.pf-sa-wrap {
+    position: relative;
+    width: 100%;
+}
+.pf-sa-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0 28px 0 8px;   /* right gap for caret space */
+    height: 30px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    font-size: 0.82rem;
+    color: var(--color-text-primary);
+    background: var(--color-bg-input, #fff);
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+}
+.pf-sa-input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb, 99,102,241), 0.1);
+}
+.pf-sa--open .pf-sa-input {
+    border-color: var(--color-primary);
+}
+.pf-sa-drop {
+    display: none;
+    position: absolute;
+    left: 0; right: 0;
+    z-index: 9999;
+    background: var(--color-bg-card, #fff);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    max-height: 220px;
+    overflow-y: auto;
+    margin-top: 2px;
+}
+.pf-sa-opt {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    color: var(--color-text-primary);
+    transition: background 0.08s;
+}
+.pf-sa-opt:hover,
+.pf-sa-opt--focused {
+    background: var(--color-bg-hover, #f3f4f6);
+}
+.pf-sa-opt.selected {
+    background: var(--color-primary-light, #dbeafe);
+    color: var(--color-primary, #2563eb);
+    font-weight: 600;
+}
+.pf-sa-opt--add {
+    color: var(--color-primary, #2563eb);
+    border-top: 1px solid var(--color-border-light);
+    font-style: italic;
+}
+.pf-sa-opt--add:hover {
+    background: var(--color-primary-light, #dbeafe);
+}
+.pf-sa-opt--empty {
+    color: var(--color-text-tertiary);
+    cursor: default;
+    font-style: italic;
+}
+
+
+
+
+
+/* ══ Internal scroll — toolbar + hero fixed, tabs sticky, only panes scroll ══ */
+.content-inner.form-mode .pf-page {
+    display: flex;
+    flex-direction: column;
+    flex: 1;          /* ← add this */
+    min-height: 0;
+    overflow: hidden;
+    padding-bottom: 0;
+}
+
+.content-inner.form-mode .pf-toolbar {
+    flex-shrink: 0;
+    position: static;
+    top: auto;
+}
+
+.content-inner.form-mode .pf-hero-card {
+    flex-shrink: 0;
+}
+
+.content-inner.form-mode .pf-body-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    align-items: stretch;
+}
+
+.content-inner.form-mode .pf-content {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    /* max-height: calc(100vh - 62px - 54px - 175px - 68px - 20px); */
+    height: 95%;
+}
+
+/* Tabs strip — never scrolls away */
+.content-inner.form-mode .pf-tabs {
+    flex-shrink: 0;
+    top: 0;
+    z-index: 10;
+}
+
+/* Only the active pane scrolls */
+.content-inner.form-mode .pf-pane {
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1;
+    min-height: 0;
+}
+
+.content-inner.form-mode .pf-pane::-webkit-scrollbar       { width: 5px; }
+.content-inner.form-mode .pf-pane::-webkit-scrollbar-thumb { background: #c8c0d8; border-radius: 3px; }
+
+
+.content-inner.form-mode .pf-page > form {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   RESPONSIVE & TABLET ADAPTATIONS
+   Ensures forms scroll smoothly and adapt on tablets & small screens
+   ══════════════════════════════════════════════════════════════ */
+@media (max-width: 1024px) {
+    .pf-page {
+        padding: 12px 14px 24px;
+        overflow-y: visible;
+    }
+    .pf-cols-4 {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px 14px;
+    }
+    .pf-cols-3 {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px 14px;
+    }
+    .pf-hero-card {
+        padding: 14px 16px;
+        gap: 14px;
+    }
+    .pf-body-wrap--with-nav {
+        grid-template-columns: 170px 1fr;
+        gap: 10px;
+    }
+}
+
+@media (max-width: 768px) {
+    .pf-page {
+        padding: 10px 10px 30px;
+        overflow-y: visible;
+    }
+    .pf-body-wrap--with-nav {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    .pf-sidenav {
+        position: static;
+        display: flex;
+        overflow-x: auto;
+        white-space: nowrap;
+        scrollbar-width: thin;
+        margin-bottom: 6px;
+    }
+    .pf-sidenav-item {
+        border-left: none;
+        border-bottom: 3px solid transparent;
+        padding: 8px 12px;
+        white-space: nowrap;
+    }
+    .pf-sidenav-item.active {
+        border-left-color: transparent;
+        border-bottom-color: var(--color-primary);
+    }
+    .pf-cols-3,
+    .pf-cols-2,
+    .pf-cols-4 {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+    .pf-hero-card {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 12px;
+    }
+    .pf-hero-fields {
+        flex-wrap: wrap;
+        width: 100%;
+    }
+    .pf-hf-cell {
+        width: 100% !important;
+    }
+}

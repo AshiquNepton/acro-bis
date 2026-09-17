@@ -1,0 +1,931 @@
+{% extends layout_base|default:'common/layout.html' %}
+{% comment %} common/templates/common/masters/department_form.html {% endcomment %}
+{% load static %}
+
+{% block title %}{{ form_config.title }}{% endblock %}
+
+{% block app_css %}
+<link rel="stylesheet" href="{% static 'common/css/profile_form.css' %}">
+<link rel="stylesheet" href="{% static 'common/css/tables.css' %}">
+<link rel="stylesheet" href="{% static 'common/css/form_design.css' %}">
+<style>
+/* ══════════════════════════════════════════════════════════════
+   LEFT PANEL — VSCode-style explorer tree
+   ══════════════════════════════════════════════════════════════ */
+
+#dept-left-panel {
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg-card);
+    border-right: 1px solid var(--color-border-light);
+    overflow: hidden;
+    resize: horizontal;
+    width: 280px;
+    min-width: 200px;
+    max-width: 400px;
+    max-height:80vh;
+    flex-shrink: 0;
+}
+
+.dept-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 8px 0 12px;
+    height: 35px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--color-border-light);
+    background: var(--color-bg-alt, #f3f4f6);
+}
+.dept-panel-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.dept-panel-refresh {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    color: var(--color-text-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.12s, color 0.12s;
+}
+.dept-panel-refresh:hover {
+    background: var(--color-bg-hover, #e5e7eb);
+    color: var(--color-text-primary);
+}
+.dept-panel-refresh svg {
+    width: 14px; height: 14px;
+    stroke: currentColor; fill: none;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+
+.dept-search-bar {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--color-border-light);
+    flex-shrink: 0;
+}
+.dept-search-inner {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.dept-search-icon {
+    position: absolute;
+    left: 7px;
+    width: 12px; height: 12px;
+    stroke: var(--color-text-tertiary);
+    fill: none;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+    pointer-events: none;
+    flex-shrink: 0;
+}
+#dept-tree-search {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 4px 8px 4px 26px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    background: var(--color-bg-input, #fff);
+    color: var(--color-text-primary);
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.15s;
+}
+#dept-tree-search:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb, 99,102,241), 0.1);
+}
+
+.dept-status-bar {
+    padding: 2px 12px 4px;
+    font-size: 0.68rem;
+    color: var(--color-text-tertiary);
+    flex-shrink: 0;
+}
+
+#dept-tree-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-bottom: 16px;
+}
+#dept-tree-body::-webkit-scrollbar { width: 6px; }
+#dept-tree-body::-webkit-scrollbar-track { background: transparent; }
+#dept-tree-body::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 3px;
+}
+
+.dept-tree-row {
+    display: flex;
+    align-items: center;
+    height: 22px;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    white-space: nowrap;
+    overflow: hidden;
+    border-left: 2px solid transparent;
+    box-sizing: border-box;
+    transition: background 0.08s;
+}
+.dept-tree-row:hover { background: var(--color-bg-hover, rgba(0,0,0,0.04)); }
+.dept-tree-row--active {
+    background: var(--color-primary-light, #dbeafe) !important;
+    border-left-color: var(--color-primary, #2563eb);
+}
+.dept-tree-row--active .dept-tree-label {
+    color: var(--color-primary, #2563eb);
+    font-weight: 600;
+}
+
+.dept-tree-arrow {
+    flex-shrink: 0;
+    width: 16px; height: 16px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--color-text-tertiary);
+    transition: transform 0.15s ease;
+}
+.dept-tree-arrow svg {
+    width: 12px; height: 12px;
+    stroke: currentColor; fill: none;
+    stroke-width: 2.5;
+    stroke-linecap: round; stroke-linejoin: round;
+    transition: transform 0.15s ease;
+    display: block;
+}
+.dept-tree-arrow--open svg { transform: rotate(90deg); }
+.dept-tree-arrow--leaf { visibility: hidden; }
+
+.dept-tree-icon {
+    flex-shrink: 0;
+    width: 16px; height: 16px;
+    display: flex; align-items: center; justify-content: center;
+    margin-right: 4px;
+}
+.dept-tree-icon svg {
+    width: 14px; height: 14px;
+    stroke-width: 1.5;
+    stroke-linecap: round; stroke-linejoin: round;
+    fill: none;
+}
+.dept-tree-icon--company svg { stroke: var(--color-primary, #2563eb); }
+.dept-tree-icon--dept svg { stroke: var(--color-text-secondary); }
+.dept-tree-row--active .dept-tree-icon--dept svg { stroke: var(--color-primary); }
+
+.dept-status-dot {
+    flex-shrink: 0;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+.dept-status-dot--active   { background: var(--color-success, #16a34a); }
+.dept-status-dot--inactive { background: var(--color-text-tertiary, #9ca3af); }
+
+.dept-tree-label {
+    flex: 1;
+    font-size: 0.78rem;
+    color: var(--color-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 22px;
+}
+.dept-tree-label--company {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+}
+
+.dept-tree-badge {
+    flex-shrink: 0;
+    font-size: 0.65rem;
+    color: var(--color-text-tertiary);
+    margin-right: 6px;
+    opacity: 0.7;
+}
+
+.dept-tree-children {
+    overflow: hidden;
+    transition: height 0.15s ease;
+}
+
+.dept-highlight {
+    background: var(--color-warning-light, #fef9c3);
+    border-radius: 2px;
+    padding: 0;
+}
+
+.dept-tree-placeholder {
+    padding: 20px 16px;
+    font-size: 0.76rem;
+    color: var(--color-text-tertiary);
+    text-align: center;
+}
+
+#pf-page-dept-form {
+    min-height: unset;
+    padding: 0 16px 20px;
+}
+
+#pf-page-dept-form .pf-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-top: none;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 0 var(--color-border-light);
+}
+
+#dept-outer-wrap {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 56px);
+    overflow: hidden;
+}
+
+#dept-split-row {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    min-height: 0;
+}
+
+@keyframes dept-spin {
+    to { transform: rotate(360deg); }
+}
+.dept-panel-refresh.spinning svg {
+    animation: dept-spin 0.7s linear infinite;
+}
+
+/* ── Duplicate warning inline hint ────────────────────────────────────────── */
+/*
+   A small banner that appears directly below the dept_name input when the
+   live blur-check detects a duplicate.  Hidden by default; JS toggles it.
+*/
+#dept-dup-hint {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    padding: 5px 10px;
+    border-radius: 5px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    font-size: 0.74rem;
+    color: #9a3412;
+    line-height: 1.4;
+}
+#dept-dup-hint svg {
+    flex-shrink: 0;
+    width: 13px; height: 13px;
+    stroke: #ea580c; fill: none;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+#dept-dup-hint.visible { display: flex; }
+
+/* Highlight the field itself while duplicate hint is visible */
+#id_dept_name.dup-field {
+    border-color: #f97316 !important;
+    box-shadow: 0 0 0 2px rgba(249,115,22,0.18) !important;
+}/* ── Fix 1: Active row = solid primary bg + WHITE text ── */
+.dept-tree-row--active {
+    background: var(--color-primary, #c0123c) !important;
+    border-left-color: var(--color-primary-dark, #960e2f);
+}
+.dept-tree-row--active .dept-tree-label {
+    color: #ffffff !important;
+    font-weight: 600;
+}
+.dept-tree-row--active .dept-tree-label--company {
+    color: #ffffff !important;
+}
+.dept-tree-row--active .dept-tree-badge {
+    color: rgba(255,255,255,0.7);
+}
+.dept-tree-row--active .dept-tree-icon--dept svg,
+.dept-tree-row--active .dept-tree-icon--company svg {
+    stroke: #ffffff;
+}
+.dept-tree-row--active .dept-status-dot--active,
+.dept-tree-row--active .dept-status-dot--inactive {
+    background: rgba(255,255,255,0.85);
+}
+
+/* ── Fix 2: Red pin for inactive (was grey #9ca3af) ── */
+.dept-status-dot--active   { background: #16a34a; }
+.dept-status-dot--inactive { background: #dc2626; }
+
+/* ── Fix 3: 3-level label colors ── */
+.dept-tree-label--company {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--color-primary, #c0123c);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.dept-tree-label--top {
+    font-size: 0.79rem;
+    font-weight: 600;
+    color: var(--color-text-primary, #1a1a2e);
+}
+.dept-tree-label--child {
+    font-size: 0.76rem;
+    font-weight: 400;
+    color: var(--color-text-secondary, #555566);
+}
+</style>
+{% endblock %}
+
+{% block app_content_body %}
+<div id="dept-outer-wrap">
+
+  <div id="dept-split-row">
+
+    {# ════════════════ LEFT PANEL ════════════════ #}
+    <div id="dept-left-panel">
+
+      <div class="dept-panel-header">
+        <span class="dept-panel-title"></span>
+        <button class="dept-panel-refresh" id="dept-refresh-btn"
+                onclick="deptTableLoad()" title="Refresh">
+          <svg viewBox="0 0 24 24">
+            <polyline points="23 4 23 10 17 10"/>
+            <polyline points="1 20 1 14 7 14"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="dept-search-bar">
+        <div class="dept-search-inner">
+          <svg class="dept-search-icon" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input id="dept-tree-search"
+                 type="text"
+                 placeholder="Search…"
+                 oninput="deptTreeSearch(this.value)"
+                 autocomplete="off"
+                 spellcheck="false">
+        </div>
+      </div>
+
+      <div class="dept-status-bar" id="dept-all-table-note">Loading…</div>
+
+      <div id="dept-tree-body">
+        <div class="dept-tree-placeholder">Loading…</div>
+      </div>
+
+    </div>{# /left panel #}
+
+    {# ════════════════ RIGHT PANEL ════════════════ #}
+    <div style="flex:1;overflow-y:auto;overflow-x:hidden;min-width:0;">
+      {% include 'common/includes/profile_form.html' with fc=form_config %}
+
+      {% comment %} {#
+        Duplicate hint banner — injected just after the form include so it can
+        be absolutely positioned near the dept_name field via JS.
+        It starts hidden; deptCheckDuplicate() toggles the 'visible' class.
+      #} {% endcomment %}
+      <div id="dept-dup-hint" role="alert" aria-live="polite">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span id="dept-dup-hint-text">A department with this name already exists.</span>
+      </div>
+    </div>
+
+  </div>{# /split row #}
+
+</div>{# /outer wrap #}
+{% endblock %}
+
+{% block app_js %}
+<script src="{% static 'common/js/profile_form.js' %}"></script>
+<script src="{% static 'common/js/form_design.js' %}"></script>
+<script src="{% static 'common/js/pf_table.js' %}"></script>
+<script>
+/* ── Form registration ─────────────────────────────────────────────────────── */
+window.FD_FORM_ID   = '{{ form_config.form_id }}';
+window.FD_FORM_NAME = '{{ form_config.form_name|default:"" }}';
+window._pfConfig = {
+    '{{ form_config.form_id }}': {
+        lookupUrl        : "{% url 'common:lookup_department' %}",
+        lookupField      : 'firm_id',
+        lookupDbField    : 'FirmID',
+        debounce         : 400,
+        saveUrl          : "{% url 'common:save_department' %}",
+        deleteUrl        : "{% url 'common:delete_department' firm_id=0 %}".replace('/0/', '/{id}/'),
+        deleteIdField    : 'firm_id',
+        deleteLabelField : 'dept_name',
+        heroNameField    : 'dept_name',
+        onSaveSuccess    : function(data) {
+            const savedId = data.firm_id ? String(data.firm_id) : '';
+            dfReloadWithDept(savedId);
+        },
+        onSaveError      : function(data) {
+            const msg = data.error || 'Save failed. Please try again.';
+            const title = data.duplicate ? 'Duplicate Found' : 'Error';
+            showToast(msg, 'error', 4000, title);
+            if (data.duplicate) {
+                _showDupHint(msg);
+                document.getElementById('id_dept_name')?.focus();
+            }
+        },
+    }
+};
+
+
+function deptNameChanged(selectEl) {
+    // Ignore programmatic changes from pfSelSetValue (deptTreeSelect calls)
+    if (_suppressDeptNameChange) return;
+
+    var val = selectEl.value;
+    if (!val) return;
+
+    // User picked from dropdown — val is a FirmID; load that record
+    if (/^\d+$/.test(val)) {
+        var idEl = document.getElementById('id_firm_id');
+        if (idEl) idEl.value = val;
+        // Don't call deptTreeSelect here — that would re-trigger pfSelSetValue
+        // Just highlight the tree row without fetching
+        _clearActiveHighlight();
+        _activeNodeId = val;
+        const row = document.getElementById('dept-row-' + val);
+        if (row) {
+            row.classList.add('dept-tree-row--active');
+            row.scrollIntoView({ block: 'nearest' });
+        }
+    }
+}
+
+/* ── Constants ─────────────────────────────────────────────────────────────── */
+const FORM_ID            = '{{ form_config.form_id }}';
+const DEPT_LIST_URL      = "{{ dept_list_url }}";
+const DEPT_DUP_CHECK_URL = "{% url 'common:check_duplicate_department' %}";
+
+/* ── Tree state ────────────────────────────────────────────────────────────── */
+let _treeData     = [];
+let _expandState  = {};
+let _activeNodeId = null;
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   DUPLICATE CHECK — live (blur) + guard flag used by save
+   ══════════════════════════════════════════════════════════════════════════════
+
+   _dupBlocked is set to true when the last blur-check confirmed a duplicate.
+   dfSave() reads this flag and stops early — the server also double-checks,
+   but this avoids a round-trip for a known duplicate.
+*/
+let _dupBlocked = false;
+let _dupCheckTimer = null;
+
+function _showDupHint(message) {
+    showToast(message, 'warning', 4000, 'Duplicate Found');
+    _dupBlocked = true;
+}
+
+function _hideDupHint() {
+    _dupBlocked = false;
+}
+
+/**
+ * deptCheckDuplicate()
+ *
+ * Called on blur of the dept_name input.  Fires a GET to the live-check
+ * endpoint.  If a duplicate is found, shows the inline hint and sets
+ * _dupBlocked = true.
+ *
+ * The check is debounced (300 ms) so rapid typing doesn't spam the server.
+ */
+function deptCheckDuplicate() {
+    clearTimeout(_dupCheckTimer);
+    _dupCheckTimer = setTimeout(_runDupCheck, 300);
+}
+
+function _runDupCheck() {
+    const nameEl = document.getElementById('id_dept_name');
+    const idEl   = document.getElementById('id_firm_id');
+    if (!nameEl) return;
+
+    // dept_name is a select; get the label text, not the FirmID value
+    const selectedOpt = nameEl.options[nameEl.selectedIndex];
+    const name = selectedOpt ? (selectedOpt.text || '').trim() : '';
+    const firmId = idEl ? (idEl.value || '').trim() : '';
+
+    // Skip blank/placeholder options
+    if (!name || name === 'Select Dept./Job…') { _hideDupHint(); return; }
+
+    const url = DEPT_DUP_CHECK_URL +
+                '?dept_name=' + encodeURIComponent(name) +
+                '&firm_id='   + encodeURIComponent(firmId);
+
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            if (data.is_duplicate) {
+                _showDupHint(data.message || 'A department with this name already exists.');
+            } else {
+                _hideDupHint();
+            }
+        })
+        .catch(() => { _hideDupHint(); });
+}
+
+/* ── Move the hint element right after the dept_name input ─────────────────── */
+function _positionDupHint() {
+    const nameEl = document.getElementById('id_dept_name');
+    const hint   = document.getElementById('dept-dup-hint');
+    if (!nameEl || !hint) return;
+
+    // Insert the hint immediately after the input's closest wrapper div,
+    // or after the input itself if no wrapper is found.
+    const wrapper = nameEl.closest('.pf-field-wrap, .pf-field, div') || nameEl;
+    if (wrapper.parentNode && !wrapper.nextSibling?.id?.includes('dept-dup-hint')) {
+        wrapper.parentNode.insertBefore(hint, wrapper.nextSibling);
+    }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   TOOLBAR ACTIONS
+   ══════════════════════════════════════════════════════════════════════════════ */
+function dfClose()  { history.back(); }
+
+function dfSave() {
+    if (_dupBlocked) {
+        const msg = (document.getElementById('dept-dup-hint-text') || {}).textContent
+                    || 'A department with this name already exists.';
+        showToast(msg, 'error', 4000, 'Duplicate Found');
+        document.getElementById('id_dept_name')?.focus();
+        return;
+    }
+    pfActSave(FORM_ID);
+}
+
+function dfDelete() { pfActDelete(FORM_ID); }
+
+// AFTER
+function dfNew() {
+    _activeNodeId = null;
+    _clearActiveHighlight();
+    _hideDupHint();
+
+    /* pfClear handles:
+       - zeroing all inputs / selects / textareas
+       - firing pf:reset so pf_select.js strips custom-added options ("ss")
+         and resets every searchable-dropdown trigger label              */
+    pfClear(FORM_ID);
+
+    /* Re-fetch the next available ID and stamp it into firm_id */
+    const nextIdUrl = "{% url 'common:get_next_dept_id' %}";
+    fetch(nextIdUrl)
+        .then(r => r.json())
+        .then(data => {
+            const idEl = document.getElementById('id_firm_id');
+            if (idEl && data.next_id) {
+                idEl.value = data.next_id;
+                idEl.setAttribute('data-next', data.next_id);
+            }
+        })
+        .catch(() => {
+            const idEl   = document.getElementById('id_firm_id');
+            const nextId = idEl ? idEl.getAttribute('data-next') : '';
+            if (idEl && nextId) idEl.value = nextId;
+        });
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   LOAD TREE FROM SERVER
+   ══════════════════════════════════════════════════════════════════════════════ */
+function deptTableLoad() {
+    const note = document.getElementById('dept-all-table-note');
+    const body = document.getElementById('dept-tree-body');
+    const btn  = document.getElementById('dept-refresh-btn');
+
+    if (body)  body.innerHTML = '<div class="dept-tree-placeholder">Loading…</div>';
+    if (note)  note.textContent = 'Loading…';
+    if (btn)   btn.classList.add('spinning');
+
+    fetch(DEPT_LIST_URL)
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(data => {
+            if (btn) btn.classList.remove('spinning');
+            if (!data.success) {
+                if (body) body.innerHTML = '<div class="dept-tree-placeholder" style="color:var(--color-danger,#dc2626);">Error: ' + _esc(data.error || 'unknown') + '</div>';
+                if (note) note.textContent = 'Error';
+                return;
+            }
+            _treeData = data.tree || [];
+            _renderTree(_treeData, '');
+        })
+        .catch(err => {
+            if (btn) btn.classList.remove('spinning');
+            if (body) body.innerHTML = '<div class="dept-tree-placeholder" style="color:var(--color-danger,#dc2626);">Failed: ' + _esc(err.message) + '</div>';
+            if (note) note.textContent = 'Error';
+        });
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   RENDER TREE
+   ══════════════════════════════════════════════════════════════════════════════ */
+function _renderTree(tree, query) {
+    const body = document.getElementById('dept-tree-body');
+    const note = document.getElementById('dept-all-table-note');
+    const q    = (query || '').toLowerCase().trim();
+
+    let deptCount = 0;
+    const html = _buildTreeHtml(tree, q, 0, deptCount);
+    deptCount = _countDepts(tree);
+
+    body.innerHTML = html || '<div class="dept-tree-placeholder">No departments found.</div>';
+    if (note) {
+        note.textContent = deptCount + ' department' + (deptCount !== 1 ? 's' : '');
+    }
+}
+
+function _countDepts(nodes) {
+    let n = 0;
+    for (const node of nodes) {
+        if (node.type === 'dept') n++;
+        if (node.children && node.children.length) n += _countDepts(node.children);
+    }
+    return n;
+}
+
+function _buildTreeHtml(nodes, q, depth, _counter) {
+    let html = '';
+    for (const node of nodes) {
+        const matches = _nodeMatchesQuery(node, q);
+        if (q && !matches) continue;
+
+        const isCompany  = node.type === 'company';
+        const nodeId     = node.id;
+        const hasKids    = node.children && node.children.length > 0;
+
+        if (q && hasKids) _expandState[nodeId] = true;
+
+        const isExpanded = (_expandState[nodeId] !== false) && hasKids;
+        const isActive   = String(_activeNodeId) === String(nodeId);
+        const indentPx   = 8 + depth * 16;
+
+        let arrowHtml;
+        if (hasKids) {
+            arrowHtml =
+                `<span class="dept-tree-arrow${isExpanded ? ' dept-tree-arrow--open' : ''}"
+                       id="dept-arrow-${_escAttr(nodeId)}"
+                       onclick="deptTreeToggle(${JSON.stringify(nodeId)},event)">` +
+                `<svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>`;
+        } else {
+            arrowHtml = `<span class="dept-tree-arrow dept-tree-arrow--leaf">` +
+                        `<svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></span>`;
+        }
+
+        let iconHtml;
+        if (isCompany) {
+            iconHtml = `<span class="dept-tree-icon dept-tree-icon--company">` +
+                `<svg viewBox="0 0 24 24" stroke="currentColor" fill="none">` +
+                `<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>` +
+                `<polyline points="9 22 9 12 15 12 15 22"/></svg></span>`;
+        } else {
+            iconHtml = `<span class="dept-tree-icon dept-tree-icon--dept">` +
+                `<svg viewBox="0 0 24 24" stroke="currentColor" fill="none">` +
+                `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>` +
+                `<polyline points="14 2 14 8 20 8"/></svg></span>`;
+        }
+
+        const dotHtml = !isCompany
+            ? `<span class="dept-status-dot dept-status-dot--${node.status || 'inactive'}"></span>`
+            : '';
+
+        const rawLabel  = node.label || '';
+        const labelText = q ? _highlight(rawLabel, q) : _esc(rawLabel);
+        let labelClass;
+        if (isCompany) {
+            labelClass = 'dept-tree-label dept-tree-label--company';
+        } else if (depth === 1) {
+            labelClass = 'dept-tree-label dept-tree-label--top';
+        } else {
+            labelClass = 'dept-tree-label dept-tree-label--child';
+        }
+
+        const badgeHtml = !isCompany
+            ? `<span class="dept-tree-badge">${_esc(node.id)}</span>`
+            : '';
+
+        const clickFn = isCompany
+            ? `deptTreeToggle(${JSON.stringify(nodeId)},event)`
+            : `deptTreeSelect(${JSON.stringify(node.id)},this)`;
+
+        html +=
+            `<div class="dept-tree-row${isActive ? ' dept-tree-row--active' : ''}"
+                  id="dept-row-${_escAttr(nodeId)}"
+                  style="padding-left:${indentPx}px;"
+                  onclick="${clickFn}"
+                  title="${_escAttr(rawLabel)}${!isCompany && node.sub_head ? ' — ' + node.sub_head : ''}">` +
+            arrowHtml + iconHtml + dotHtml +
+            `<span class="${labelClass}">${labelText}</span>` +
+            badgeHtml +
+            `</div>`;
+
+        if (hasKids) {
+            const childHtml = _buildTreeHtml(node.children, q, depth + 1);
+            html +=
+                `<div class="dept-tree-children" id="dept-kids-${_escAttr(nodeId)}"` +
+                (isExpanded || q ? '' : ' style="display:none;"') + `>` +
+                childHtml +
+                `</div>`;
+        }
+    }
+    return html;
+}
+
+function _nodeMatchesQuery(node, q) {
+    if (!q) return true;
+    if ((node.label || '').toLowerCase().includes(q)) return true;
+    if (String(node.id).includes(q)) return true;
+    if ((node.sub_head || '').toLowerCase().includes(q)) return true;
+    if (node.children && node.children.length) {
+        return node.children.some(c => _nodeMatchesQuery(c, q));
+    }
+    return false;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   TOGGLE EXPAND / COLLAPSE
+   ══════════════════════════════════════════════════════════════════════════════ */
+function deptTreeToggle(nodeId, event) {
+    if (event) event.stopPropagation();
+
+    const kids  = document.getElementById('dept-kids-' + nodeId);
+    const arrow = document.getElementById('dept-arrow-' + nodeId);
+    if (!kids) return;
+
+    const isOpen = kids.style.display !== 'none';
+    kids.style.display = isOpen ? 'none' : '';
+    _expandState[nodeId] = !isOpen;
+
+    if (arrow) {
+        if (!isOpen) arrow.classList.add('dept-tree-arrow--open');
+        else         arrow.classList.remove('dept-tree-arrow--open');
+    }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   SELECT A DEPARTMENT NODE → load into form
+   ══════════════════════════════════════════════════════════════════════════════ */
+function deptTreeSelect(firmId, el) {
+    _clearActiveHighlight();
+    _activeNodeId = firmId;
+    _hideDupHint();
+    if (el) el.classList.add('dept-tree-row--active');
+
+    if (el) {
+        let parent = el.parentElement;
+        while (parent && parent.id !== 'dept-tree-body') {
+            if (parent.classList.contains('dept-tree-children') &&
+                parent.style.display === 'none') {
+                const kidsId  = parent.id.replace('dept-kids-', '');
+                const arrowEl = document.getElementById('dept-arrow-' + kidsId);
+                parent.style.display = '';
+                _expandState[kidsId] = true;
+                if (arrowEl) arrowEl.classList.add('dept-tree-arrow--open');
+            }
+            parent = parent.parentElement;
+        }
+    }
+
+    const url = "{% url 'common:get_department' firm_id=0 %}".replace('/0/', '/' + firmId + '/');
+fetch(url)
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success) { console.error('get_department failed:', data.error); return; }
+
+        // Suppress deptNameChanged during programmatic population
+        _suppressDeptNameChange = true;
+
+        Object.entries(data.data).forEach(([field, value]) => {
+            const el2 = document.getElementById('id_' + field);
+            if (!el2) return;
+
+            if (el2.type === 'checkbox') {
+                el2.checked = Boolean(value);
+            } else {
+                el2.value = value ?? '';
+                if (el2.tagName === 'SELECT' && typeof window.pfSelSetValue === 'function') {
+                    window.pfSelSetValue(el2.name || el2.id, String(value ?? ''));
+                }
+            }
+        });
+
+        _suppressDeptNameChange = false;
+
+        // Bug 1 fix: removed scrollIntoView — caused page jump
+    })
+    .catch(err => {
+        _suppressDeptNameChange = false;
+        console.error('deptTreeSelect error:', err);
+    });
+}
+
+function _clearActiveHighlight() {
+    document.querySelectorAll('.dept-tree-row--active')
+            .forEach(n => n.classList.remove('dept-tree-row--active'));
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   SEARCH
+   ══════════════════════════════════════════════════════════════════════════════ */
+function deptTreeSearch(val) {
+    _renderTree(_treeData, val);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   RELOAD AFTER SAVE  (called by onSaveSuccess)
+   ══════════════════════════════════════════════════════════════════════════════ */
+function dfReloadWithDept(deptId) {
+    deptTableLoad();
+    if (deptId) {
+        setTimeout(() => {
+            _activeNodeId = deptId;
+            const row = document.getElementById('dept-row-' + deptId);
+            if (row) {
+                _clearActiveHighlight();
+                row.classList.add('dept-tree-row--active');
+                row.scrollIntoView({ block: 'nearest' });
+            }
+        }, 700);
+    }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   UTILS
+   ══════════════════════════════════════════════════════════════════════════════ */
+function _esc(str) {
+    return String(str ?? '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function _escAttr(str) {
+    return String(str ?? '').replace(/[^a-zA-Z0-9_\-]/g, '_');
+}
+function _highlight(text, q) {
+    const safe  = _esc(text);
+    const safeQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return safe.replace(
+        new RegExp('(' + safeQ + ')', 'gi'),
+        '<mark class="dept-highlight">$1</mark>'
+    );
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   INIT
+   ══════════════════════════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', function () {
+    // Stamp next-ID
+    var idEl = document.getElementById('id_firm_id');
+    if (idEl && idEl.value) {
+        idEl.setAttribute('data-next', idEl.value);
+    }
+
+    // ── Wire duplicate check to dept_name blur ────────────────────────────
+    var nameEl = document.getElementById('id_dept_name');
+    if (nameEl) {
+        // Position the hint banner right after the input wrapper
+        _positionDupHint();
+
+        // Blur = run check once the user leaves the field
+        nameEl.addEventListener('blur', deptCheckDuplicate);
+
+        // Clear the hint as soon as the user starts editing again
+        nameEl.addEventListener('input', function () {
+            if (_dupBlocked) _hideDupHint();
+        });
+    }
+
+    // Auto-select from URL ?select=<id>
+    var autoId = "{{ auto_select_dept|default:'' }}";
+    if (autoId) {
+        _activeNodeId = autoId;
+    }
+    deptTableLoad();
+});
+</script>
+{% endblock %}

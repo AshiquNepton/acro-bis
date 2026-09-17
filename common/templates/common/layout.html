@@ -1,0 +1,25 @@
+{% extends 'common/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'common/css/layout.css' %}">
+<link rel="stylesheet" href="{% static 'common/css/sidebar.css' %}">
+{% block app_css %}{% endblock %}
+{% endblock %}
+
+{% block app_content %}
+  <div class="main-container">
+     {% include 'common/includes/sidebar.html' %}
+     <div class="main-content">
+        {% include 'common/includes/navbar.html' %}
+        <div class="app-content">
+            {% block app_content_body %}{% endblock %}
+        </div>
+     </div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'common/js/home.js' %}"></script>
+{% block app_js %}{% endblock %}
+{% endblock %}

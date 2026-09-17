@@ -1,0 +1,30 @@
+{% load static %}
+
+<!-- Top Header Bar -->
+<header class="top-header">
+    <div class="header-left">
+        <h1>{{ page_title }}</h1>
+    </div>
+    <div class="header-right">
+        <div class="company-info-badge">
+            <div class="company-icon">🏢</div>
+            <div class="company-details">
+                <div class="company-name">{{ company_info.name|default:"Nepton Business System" }}</div>
+                <div class="company-expiry">Expires: {{ company_info.expiry_date|default:"31 Dec 2025" }}</div>
+            </div>
+        </div>
+
+        <div class="user-info-badge">
+            <div class="user-icon">👤</div>
+            <div class="user-details">
+                <div class="user-name">{{ user_info.name }}</div>
+                <div class="user-id">{{ user_info.id }}</div>
+            </div>
+        </div>
+
+        <div class="session-info-badge">
+            <div class="session-label">Session</div>
+            <div class="session-time" id="sessionTime">00:00</div>
+        </div>
+    </div>
+</header>

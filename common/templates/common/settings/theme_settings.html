@@ -1,0 +1,298 @@
+{% extends layout_base|default:'common/layout.html' %}
+{% comment %} common/templates/common/settings/theme_settings.html {% endcomment %}
+{% load static %}
+
+{% block title %}Theme Settings{% endblock %}
+
+{% block app_css %}
+<link rel="stylesheet" href="{% static 'common/css/profile_form.css' %}">
+<style>
+/* ── Theme picker page ─────────────────────────────────── */
+.ts-section {
+    margin-bottom: 28px;
+}
+
+.ts-section-title {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--color-text-tertiary);
+    text-transform: capitalize;
+    letter-spacing: 0.7px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ts-section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--color-border-light);
+}
+
+/* ── Swatch grid ── */
+.ts-swatches {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+/* Each swatch card */
+.ts-swatch {
+    border: 2px solid var(--color-border-light);
+    border-radius: var(--radius-large);
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color var(--transition-fast),
+                box-shadow var(--transition-fast),
+                transform var(--transition-fast);
+    background: var(--color-bg-card);
+    user-select: none;
+}
+
+.ts-swatch:hover {
+    border-color: var(--color-border-dark);
+    box-shadow: var(--shadow-medium);
+    transform: translateY(-2px);
+}
+
+.ts-swatch.active {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-primary);
+}
+
+/* Colour strip at the top of each swatch */
+.ts-swatch-strip {
+    height: 52px;
+    display: flex;
+    align-items: stretch;
+}
+
+.ts-swatch-strip-main  { flex: 2; }
+.ts-swatch-strip-dark  { flex: 1; }
+.ts-swatch-strip-light { flex: 1; }
+
+/* Swatch info row */
+.ts-swatch-info {
+    padding: 9px 11px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.ts-swatch-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+/* Active checkmark */
+.ts-swatch-check {
+    width: 18px;
+    height: 18px;
+    border-radius: var(--radius-circle);
+    border: 2px solid var(--color-border-medium);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+    font-size: 10px;
+}
+
+.ts-swatch.active .ts-swatch-check {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: #fff;
+}
+
+/* ── Dark mode swatch (special preview) ── */
+.ts-swatch-dark-preview {
+    height: 52px;
+    background: linear-gradient(135deg, #1a1a24 0%, #0f0f14 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.ts-dark-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-circle);
+}
+
+/* ── Save feedback banner ── */
+.ts-save-banner {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--color-alert-success-bg);
+    border: 1px solid var(--color-alert-success-border);
+    color: var(--color-alert-success-text);
+    border-radius: var(--radius-medium);
+    font-size: 12.5px;
+    font-weight: 500;
+    margin-bottom: 16px;
+}
+
+.ts-save-banner.visible { display: flex; }
+</style>
+{% endblock %}
+
+{% block app_content_body %}
+<div class="pf-page" id="pf-page-theme-settings">
+
+    {# ── Toolbar ── #}
+    <div class="pf-toolbar">
+        <button type="button" class="pf-tb-btn pf-tb-btn-danger"
+                onclick="history.back()" title="Close">
+            <span class="pf-tb-btn-icon">✕</span>Close
+        </button>
+    </div>
+
+    {# ── Hero card ── #}
+    <div class="pf-hero-card">
+        <div class="pf-hero-photo pf-hero-photo--static">
+            <span class="pf-hero-icon">🎨</span>
+        </div>
+        <div class="pf-hero-identity">
+            <div class="pf-hero-name">Theme Settings</div>
+            <div class="pf-hero-meta">
+                <div class="pf-hero-row">
+                    <svg viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M20 12h2M2 12h2M17.66 17.66l-1.41-1.41M6.34 6.34L4.93 4.93"/>
+                    </svg>
+                    <span>Choose a colour theme for the entire application</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Save feedback ── #}
+    <div class="ts-save-banner" id="ts-save-banner">
+        ✓ Theme saved — changes apply immediately across all pages.
+    </div>
+
+    {# ── Light themes ── #}
+    <div class="pf-content" style="border-radius:var(--radius-large);padding:20px 22px;">
+
+        <div class="ts-section">
+            <div class="ts-section-title">Light Themes</div>
+            <div class="ts-swatches">
+
+                {# Red-White (default) #}
+                <div class="ts-swatch {% if theme == 'red-white' or not theme %}active{% endif %}"
+                     data-theme="red-white" onclick="tsApply(this)">
+                    <div class="ts-swatch-strip">
+                        <div class="ts-swatch-strip-main"  style="background:#c0123c;"></div>
+                        <div class="ts-swatch-strip-dark"  style="background:#960e2f;"></div>
+                        <div class="ts-swatch-strip-light" style="background:#f4f5f7;"></div>
+                    </div>
+                    <div class="ts-swatch-info">
+                        <span class="ts-swatch-name">Ruby Red</span>
+                        <span class="ts-swatch-check">✓</span>
+                    </div>
+                </div>
+
+                {# Blue-White #}
+                <div class="ts-swatch {% if theme == 'blue-white' %}active{% endif %}"
+                     data-theme="blue-white" onclick="tsApply(this)">
+                    <div class="ts-swatch-strip">
+                        <div class="ts-swatch-strip-main"  style="background:#2563eb;"></div>
+                        <div class="ts-swatch-strip-dark"  style="background:#1d4ed8;"></div>
+                        <div class="ts-swatch-strip-light" style="background:#f4f5f7;"></div>
+                    </div>
+                    <div class="ts-swatch-info">
+                        <span class="ts-swatch-name">Ocean Blue</span>
+                        <span class="ts-swatch-check">✓</span>
+                    </div>
+                </div>
+
+                {# Purple-White #}
+                <div class="ts-swatch {% if theme == 'purple-white' %}active{% endif %}"
+                     data-theme="purple-white" onclick="tsApply(this)">
+                    <div class="ts-swatch-strip">
+                        <div class="ts-swatch-strip-main"  style="background:#7c3aed;"></div>
+                        <div class="ts-swatch-strip-dark"  style="background:#6d28d9;"></div>
+                        <div class="ts-swatch-strip-light" style="background:#f4f5f7;"></div>
+                    </div>
+                    <div class="ts-swatch-info">
+                        <span class="ts-swatch-name">Royal Purple</span>
+                        <span class="ts-swatch-check">✓</span>
+                    </div>
+                </div>
+
+                {# Green-White #}
+                <div class="ts-swatch {% if theme == 'green-white' %}active{% endif %}"
+                     data-theme="green-white" onclick="tsApply(this)">
+                    <div class="ts-swatch-strip">
+                        <div class="ts-swatch-strip-main"  style="background:#16a34a;"></div>
+                        <div class="ts-swatch-strip-dark"  style="background:#15803d;"></div>
+                        <div class="ts-swatch-strip-light" style="background:#f4f5f7;"></div>
+                    </div>
+                    <div class="ts-swatch-info">
+                        <span class="ts-swatch-name">Forest Green</span>
+                        <span class="ts-swatch-check">✓</span>
+                    </div>
+                </div>
+
+                {# Teal-White #}
+                <div class="ts-swatch {% if theme == 'teal-white' %}active{% endif %}"
+                     data-theme="teal-white" onclick="tsApply(this)">
+                    <div class="ts-swatch-strip">
+                        <div class="ts-swatch-strip-main"  style="background:#14b8a6;"></div>
+                        <div class="ts-swatch-strip-dark"  style="background:#0f766e;"></div>
+                        <div class="ts-swatch-strip-light" style="background:#f4f5f7;"></div>
+                    </div>
+                    <div class="ts-swatch-info">
+                        <span class="ts-swatch-name">Teal</span>
+                        <span class="ts-swatch-check">✓</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        {# ── Dark theme ── #}
+        <div class="ts-section">
+            <div class="ts-section-title">Dark Theme</div>
+            <div class="ts-swatches">
+
+                <div class="ts-swatch {% if theme == 'dark' %}active{% endif %}"
+                     data-theme="dark" onclick="tsApply(this)">
+                    <div class="ts-swatch-dark-preview">
+                        <div class="ts-dark-dot" style="background:#7c3aed;"></div>
+                        <div class="ts-dark-dot" style="background:#2563eb;"></div>
+                        <div class="ts-dark-dot" style="background:#22c55e;"></div>
+                    </div>
+                    <div class="ts-swatch-info">
+                        <span class="ts-swatch-name">Dark Mode</span>
+                        <span class="ts-swatch-check">✓</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>{# /pf-content #}
+
+</div>{# /pf-page #}
+{% endblock %}
+
+{% block app_js %}
+<script src="{% static 'common/js/theme-switcher.js' %}"></script>
+<script>
+// Mark the server-rendered active theme on load (in case JS runs before swatch is painted)
+document.addEventListener('DOMContentLoaded', function () {
+    var current = document.documentElement.getAttribute('data-theme') || 'red-white';
+    document.querySelectorAll('.ts-swatch').forEach(function (el) {
+        el.classList.toggle('active', el.dataset.theme === current);
+    });
+});
+</script>
+{% endblock %}

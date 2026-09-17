@@ -1,0 +1,27 @@
+<div id="erp-loader" role="status" aria-live="polite" aria-label="Loading">
+
+    <div class="erp-loader__logo-wrap">
+        <div class="erp-loader__logo" id="erp-loader-logo">
+
+            {% comment %} {{-- Ring is NOW inside the card --}} {% endcomment %}
+            <div class="erp-loader__ring" id="erp-loader-ring"></div>
+
+            <img id="erp-loader-img" src="" alt="Module logo">
+            <span class="erp-loader__icon" id="erp-loader-icon">
+                <svg id="erp-loader-svg" viewBox="0 0 24 24">
+                    <rect x="2" y="3" width="20" height="14" rx="2"/>
+                    <line x1="8" y1="21" x2="16" y2="21"/>
+                    <line x1="12" y1="17" x2="12" y2="21"/>
+                </svg>
+            </span>
+        </div>
+    </div>
+
+    <span class="erp-loader__module" id="erp-loader-module"></span>
+    <p class="erp-loader__msg" id="erp-loader-msg">Loading…</p>
+
+    <div class="erp-loader__bar-wrap" id="erp-loader-bar-wrap">
+        <div class="erp-loader__bar" id="erp-loader-bar"></div>
+    </div>
+
+</div>

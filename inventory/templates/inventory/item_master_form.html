@@ -1,0 +1,843 @@
+{% extends 'inventory/base.html' %}
+{% comment %}
+════════════════════════════════════════════════════════════════════
+  inventory/templates/inventory/item_master_form.html
+
+  Item Master Form template using profile_form engine.
+  Zero inline CSS — inherits theme via utilities_modal and profile_form.
+════════════════════════════════════════════════════════════════════
+{% endcomment %}
+{% load static %}
+
+{% block title %}{{ form_config.title }}{% endblock %}
+
+{% block app_content_body %}
+<div class="pf-page-wrapper" style="width:100%; min-height:100%; overflow-x:hidden;">
+    {% include 'common/includes/profile_form.html' with fc=form_config %}
+</div>
+{% endblock %}
+
+{% block app_js %}
+<link rel="stylesheet" href="{% static 'common/css/form_design.css' %}">
+<script src="{% static 'common/js/form_design.js' %}"></script>
+<script>
+/* ── Form Design registration (silent page-load init) ─────────────────── */
+window.FD_FORM_ID   = '{{ form_config.form_id }}';
+window.FD_FORM_NAME = '{{ form_config.form_name|default:"" }}';
+window.FD_URLS = {
+    load  : "{% url 'common:form_design_load' %}",
+    save  : "{% url 'common:form_design_save' %}",
+    reset : "{% url 'common:form_design_reset' %}",
+};
+
+/* UOM unit name options for the inline UOM table (TypeCode 9 from GroupSetup) */
+window.MU_UNIT_OPTIONS = {{ mu_unit_options_json|safe|default:"[]" }};
+
+/* Dynamic group choices from ItemGroups */
+window.GROUP_CHOICES = {{ group_choices_json|safe|default:"{}" }};
+
+
+window._pfConfig = {
+    '{{ form_config.form_id }}': {
+        formId           : '{{ form_config.form_id }}',
+        lookupField      : 'ItemCode',
+        heroNameField    : 'ItemName',
+        heroDefaultName  : 'New Item',
+        saveUrl          : "{% url 'inventory:item_master_save' %}",
+        loadUrl          : "{% url 'inventory:item_master_load' %}",
+        deleteUrl        : "{% url 'inventory:item_master_delete' %}",
+        lookupUrl        : "{% url 'inventory:item_master_lookup' %}",
+        deleteIdField    : 'ItemID',
+        deleteLabelField : 'ItemName',
+    }
+};
+
+/* ── Global Form Actions ── */
+function imClose()  { history.back(); }
+function imNew()    { showConfirm('Clear form for a new item?', function(confirmed) { if (confirmed) pfClear('{{ form_config.form_id }}'); }, 'warning', 'New Item'); }
+function imSave()   { pfActSave('{{ form_config.form_id }}'); }
+function imDelete() { pfActDelete('{{ form_config.form_id }}'); }
+
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   1. SELECT ITEM MODAL (Matches Reference: Item / Cat/Company / [x] Value)
+   ═══════════════════════════════════════════════════════════════════════════ */
+var selectItemModal = null;
+
+function initSelectItemModal() {
+    if (selectItemModal) return selectItemModal;
+
+    selectItemModal = new UtilityModal({
+        id       : 'im-select-item-modal',
+        title    : 'Select Item',
+        subtitle : '',
+        icon     : '<path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.267-8-12.356-8-5.096 0-5.096 8 0 8 5.096 0 7.261-8 12.356-8z" stroke-width="2"/>',
+        width    : '480px',
+        height   : '260px',
+        tabs     : [
+            { id: 'select_item_tab', label: 'Select Item' }
+        ],
+        toolbar  : [],
+        onBuild: function(m) {
+            // Apply standard sizing class to modal box
+            if (m._el) {
+                var box = m._el.querySelector('.utm-modal');
+                if (box) box.classList.add('utm-modal--standard');
+            }
+
+            // Hide left sidenav completely so the content takes full modal width
+            var nav = document.getElementById('im-select-item-modal-nav');
+            if (nav) nav.style.display = 'none';
+
+            var pane = m.pane('select_item_tab');
+            if (!pane) return;
+            pane.style.padding = '0';
+            pane.style.display = 'flex';
+            pane.style.flexDirection = 'column';
+            pane.style.height = '100%';
+            pane.style.minHeight = '0';
+            pane.style.overflowY = 'auto';
+
+            var html = 
+                '<div style="background:#f0f0f0; padding:18px 20px 14px; display:flex; flex-direction:column; gap:12px; font-family:\'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif; flex:1; min-height:0; overflow-y:auto;">' +
+                    /* Row 1: Item */
+                    '<div style="display:flex; align-items:center; gap:8px;">' +
+                        '<label for="im-si-item-inp" style="width:85px; text-align:right; font-size:12px; font-weight:600; color:#333; user-select:none;">Item</label>' +
+                        '<div style="flex:1; display:flex; align-items:stretch; position:relative;">' +
+                            '<input type="text" id="im-si-item-inp" autocomplete="off"' +
+                                   ' style="flex:1; height:26px; padding:2px 8px; font-size:12px; border:1px solid #abadb3; border-radius:3px 0 0 3px; outline:none; background:#d4e6ff; transition:background 0.12s;"' +
+                                   ' placeholder="">' +
+                            '<button type="button" id="im-si-item-btn" tabindex="-1"' +
+                                    ' style="width:24px; height:26px; border:1px solid #abadb3; border-left:none; border-radius:0 3px 3px 0; background:linear-gradient(to bottom, #fcfcfc, #e4e4e4); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; outline:none;">' +
+                                '<svg viewBox="0 0 24 24" width="10" height="10" fill="#800000"><polygon points="6,9 12,16 18,9"/></svg>' +
+                            '</button>' +
+                            '<div id="im-si-item-dd" style="display:none; position:absolute; top:27px; left:0; right:0; max-height:160px; overflow-y:auto; background:#fff; border:1px solid #abadb3; border-radius:3px; box-shadow:0 4px 12px rgba(0,0,0,0.15); z-index:10000;"></div>' +
+                        '</div>' +
+                    '</div>' +
+
+                    /* Row 2: Group 1 */
+                    '<div style="display:flex; align-items:center; gap:8px;">' +
+                        '<label for="im-si-g1-inp" style="width:85px; text-align:right; font-size:12px; font-weight:600; color:#333; user-select:none;">Group 1</label>' +
+                        '<div style="flex:1; display:flex; align-items:stretch; position:relative;">' +
+                            '<input type="text" id="im-si-g1-inp" autocomplete="off"' +
+                                   ' style="flex:1; height:26px; padding:2px 8px; font-size:12px; border:1px solid #abadb3; border-radius:3px 0 0 3px; outline:none; background:#ffffff; transition:background 0.12s;"' +
+                                   ' placeholder="">' +
+                            '<button type="button" id="im-si-g1-btn" tabindex="-1"' +
+                                    ' style="width:24px; height:26px; border:1px solid #abadb3; border-left:none; border-radius:0 3px 3px 0; background:linear-gradient(to bottom, #fcfcfc, #e4e4e4); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; outline:none;">' +
+                                '<svg viewBox="0 0 24 24" width="10" height="10" fill="#800000"><polygon points="6,9 12,16 18,9"/></svg>' +
+                            '</button>' +
+                            '<div id="im-si-g1-dd" style="display:none; position:absolute; top:27px; left:0; right:0; max-height:160px; overflow-y:auto; background:#fff; border:1px solid #abadb3; border-radius:3px; box-shadow:0 4px 12px rgba(0,0,0,0.15); z-index:10000;"></div>' +
+                        '</div>' +
+                    '</div>' +
+
+                    /* Row 3: Group 2 */
+                    '<div style="display:flex; align-items:center; gap:8px;">' +
+                        '<label for="im-si-g2-inp" style="width:85px; text-align:right; font-size:12px; font-weight:600; color:#333; user-select:none;">Group 2</label>' +
+                        '<div style="flex:1; display:flex; align-items:stretch; position:relative;">' +
+                            '<input type="text" id="im-si-g2-inp" autocomplete="off"' +
+                                   ' style="flex:1; height:26px; padding:2px 8px; font-size:12px; border:1px solid #abadb3; border-radius:3px 0 0 3px; outline:none; background:#ffffff; transition:background 0.12s;"' +
+                                   ' placeholder="">' +
+                            '<button type="button" id="im-si-g2-btn" tabindex="-1"' +
+                                    ' style="width:24px; height:26px; border:1px solid #abadb3; border-left:none; border-radius:0 3px 3px 0; background:linear-gradient(to bottom, #fcfcfc, #e4e4e4); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; outline:none;">' +
+                                '<svg viewBox="0 0 24 24" width="10" height="10" fill="#800000"><polygon points="6,9 12,16 18,9"/></svg>' +
+                            '</button>' +
+                            '<div id="im-si-g2-dd" style="display:none; position:absolute; top:27px; left:0; right:0; max-height:160px; overflow-y:auto; background:#fff; border:1px solid #abadb3; border-radius:3px; box-shadow:0 4px 12px rgba(0,0,0,0.15); z-index:10000;"></div>' +
+                        '</div>' +
+                    '</div>' +
+
+                    /* Row 4: Group 3 */
+                    '<div style="display:flex; align-items:center; gap:8px;">' +
+                        '<label for="im-si-g3-chk" style="width:85px; text-align:right; font-size:12px; font-weight:600; color:#333; display:inline-flex; align-items:center; justify-content:flex-end; gap:4px; cursor:pointer; user-select:none;">' +
+                            '<input type="checkbox" id="im-si-g3-chk" checked style="cursor:pointer; margin:0; width:13px; height:13px;">' +
+                            '<span>Group 3</span>' +
+                        '</label>' +
+                        '<div style="flex:1; display:flex; align-items:stretch; position:relative;">' +
+                            '<input type="text" id="im-si-g3-inp" autocomplete="off"' +
+                                   ' style="flex:1; height:26px; padding:2px 8px; font-size:12px; border:1px solid #abadb3; border-radius:3px 0 0 3px; outline:none; background:#ffffff; transition:background 0.12s;"' +
+                                   ' placeholder="">' +
+                            '<button type="button" id="im-si-g3-btn" tabindex="-1"' +
+                                    ' style="width:24px; height:26px; border:1px solid #abadb3; border-left:none; border-radius:0 3px 3px 0; background:linear-gradient(to bottom, #fcfcfc, #e4e4e4); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; outline:none;">' +
+                                '<svg viewBox="0 0 24 24" width="10" height="10" fill="#800000"><polygon points="6,9 12,16 18,9"/></svg>' +
+                            '</button>' +
+                            '<div id="im-si-g3-dd" style="display:none; position:absolute; top:27px; left:0; right:0; max-height:160px; overflow-y:auto; background:#fff; border:1px solid #abadb3; border-radius:3px; box-shadow:0 4px 12px rgba(0,0,0,0.15); z-index:10000;"></div>' +
+                        '</div>' +
+                    '</div>' +
+                    
+                    /* Row 5: Group 4 */
+                    '<div style="display:flex; align-items:center; gap:8px;">' +
+                        '<label for="im-si-g4-chk" style="width:85px; text-align:right; font-size:12px; font-weight:600; color:#333; display:inline-flex; align-items:center; justify-content:flex-end; gap:4px; cursor:pointer; user-select:none;">' +
+                            '<input type="checkbox" id="im-si-g4-chk" checked style="cursor:pointer; margin:0; width:13px; height:13px;">' +
+                            '<span>Group 4</span>' +
+                        '</label>' +
+                        '<div style="flex:1; display:flex; align-items:stretch; position:relative;">' +
+                            '<input type="text" id="im-si-g4-inp" autocomplete="off"' +
+                                   ' style="flex:1; height:26px; padding:2px 8px; font-size:12px; border:1px solid #abadb3; border-radius:3px 0 0 3px; outline:none; background:#ffffff; transition:background 0.12s;"' +
+                                   ' placeholder="">' +
+                            '<button type="button" id="im-si-g4-btn" tabindex="-1"' +
+                                    ' style="width:24px; height:26px; border:1px solid #abadb3; border-left:none; border-radius:0 3px 3px 0; background:linear-gradient(to bottom, #fcfcfc, #e4e4e4); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; outline:none;">' +
+                                '<svg viewBox="0 0 24 24" width="10" height="10" fill="#800000"><polygon points="6,9 12,16 18,9"/></svg>' +
+                            '</button>' +
+                            '<div id="im-si-g4-dd" style="display:none; position:absolute; top:27px; left:0; right:0; max-height:160px; overflow-y:auto; background:#fff; border:1px solid #abadb3; border-radius:3px; box-shadow:0 4px 12px rgba(0,0,0,0.15); z-index:10000;"></div>' +
+                        '</div>' +
+                    '</div>' +
+                    
+                    /* Row 6: Group 5 */
+                    '<div style="display:flex; align-items:center; gap:8px;">' +
+                        '<label for="im-si-g5-chk" style="width:85px; text-align:right; font-size:12px; font-weight:600; color:#333; display:inline-flex; align-items:center; justify-content:flex-end; gap:4px; cursor:pointer; user-select:none;">' +
+                            '<input type="checkbox" id="im-si-g5-chk" checked style="cursor:pointer; margin:0; width:13px; height:13px;">' +
+                            '<span>Group 5</span>' +
+                        '</label>' +
+                        '<div style="flex:1; display:flex; align-items:stretch; position:relative;">' +
+                            '<input type="text" id="im-si-g5-inp" autocomplete="off"' +
+                                   ' style="flex:1; height:26px; padding:2px 8px; font-size:12px; border:1px solid #abadb3; border-radius:3px 0 0 3px; outline:none; background:#ffffff; transition:background 0.12s;"' +
+                                   ' placeholder="">' +
+                            '<button type="button" id="im-si-g5-btn" tabindex="-1"' +
+                                    ' style="width:24px; height:26px; border:1px solid #abadb3; border-left:none; border-radius:0 3px 3px 0; background:linear-gradient(to bottom, #fcfcfc, #e4e4e4); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; outline:none;">' +
+                                '<svg viewBox="0 0 24 24" width="10" height="10" fill="#800000"><polygon points="6,9 12,16 18,9"/></svg>' +
+                            '</button>' +
+                            '<div id="im-si-g5-dd" style="display:none; position:absolute; top:27px; left:0; right:0; max-height:160px; overflow-y:auto; background:#fff; border:1px solid #abadb3; border-radius:3px; box-shadow:0 4px 12px rgba(0,0,0,0.15); z-index:10000;"></div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+
+                /* Bottom Action Area: OK and Cancel using theme_constants.py */
+                '<div class="lm-action-bar">' +
+                    '<button type="button" class="pf-tb-btn" id="im-si-ok-btn" onclick="imConfirmSelectItem()"' +
+                            ' title="Confirm">' +
+                        '<span class="pf-tb-btn-icon">' +
+                            '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                                '<polyline points="9 11 12 14 22 4"/>' +
+                                '<path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>' +
+                            '</svg>' +
+                        '</span>' +
+                        '<span style="text-decoration:underline;">O</span>K' +
+                    '</button>' +
+
+                    '<button type="button" class="pf-tb-btn pf-tb-btn-danger" id="im-si-cancel-btn" onclick="imCloseSelectItem()"' +
+                            ' title="Cancel">' +
+                        '<span class="pf-tb-btn-icon">' +
+                            '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                                '<circle cx="12" cy="12" r="10"/>' +
+                                '<line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>' +
+                            '</svg>' +
+                        '</span>' +
+                        '<span style="text-decoration:underline;">C</span>ancel' +
+                    '</button>' +
+                '</div>';
+
+            pane.innerHTML = html;
+            imInitSelectItemEvents();
+        },
+        onOpen: function(m) {
+            imResetSelectItemFields();
+        }
+    });
+
+    return selectItemModal;
+}
+
+function imResetSelectItemFields() {
+    var itemInp = document.getElementById('im-si-item-inp');
+    var catInp = document.getElementById('im-si-cat-inp');
+    var valInp = document.getElementById('im-si-val-inp');
+    var valChk = document.getElementById('im-si-val-chk');
+
+    var currentItemName = (document.getElementById('id_ItemName') || {}).value || '';
+    var currentBrand = (document.getElementById('id_Brand') || {}).value || '';
+    var currentCat = (document.getElementById('id_Category') || {}).value || '';
+
+    if (itemInp) {
+        itemInp.value = currentItemName;
+        itemInp.style.background = '#d4e6ff';
+        setTimeout(function() {
+            itemInp.focus();
+            if (itemInp.select) itemInp.select();
+        }, 50);
+    }
+    if (catInp) {
+        catInp.value = currentBrand && currentCat ? (currentBrand + ' / ' + currentCat) : (currentBrand || currentCat || '');
+        catInp.style.background = '#ffffff';
+    }
+    if (valInp) {
+        valInp.value = '';
+        valInp.style.background = '#ffffff';
+    }
+    if (valChk) {
+        valChk.checked = true;
+        if (valInp) valInp.disabled = false;
+    }
+    imCloseAllSelectItemDropdowns();
+}
+
+function imCloseAllSelectItemDropdowns() {
+    ['im-si-item-dd', 'im-si-cat-dd', 'im-si-val-dd'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+}
+
+function imInitSelectItemEvents() {
+
+    var fields = [
+        { id: 'item', code: '29' },
+        { id: 'g1', code: '1', altCode: '30' },
+        { id: 'g2', code: '30', altCode: '31' },
+        { id: 'g3', code: '31', altCode: '201' },
+        { id: 'g4', code: '201', altCode: '202' },
+        { id: 'g5', code: '202', altCode: '203' }
+    ];
+
+    window.imCloseAllSelectItemDropdowns = function() {
+        fields.forEach(function(f) {
+            var dd = document.getElementById('im-si-' + f.id + '-dd');
+            if (dd) dd.style.display = 'none';
+        });
+    };
+
+    fields.forEach(function(f, idx) {
+        var inp = document.getElementById('im-si-' + f.id + '-inp');
+        var btn = document.getElementById('im-si-' + f.id + '-btn');
+        var dd = document.getElementById('im-si-' + f.id + '-dd');
+        var chk = document.getElementById('im-si-' + f.id + '-chk');
+
+        if (inp) {
+            inp.addEventListener('focus', function() {
+                inp.style.background = '#d4e6ff';
+            });
+            inp.addEventListener('blur', function() {
+                inp.style.background = '#ffffff';
+            });
+        }
+
+        if (chk && inp) {
+            chk.addEventListener('change', function() {
+                inp.disabled = !chk.checked;
+                if (btn) btn.disabled = !chk.checked;
+                inp.style.opacity = chk.checked ? '1' : '0.5';
+                if (btn) btn.style.opacity = chk.checked ? '1' : '0.5';
+                if (!chk.checked) imCloseAllSelectItemDropdowns();
+            });
+        }
+
+        function renderDd(filterText) {
+            if (!dd || (chk && !chk.checked)) return;
+            var q = (filterText || '').toLowerCase().trim();
+            var choices = (window.GROUP_CHOICES && (window.GROUP_CHOICES[f.code] || (f.altCode && window.GROUP_CHOICES[f.altCode]))) || [];
+            
+            var matches = choices.filter(function(c) {
+                return !q || c.toLowerCase().includes(q);
+            });
+
+            if (!matches.length) {
+                dd.innerHTML = '<div style="padding:7px 10px; font-size:11.5px; color:#888;">No matching options (type to create new)</div>';
+            } else {
+                var html = '';
+                matches.forEach(function(c) {
+                    html += '<div class="im-si-opt" data-val="' + c.replace(/"/g, '&quot;') + '"' +
+                            ' style="padding:6px 10px; font-size:12px; cursor:pointer; border-bottom:1px solid #f0f0f0; color:#222;">' +
+                            c +
+                            '</div>';
+                });
+                dd.innerHTML = html;
+                dd.querySelectorAll('.im-si-opt').forEach(function(opt) {
+                    opt.addEventListener('mousedown', function(e) {
+                        e.preventDefault();
+                        inp.value = opt.getAttribute('data-val');
+                        dd.style.display = 'none';
+                        // Focus next input
+                        var nextF = fields[idx + 1];
+                        if (nextF) {
+                            var nextInp = document.getElementById('im-si-' + nextF.id + '-inp');
+                            var nextChk = document.getElementById('im-si-' + nextF.id + '-chk');
+                            if (nextInp && (!nextChk || nextChk.checked)) nextInp.focus();
+                        } else {
+                            imConfirmSelectItem();
+                        }
+                    });
+                    opt.addEventListener('mouseenter', function() { opt.style.background = '#e3f0ff'; });
+                    opt.addEventListener('mouseleave', function() { opt.style.background = '#fff'; });
+                });
+            }
+            dd.style.display = 'block';
+        }
+
+        if (btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (dd.style.display === 'block') { dd.style.display = 'none'; }
+                else { imCloseAllSelectItemDropdowns(); renderDd(inp.value); }
+            });
+        }
+
+        if (inp) {
+            inp.addEventListener('input', function() { renderDd(inp.value); });
+            inp.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    imCloseAllSelectItemDropdowns();
+                    var nextF = fields[idx + 1];
+                    if (nextF) {
+                        var nextInp = document.getElementById('im-si-' + nextF.id + '-inp');
+                        var nextChk = document.getElementById('im-si-' + nextF.id + '-chk');
+                        if (nextInp && (!nextChk || nextChk.checked)) nextInp.focus();
+                    } else {
+                        imConfirmSelectItem();
+                    }
+                } else if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    renderDd(inp.value);
+                } else if (e.key === 'Escape') {
+                    imCloseAllSelectItemDropdowns();
+                }
+            });
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#im-select-item-modal-pane-select_item_tab')) {
+            imCloseAllSelectItemDropdowns();
+        }
+    });
+}
+
+function imConfirmSelectItem() {
+    var itemInp = document.getElementById('im-si-item-inp');
+    var g1Inp = document.getElementById('im-si-g1-inp');
+    var g2Inp = document.getElementById('im-si-g2-inp');
+    var g3Inp = document.getElementById('im-si-g3-inp');
+    var g4Inp = document.getElementById('im-si-g4-inp');
+    var g5Inp = document.getElementById('im-si-g5-inp');
+
+    var g3Chk = document.getElementById('im-si-g3-chk');
+    var g4Chk = document.getElementById('im-si-g4-chk');
+    var g5Chk = document.getElementById('im-si-g5-chk');
+
+    var itemVal = (itemInp ? itemInp.value : '').trim();
+    var g1Val = (g1Inp ? g1Inp.value : '').trim();
+    var g2Val = (g2Inp ? g2Inp.value : '').trim();
+    var g3Val = (g3Chk && g3Chk.checked && g3Inp ? g3Inp.value : '').trim();
+    var g4Val = (g4Chk && g4Chk.checked && g4Inp ? g4Inp.value : '').trim();
+    var g5Val = (g5Chk && g5Chk.checked && g5Inp ? g5Inp.value : '').trim();
+
+    var payload = { groups: [] };
+    if (itemVal) payload.groups.push({ name: itemVal, category: 29, field: 'Item' });
+    if (g1Val) payload.groups.push({ name: g1Val, category: 1, field: 'ItemGroup1' });
+    if (g2Val) payload.groups.push({ name: g2Val, category: 30, field: 'ItemGroup2' });
+    if (g3Val) payload.groups.push({ name: g3Val, category: 31, field: 'ItemGroup3' });
+    if (g4Val) payload.groups.push({ name: g4Val, category: 201, field: 'ItemGroup4' });
+    if (g5Val) payload.groups.push({ name: g5Val, category: 202, field: 'ItemGroup5' });
+
+    // Combine names
+    var combinedName = [itemVal, g1Val, g2Val, g3Val, g4Val, g5Val].filter(Boolean).join(' ');
+
+    if (!payload.groups.length) {
+        if (selectItemModal) selectItemModal.close();
+        return;
+    }
+
+    // INSTANTLY update UI and close modal
+    var nameField = document.getElementById('id_ItemName');
+    if (nameField) {
+        nameField.value = combinedName;
+        nameField.dispatchEvent(new Event('input', { bubbles: true }));
+        nameField.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    
+    if (selectItemModal) selectItemModal.close();
+    
+    // Advance focus immediately
+    var groupSelect = document.getElementById('id_ItemGroup1');
+    var typeSelect = document.getElementById('id_ItemType');
+    if (groupSelect && groupSelect.focus) {
+        groupSelect.focus();
+    } else if (typeSelect && typeSelect.focus) {
+        typeSelect.focus();
+    } else if (nameField) {
+        nameField.blur();
+    }
+
+    // BACKGROUND FETCH to resolve IDs
+    fetch('/inventory/item-master/resolve-groups/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : ''
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            function setFieldVal(fname, gid, textVal) {
+                if (gid == null) return;
+                var el = document.getElementById('id_' + fname);
+                if (!el) {
+                    el = document.createElement('input');
+                    el.type = 'hidden';
+                    el.id = 'id_' + fname;
+                    el.name = fname;
+                    var frm = document.getElementById('item-master-form') || document.forms[0];
+                    if (frm) frm.appendChild(el);
+                }
+                if (el.tagName === 'SELECT') {
+                    var opt = el.querySelector('option[value="' + gid + '"]');
+                    if (!opt) {
+                        opt = document.createElement('option');
+                        opt.value = gid;
+                        opt.textContent = textVal || gid;
+                        el.appendChild(opt);
+                    }
+                    el.value = gid;
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                } else {
+                    el.value = gid;
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            }
+
+            if (data.field_map) {
+                if (itemVal) setFieldVal('Item', data.field_map['Item'], itemVal);
+                if (g1Val) setFieldVal('ItemGroup1', data.field_map['ItemGroup1'], g1Val);
+                if (g2Val) setFieldVal('ItemGroup2', data.field_map['ItemGroup2'], g2Val);
+                if (g3Val) setFieldVal('ItemGroup3', data.field_map['ItemGroup3'], g3Val);
+                if (g4Val) setFieldVal('ItemGroup4', data.field_map['ItemGroup4'], g4Val);
+                if (g5Val) setFieldVal('ItemGroup5', data.field_map['ItemGroup5'], g5Val);
+            } else if (data.results) {
+                var resIdx = 0;
+                if (itemVal) { setFieldVal('Item', data.results[resIdx++], itemVal); }
+                if (g1Val) { setFieldVal('ItemGroup1', data.results[resIdx++], g1Val); }
+                if (g2Val) { setFieldVal('ItemGroup2', data.results[resIdx++], g2Val); }
+                if (g3Val) { setFieldVal('ItemGroup3', data.results[resIdx++], g3Val); }
+                if (g4Val) { setFieldVal('ItemGroup4', data.results[resIdx++], g4Val); }
+                if (g5Val) { setFieldVal('ItemGroup5', data.results[resIdx++], g5Val); }
+            }
+        }
+    })
+    .catch(err => console.error("Error resolving groups in background:", err));
+}
+
+function imCloseSelectItem() {
+    if (selectItemModal) selectItemModal.close();
+    var nameField = document.getElementById('id_ItemName');
+    if (nameField) nameField.focus();
+}
+
+/* Direct trigger for item lookup button or shortcut */
+function imOpenItemModalDirect() {
+    var modal = initSelectItemModal();
+    modal.open();
+}
+
+/* Enter key trigger on Item Name */
+function imOnItemNameKeyDown(event, el) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+        imOpenItemModalDirect();
+        return false;
+    }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   2. BIN LOCATION POSITION ENTRY MODAL (Exact list.png Reusable Component)
+   ═══════════════════════════════════════════════════════════════════════════ */
+var binListModal = null;
+
+function imOpenBinLocationModal() {
+    var binField = document.getElementById('id_BinLocation');
+    var currentVal = (binField ? binField.value : '') || '';
+    var initialList = currentVal ? currentVal.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
+
+    if (!binListModal) {
+        binListModal = new ListModal({
+            id: 'im-bin-list-modal',
+            title: 'Bin Locations',
+            columnLabel: 'Position / Bin Location',
+            width: '480px',   // Standardized common modal width
+            height: '260px',  // Standardized common modal height
+            minRows: 8,
+            data: initialList,
+            onSave: function(values, defaultVal, modal) {
+                var binField = document.getElementById('id_BinLocation');
+                if (binField) {
+                    // Filter duplicates
+                    var seen = {};
+                    var uniqueValues = [];
+                    values.forEach(function(v) {
+                        var normalized = v.trim();
+                        if (normalized && !seen[normalized]) {
+                            seen[normalized] = true;
+                            uniqueValues.push(normalized);
+                        }
+                    });
+
+                    var formatted = uniqueValues.map(function(v) {
+                        return v === defaultVal ? (v + ' (Default)') : v;
+                    }).join(', ');
+                    binField.value = formatted;
+                    binField.dispatchEvent(new Event('input', { bubbles: true }));
+                    binField.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                modal.close();
+                if (binField) binField.focus();
+            }
+        });
+    }
+
+    binListModal.open(initialList);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   2b. ASSORTED BARCODE ENTRY MODAL (ListModal - exact list.png visual fidelity)
+   ═══════════════════════════════════════════════════════════════════════════ */
+var bcListModal = null;
+
+function imOpenBarcodeModal() {
+    var bcField = document.getElementById('id_AssortedBarcode');
+    var currentVal = (bcField ? bcField.value : '') || '';
+    var initialList = currentVal ? currentVal.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
+
+    if (!bcListModal) {
+        bcListModal = new ListModal({
+            id: 'im-bc-list-modal',
+            title: 'Assorted Barcodes',
+            columnLabel: 'Barcode Number',
+            width: '480px',
+            height: '260px',
+            minRows: 8,
+            data: initialList,
+            onSave: function(values, defaultVal, modal) {
+                var bcField = document.getElementById('id_AssortedBarcode');
+                if (bcField) {
+                    // Filter duplicates
+                    var seen = {};
+                    var uniqueValues = [];
+                    values.forEach(function(v) {
+                        var normalized = v.trim();
+                        if (normalized && !seen[normalized]) {
+                            seen[normalized] = true;
+                            uniqueValues.push(normalized);
+                        }
+                    });
+                    var formatted = uniqueValues.join(', ');
+                    bcField.value = formatted;
+                    bcField.dispatchEvent(new Event('input', { bubbles: true }));
+                    bcField.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                modal.close();
+                if (bcField) bcField.focus();
+            }
+        });
+    }
+
+    bcListModal.open(initialList);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   3. MULTI-UNIT DYNAMIC GRID & MULTIPLE PRICE LEVEL MODAL (multi_price.png)
+   ═══════════════════════════════════════════════════════════════════════════ */
+var multiUnitMgr = null;
+
+function initMultiUnitManager() {
+    var container = document.getElementById('mu-manager-container');
+    if (!container) return;
+
+    var initialUnits = [];
+    var jsonField = document.getElementById('id_multiunit_data');
+    if (jsonField && jsonField.value) {
+        try {
+            initialUnits = JSON.parse(jsonField.value);
+        } catch (e) {}
+    }
+
+    if (!initialUnits || !initialUnits.length) {
+        initialUnits = [];
+    }
+
+    multiUnitMgr = new MultiUnitManager('mu-manager-container', initialUnits);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   4. AI PRODUCT INFO & IMAGE FETCHER
+   ═══════════════════════════════════════════════════════════════════════════ */
+function imFetchProductAI() {
+    var queryInput = document.getElementById('id_ai_search_query');
+    var query = (queryInput ? queryInput.value : '').trim();
+
+    if (!query) {
+        var nameInput = document.getElementById('id_ItemName');
+        query = (nameInput ? nameInput.value : '').trim();
+    }
+
+    if (!query) {
+        showAlert('Please enter an Item Name or Search Query first to fetch AI details.', 'warning', 'AI Product Fetcher');
+        return;
+    }
+
+    var btn = document.getElementById('btn-ai-fetch');
+    var originalText = btn ? btn.innerText : 'Fetch';
+    if (btn) {
+        btn.innerText = 'Fetching AI...';
+        btn.disabled = true;
+    }
+
+    fetch("{% url 'inventory:ai_fetch_product_info' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify({ query: query })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+        if (btn) {
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }
+
+        if (res.success && res.data) {
+            var d = res.data;
+
+            // Populate description
+            var descEl = document.getElementById('id_product_description');
+            if (descEl) descEl.value = d.product_description || '';
+
+            // Populate Brand & Category if empty
+            var brandEl = document.getElementById('id_Brand');
+            if (brandEl && !brandEl.value) brandEl.value = d.brand_name || '';
+
+            var catEl = document.getElementById('id_Category');
+            if (catEl && !catEl.value) catEl.value = d.category_name || '';
+
+            var originEl = document.getElementById('id_country_of_origin');
+            if (originEl && d.country_of_origin) originEl.value = d.country_of_origin;
+
+            // Update photo preview if image returned
+            var photoImg = document.getElementById('pf-photo-img-photo');
+            if (photoImg) {
+                photoImg.onload = function() { photoImg.style.display = 'block'; };
+                photoImg.onerror = function() {
+                    if (d.photo_fallback_svg) {
+                        photoImg.src = d.photo_fallback_svg;
+                        photoImg.style.display = 'block';
+                    }
+                };
+                photoImg.src = d.photo_url || d.photo_fallback_svg;
+            }
+
+            // Also update top Hero card icon/avatar if available
+            var heroImg = document.getElementById('pf-avatar-img-{{ form_config.form_id }}');
+            if (heroImg) {
+                heroImg.src = d.photo_url || d.photo_fallback_svg;
+                heroImg.style.display = 'block';
+            }
+
+            if (typeof showToast === 'function') {
+                showToast('AI details and product specifications loaded successfully!', 'success');
+            } else {
+                showAlert('AI details and product specifications loaded successfully!', 'success', 'AI Product Fetcher');
+            }
+        } else {
+            showAlert(res.error || 'Unable to fetch AI product info.', 'error', 'AI Product Fetcher');
+        }
+    })
+    .catch(function(err) {
+        if (btn) {
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }
+        showAlert('AI service connection error: ' + err, 'error', 'Connection Error');
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   4. EVENT BINDING & DOM SETUP
+   ═══════════════════════════════════════════════════════════════════════════ */
+function imBindItemEvents() {
+    /* Capture-phase Enter key on Item Name */
+    var nameInput = document.getElementById('id_ItemName');
+    if (nameInput) {
+        nameInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+                imOpenItemModalDirect();
+                return false;
+            }
+        }, true); /* true = capture phase ensures modal opens before profile_form Enter moves focus */
+    }
+
+    /* Click and Enter triggers on Bin Location */
+    var binField = document.getElementById('id_BinLocation');
+    if (binField) {
+        binField.style.cursor = 'pointer';
+        binField.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            imOpenBinLocationModal();
+        });
+        binField.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+                imOpenBinLocationModal();
+            }
+        }, true);
+    }
+
+    /* Click and Enter triggers on Assorted Barcode */
+    var bcField = document.getElementById('id_AssortedBarcode');
+    if (bcField) {
+        bcField.style.cursor = 'pointer';
+        bcField.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            imOpenBarcodeModal();
+        });
+        bcField.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+                imOpenBarcodeModal();
+            }
+        }, true);
+    }
+
+    /* Attach AI fetch trigger to AI search query field */
+    var aiQueryField = document.getElementById('id_ai_search_query');
+    if (aiQueryField && !document.getElementById('btn-ai-fetch')) {
+        var wrapper = aiQueryField.parentElement;
+        if (wrapper) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.id = 'btn-ai-fetch';
+            btn.innerText = '⚡ Fetch Details via AI';
+            btn.style.cssText = 'margin-top:6px; background:var(--color-primary, #c0123c); color:#fff; border:none; padding:6px 14px; border-radius:4px; font-weight:600; font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:6px;';
+            btn.onclick = imFetchProductAI;
+            wrapper.appendChild(btn);
+        }
+    }
+
+    /* Initialize dynamic multi-unit manager for UOM tab */
+    initMultiUnitManager();
+}
+
+if (document.readyState !== 'loading') {
+    imBindItemEvents();
+} else {
+    document.addEventListener('DOMContentLoaded', imBindItemEvents);
+}
+</script>
+{% endblock %}

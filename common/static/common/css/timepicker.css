@@ -1,0 +1,249 @@
+/* ================================================================
+   CUSTOM TIME PICKER  v1.1
+   common/static/common/css/timepicker.css
+
+   Trigger height/padding matches .pf-field-ctl input exactly:
+     height: 30px, padding: 5px 9px, font-size: 12.5px
+
+   Architecture mirrors datepicker.css — swap dp- prefix for tp-
+   ================================================================ */
+
+/* position:relative on parents so dropdown positions correctly */
+.pf-field-ctl,
+.pf-hf-ctl {
+    position: relative; /* already set by datepicker.css — safe duplicate */
+}
+
+/* ── Trigger — identical to .pf-field-ctl input ─────────────── */
+.tp-input-wrap {
+    display        : flex;
+    align-items    : center;
+    width          : 100%;
+    height         : 30px;
+    padding        : 4px 9px;
+    border         : 1px solid var(--color-border-light);
+    border-radius  : var(--radius-xs, 4px);
+    background     : var(--color-form-input-bg, #fff);
+    color          : var(--color-form-input-text, #1a1a2e);
+    font-size      : 12.5px;
+    font-family    : inherit;
+    box-sizing     : border-box;
+    cursor         : pointer;
+    user-select    : none;
+    transition     : border-color 0.15s, box-shadow 0.15s;
+}
+
+.tp-input-wrap:hover {
+    border-color: var(--color-form-input-border-focus, var(--color-primary));
+}
+
+.tp-input-wrap.open {
+    border-color: var(--color-form-input-border-focus, var(--color-primary));
+    box-shadow  : 0 0 0 2px rgba(var(--color-primary-rgb, 99,102,241), 0.10);
+    background  : var(--color-bg-card, #fff);
+}
+
+/* ── Display text ────────────────────────────────────────────── */
+.tp-display {
+    flex          : 1;
+    font-size     : 12.5px;
+    color         : var(--color-text-tertiary, #9999aa);
+    white-space   : nowrap;
+    overflow      : hidden;
+    text-overflow : ellipsis;
+    line-height   : 1;
+}
+
+.tp-display.has-value {
+    color: var(--color-form-input-text, #1a1a2e);
+}
+
+/* ── Clock icon ──────────────────────────────────────────────── */
+.tp-icon {
+    width        : 14px;
+    height       : 14px;
+    color        : var(--color-text-tertiary, #888899);
+    flex-shrink  : 0;
+    margin-left  : 6px;
+    stroke-width : 1.5;
+}
+
+/* ── Dropdown panel ──────────────────────────────────────────── */
+.tp-panel {
+    display      : none;
+    position     : absolute;
+    top          : calc(100% + 4px);
+    left         : 0;
+    width        : 192px;
+    background   : var(--color-bg-card, #fff);
+    border-radius: var(--radius-large, 14px);
+    box-shadow   : var(--shadow-dropdown, 0 10px 32px rgba(0,0,0,0.18));
+    padding      : 14px 12px 10px;
+    z-index      : var(--z-dropdown, 10000);
+    border       : 1px solid var(--color-border-light, #e4e4ec);
+}
+
+.tp-panel.open {
+    display: block;
+}
+
+/* ── Columns layout ──────────────────────────────────────────── */
+.tp-cols {
+    display        : flex;
+    align-items    : center;
+    justify-content: center;
+    gap            : 0;
+}
+
+/* ── Single column (hour, minute, or AM/PM) ──────────────────── */
+.tp-col {
+    display       : flex;
+    flex-direction: column;
+    align-items   : center;
+    gap           : 2px;
+    flex          : 1;
+}
+
+/* Separator colon */
+.tp-sep {
+    font-size   : 18px;
+    font-weight : 700;
+    color       : var(--color-text-secondary, #555566);
+    padding     : 0 2px;
+    line-height : 1;
+    /* vertically align with the value cell */
+    margin-top  : 28px;   /* nav-btn(26px) + gap(2px) */
+    align-self  : flex-start;
+}
+
+/* ── Nav buttons (▲ / ▼) ─────────────────────────────────────── */
+.tp-nav-btn {
+    width           : 100%;
+    height          : 26px;
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+    border          : none;
+    background      : transparent;
+    border-radius   : var(--radius-small, 6px);
+    cursor          : pointer;
+    font-size       : 16px;
+    line-height     : 1;
+    color           : var(--color-text-secondary, #555566);
+    transition      : background 0.13s;
+}
+
+.tp-nav-btn:hover {
+    background: var(--color-bg-tertiary, #f8f9fa);
+    color     : var(--color-primary);
+}
+
+/* ── Value display (shared by static div and editable input) ─── */
+.tp-val {
+    font-size    : 22px;
+    font-weight  : 700;
+    color        : var(--color-text-primary, #1a1a2e);
+    line-height  : 1;
+    min-width    : 36px;
+    text-align   : center;
+    padding      : 4px 2px;
+    border-radius: var(--radius-xs, 4px);
+    cursor       : default;
+    user-select  : none;
+}
+
+/* ── Editable input variant of .tp-val ──────────────────────── */
+.tp-val--input {
+    /* Reset browser input chrome */
+    border          : none;
+    outline         : none;
+    background      : transparent;
+    appearance      : none;
+    -webkit-appearance: none;
+
+    /* Match .tp-val sizing exactly */
+    font-family  : inherit;
+    font-size    : 22px;
+    font-weight  : 700;
+    color        : var(--color-text-primary, #1a1a2e);
+    width        : 100%;
+    min-width    : 36px;
+    text-align   : center;
+    padding      : 4px 2px;
+    border-radius: var(--radius-xs, 4px);
+    cursor       : text;
+    user-select  : text;
+    box-sizing   : border-box;
+    caret-color  : var(--color-primary, #6366f1);
+}
+
+.tp-val--input:focus {
+    background  : var(--color-bg-hover, #f1f5f9);
+    outline     : 2px solid var(--color-primary, #6366f1);
+    outline-offset: -2px;
+}
+
+/* ── AM/PM column — slightly narrower value ─────────────────── */
+.tp-col--ampm .tp-val {
+    font-size    : 13px;
+    font-weight  : 700;
+    min-width    : 36px;
+    padding      : 6px 4px;
+    background   : var(--color-bg-hover, #f1f5f9);
+    border-radius: var(--radius-xs, 4px);
+    color        : var(--color-primary);
+}
+
+/* ── OK / Clear footer ───────────────────────────────────────── */
+.tp-footer {
+    display        : flex;
+    align-items    : center;
+    justify-content: space-between;
+    margin-top     : 10px;
+    padding-top    : 8px;
+    border-top     : 1px solid var(--color-border-light, #e4e4ec);
+    gap            : 6px;
+}
+
+.tp-btn-clear {
+    font-size    : 11px;
+    font-weight  : 600;
+    color        : var(--color-text-tertiary, #9999aa);
+    background   : transparent;
+    border       : none;
+    cursor       : pointer;
+    padding      : 3px 6px;
+    border-radius: var(--radius-xs, 4px);
+    transition   : color 0.13s, background 0.13s;
+}
+
+.tp-btn-clear:hover {
+    color     : var(--color-danger, #dc2626);
+    background: var(--color-danger-bg, #fff1f2);
+}
+
+.tp-btn-ok {
+    font-size    : 11px;
+    font-weight  : 700;
+    color        : #fff;
+    background   : var(--color-primary);
+    border       : none;
+    cursor       : pointer;
+    padding      : 4px 14px;
+    border-radius: var(--radius-xs, 4px);
+    transition   : opacity 0.13s;
+    margin-left  : auto;
+}
+
+.tp-btn-ok:hover { opacity: 0.85; }
+
+.att-tbl .tp-panel {
+    /* Panels from table rows need high z-index over sticky headers */
+    z-index: 10001 !important;
+}
+.att-tbl .tp-input-wrap {
+    /* Prevent the inline-flex wrap from stretching full cell width */
+    width       : auto;
+    max-width   : 110px;
+}
+ 

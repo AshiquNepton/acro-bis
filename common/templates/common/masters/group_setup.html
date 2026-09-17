@@ -1,0 +1,50 @@
+{% extends layout_base|default:'common/layout.html' %}
+{% comment %} common/templates/common/includes/group_setup.html {% endcomment %}
+{% load static %}
+
+{% block title %}Group Setup{% endblock %}
+
+{% block app_css %}
+<link rel="stylesheet" href="{% static 'common/css/profile_form.css' %}">
+<link rel="stylesheet" href="{% static 'common/css/group_setup.css' %}">
+{% endblock %}
+
+{% block app_content_body %}
+<div class="gs-page">
+
+    {% include 'common/includes/_toolbar.html' with fc=fc %}
+
+    <div class="gs-status-bar">
+        <span class="gs-status-dot"></span>
+        <span id="gs-status-msg">Ready</span>
+        <span class="gs-status-pipe">|</span>
+        <span id="gs-row-count">0 records</span>
+    </div>
+
+    <div class="gs-body">
+        <div class="gs-left">
+            {% for cat in categories %}
+            <div class="gs-cat-item {% if forloop.first %}active{% endif %}"
+                 data-id="{{ cat.id }}" onclick="gsSelectCat(this, '{{ cat.id }}')">{{ cat.label }}</div>
+            {% endfor %}
+        </div>
+        <div class="gs-right">
+            <div class="gs-grid-head">
+                <div class="gs-gh-sl">Sl.</div>
+                <div class="gs-gh-desc">Description</div>
+                <div class="gs-gh-code">Code</div>
+                <div class="gs-gh-del"></div>
+            </div>
+            <div class="gs-grid-body" id="gs-grid-body"></div>
+        </div>
+    </div>
+
+</div>
+{% csrf_token %}
+{% endblock %}
+
+{% block app_js %}
+<script src="{% static 'common/js/profile_form.js' %}"></script>
+<script>window.GS={loadUrl:"{% url 'common:group_setup_load' %}",saveUrl:"{% url 'common:group_setup_save' %}"};</script>
+<script src="{% static 'common/js/group_setup.js' %}?v=4"></script>
+{% endblock %}

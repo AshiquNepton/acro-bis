@@ -1,0 +1,530 @@
+/* ================================================================
+   sidebar.css  v10.3  —  REPLACE ENTIRE FILE
+   common/static/common/css/sidebar.css
+   ================================================================ */
+
+/* ── Sidebar shell ─────────────────────────────────────────── */
+.sidebar-navbar {
+    width           : 220px;
+    min-width       : 220px;
+    height          : 100vh;
+    background      : var(--gradient-sidebar);
+    color           : #fff;
+    display         : flex;
+    flex-direction  : column;
+    overflow        : hidden;
+    box-shadow      : 3px 0 16px rgba(0,0,0,0.22);
+    transition      : width .28s cubic-bezier(.4,0,.2,1),
+                      min-width .28s cubic-bezier(.4,0,.2,1);
+    z-index         : 100;
+    flex-shrink     : 0;
+    position        : relative;
+    overflow        : visible;  
+}
+.sidebar-header,
+.sidebar-footer,
+.nav-subitems {
+    overflow        : hidden;
+}
+
+.nav-tab-label {
+    overflow        : hidden;        /* still clips long labels */
+}
+
+
+.sidebar-navbar.collapsed {
+    width     : 56px;
+    min-width : 56px;
+}
+
+.sidebar-navbar {
+    overflow : visible;
+}
+.sidebar-header,
+.sidebar-footer {
+    overflow : hidden;   /* only these two clip internally */
+}
+
+
+/* ── Header ────────────────────────────────────────────────── */
+.sidebar-header {
+    padding        : 16px 16px 14px;
+    background     : rgba(0,0,0,0.20);
+    border-bottom  : 1px solid rgba(255,255,255,0.10);
+    min-height     : 64px;
+    display        : flex;
+    align-items    : center;
+    overflow       : hidden;
+    flex-shrink    : 0;
+    transition     : padding .28s, min-height .28s;
+}
+.logo-section {
+    display     : flex;
+    align-items : center;
+    gap         : 10px;
+    width       : 100%;
+    overflow    : hidden;
+    white-space : nowrap;
+}
+.logo-text    { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: .4px; }
+.logo-subtext { font-size: 10px; color: rgba(255,255,255,.80); margin-top: 2px; }
+.logo-section > div:last-child {
+    overflow   : hidden;
+    transition : opacity .22s, width .26s;
+}
+
+
+/* ── Nav — NO scroll, items distributed evenly ─────────────── */
+.nav-sections {
+    flex            : 1;
+    display         : flex;
+    flex-direction  : column;
+    justify-content : flex-start;   /* ← was: space-evenly */
+    overflow-y      : auto;         /* ← was: hidden — now scrolls */
+    overflow-x      : hidden;
+    padding         : 4px 0;
+    min-height      : 0;            /* ← critical: lets flex child shrink below content size */
+}
+
+/* Remove all scrollbar traces */
+.nav-sections::-webkit-scrollbar {
+    display : block;                /* ← was: none */
+    width   : 3px;
+}
+
+
+/* ── Section wrapper ───────────────────────────────────────── */
+.nav-section { position: relative; }
+
+
+/* ── Nav tab — EXPANDED ────────────────────────────────────── */
+.nav-tab {
+    display           : flex;
+    align-items       : center;
+    gap               : 10px;
+    padding           : 0 14px 0 16px;
+    height            : 44px;
+    cursor            : pointer;
+    color             : rgba(255,255,255,.82);
+    border-left       : 3px solid transparent;
+    white-space       : nowrap;
+    overflow          : hidden;
+    position          : relative;
+    transition        : background .14s, color .14s, border-left-color .14s;
+    user-select       : none;
+}
+.nav-tab:hover {
+    background        : rgba(255,255,255,.11);
+    color             : #fff;
+    border-left-color : rgba(255,255,255,.45);
+}
+.nav-tab.active {
+    background        : rgba(255,255,255,.18);
+    color             : #fff;
+    font-weight       : 600;
+    border-left-color : #fff;
+}
+.nav-section.open > .nav-tab {
+    background        : rgba(0,0,0,.18);
+    color             : #fff;
+    border-left-color : rgba(255,255,255,.60);
+}
+
+.nav-tab-icon {
+    width           : 22px;
+    min-width       : 22px;
+    flex-shrink     : 0;
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+}
+.nav-tab-icon svg {
+    width  : 20px;
+    height : 20px;
+}
+.nav-tab-label {
+    font-size   : 13px;
+    font-weight : 500;
+    flex        : 1;
+    overflow    : hidden;
+}
+.nav-tab-arrow {
+    font-size   : 11px;
+    flex-shrink : 0;
+    opacity     : .65;
+    transition  : transform .24s ease, opacity .14s;
+}
+.nav-section.open > .nav-tab .nav-tab-arrow {
+    transform : rotate(180deg);
+    opacity   : 1;
+}
+
+
+/* ── Dropdown ──────────────────────────────────────────────── */
+.nav-subitems {
+    max-height : 0;
+    overflow   : hidden;
+    transition : max-height .30s ease;
+    background : rgba(0,0,0,.22);
+}
+.nav-section.open .nav-subitems         { max-height: 600px; }
+.sidebar-navbar.collapsed .nav-subitems { max-height: 0 !important; }
+
+.nav-subitem {
+    display         : flex;
+    align-items     : center;
+    justify-content : space-between;
+    padding         : 10px 16px 10px 52px;
+    font-size       : 13px;
+    color           : rgba(255,255,255,.84);
+    text-decoration : none;
+    border-left     : 3px solid transparent;
+    cursor          : pointer;
+    white-space     : nowrap;
+    transition      : background .13s, color .13s, border-left-color .13s;
+}
+.nav-subitem:hover {
+    background        : rgba(255,255,255,.12);
+    color             : #fff;
+    border-left-color : rgba(255,255,255,.40);
+}
+.nav-subitem.active {
+    background        : rgba(255,255,255,.18);
+    color             : #fff;
+    font-weight       : 600;
+    border-left-color : var(--color-accent-gold, #ffd700);
+}
+.subitem-label { flex: 1; }
+.subitem-badge {
+    background    : #ff4757;
+    color         : #fff;
+    padding       : 2px 6px;
+    border-radius : 10px;
+    font-size     : 10px;
+    font-weight   : 700;
+    margin-left   : 6px;
+}
+.subitem-status {
+    background    : rgba(255,255,255,.18);
+    padding       : 2px 6px;
+    border-radius : 4px;
+    font-size     : 10px;
+    margin-left   : 6px;
+}
+
+
+/* ================================================================
+   COLLAPSED — pill icons centred
+   ================================================================ */
+.sidebar-navbar.collapsed .nav-section {
+    width           : 56px;
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+    overflow        : visible;
+    position        : static;    /* kills stacking context */
+}
+
+.sidebar-navbar.collapsed .nav-tab {
+    overflow        : visible !important;
+    width           : 56px;
+    height          : 44px;
+    padding         : 0 !important;
+    margin          : 0;
+    border-left     : none !important;
+    background      : transparent !important;
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+    position        : relative;
+    box-sizing      : border-box;
+}
+
+
+.sidebar-navbar.collapsed .nav-tab-label,
+.sidebar-navbar.collapsed .nav-tab-arrow {
+    display : none;
+}
+
+/* Pill */
+.sidebar-navbar.collapsed .nav-tab-icon {
+    width           : 38px;
+    min-width       : 38px;
+    height          : 38px;
+    border-radius   : 11px;
+    background      : rgba(255,255,255,.10);
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+    margin          : 0;
+    padding         : 0;
+    flex-shrink     : 0;
+    position        : static;    /* ::after lives on .nav-tab, not here */
+    transition      : background .16s, transform .16s, box-shadow .16s;
+}
+
+
+.sidebar-navbar.collapsed .nav-tab-icon svg {
+    width  : 17px;
+    height : 17px;
+}
+.sidebar-navbar.collapsed .nav-tab:hover .nav-tab-icon {
+    background : rgba(255,255,255,.22);
+    transform  : scale(1.08);
+    box-shadow : 0 4px 14px rgba(0,0,0,.28);
+}
+.sidebar-navbar.collapsed .nav-section.open > .nav-tab .nav-tab-icon,
+.sidebar-navbar.collapsed .nav-tab.active .nav-tab-icon {
+    background : rgba(255,255,255,.24);
+    box-shadow : 0 2px 8px rgba(0,0,0,.22);
+}
+
+/* ── CSS Tooltip ── */
+
+.sidebar-navbar.collapsed .nav-tab::after {
+    content         : attr(title);
+    position        : absolute;
+    left            : calc(100% + 10px);
+    top             : 50%;
+    transform       : translateY(-50%) scale(0.92);
+    background      : rgba(15,15,25,.90);
+    color           : #fff;
+    font-size       : 12px;
+    font-weight     : 500;
+    white-space     : nowrap;
+    padding         : 5px 10px;
+    border-radius   : 7px;
+    pointer-events  : none;
+    opacity         : 0;
+    transition      : opacity .18s ease, transform .18s ease;
+    box-shadow      : 0 4px 14px rgba(0,0,0,.32);
+    border          : 1px solid rgba(255,255,255,.10);
+    z-index         : 9999;
+    backdrop-filter : blur(6px);
+}
+
+.sidebar-navbar.collapsed .nav-tab::before {
+    content            : '';
+    position           : absolute;
+    left               : calc(100% + 4px);
+    top                : 50%;
+    transform          : translateY(-50%);
+    border             : 5px solid transparent;
+    border-right-color : rgba(15,15,25,.90);
+    pointer-events     : none;
+    opacity            : 0;
+    transition         : opacity .18s ease;
+    z-index            : 9999;
+}
+
+.sidebar-navbar.collapsed .nav-tab:hover::after {
+    opacity   : 1;
+    transform : translateY(-50%) scale(1);
+}
+.sidebar-navbar.collapsed .nav-tab:hover::before {
+    opacity : 1;
+}
+
+
+.sidebar-navbar:not(.collapsed) .nav-tab::after,
+.sidebar-navbar:not(.collapsed) .nav-tab::before {
+    display : none;
+}
+
+
+
+/* ================================================================
+   FOOTER
+   Expanded  : [btn ‹]  [logo]  [text ···············]
+   Collapsed : [btn ›]  [logo]   — text hidden
+   Arrow is LEFT of logo in both states
+   ================================================================ */
+.sidebar-footer {
+    display        : flex;
+    align-items    : center;
+    gap            : 8px;
+    padding        : 10px 12px;
+    border-top     : 1px solid rgba(255,255,255,.10);
+    background     : rgba(0,0,0,.22);
+    flex-shrink    : 0;             /* ← key: never shrinks, always at bottom */
+    overflow       : hidden;
+    white-space    : nowrap;
+    transition     : padding .28s, gap .28s;
+    margin-top     : auto;          /* ← pushes footer to bottom when nav is short */
+}
+
+.sidebar-navbar.collapsed .nav-sections {
+    overflow        : visible;   /* collapsed = no subitems = no scroll needed */
+}
+
+.nav-sections {
+    overflow-x      : hidden;
+    overflow-y      : auto;
+    overflow-clip-margin : 0;
+}
+
+.nav-sections::-webkit-scrollbar {
+    display : block;                /* ← was: none */
+    width   : 3px;
+}
+.nav-sections::-webkit-scrollbar-track {
+    background : transparent;
+}
+.nav-sections::-webkit-scrollbar-thumb {
+    background    : rgba(255,255,255,.22);
+    border-radius : 3px;
+}
+.nav-sections::-webkit-scrollbar-thumb:hover {
+    background : rgba(255,255,255,.40);
+}
+
+/* Firefox */
+.nav-sections {
+    scrollbar-width : thin;
+    scrollbar-color : rgba(255,255,255,.22) transparent;
+}
+
+
+/* ── Collapse button — LEFT of logo ── */
+.sidebar-collapse-btn {
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+    width           : 22px;
+    height          : 22px;
+    flex-shrink     : 0;
+    order           : 3;           /* always first / leftmost */
+    margin-left     : 0;
+    margin-right    : 0;
+    background      : rgba(255,255,255,.12);
+    border          : 1px solid rgba(255,255,255,.22);
+    border-radius   : 6px;
+    cursor          : pointer;
+    padding         : 0;
+    transition      : background .18s, transform .14s;
+    position        : relative;
+    overflow        : hidden;
+}
+.sidebar-collapse-btn::before {
+    content        : '';
+    position       : absolute;
+    inset          : 0;
+    border-radius  : 6px;
+    background     : linear-gradient(135deg, rgba(255,255,255,.18) 0%, transparent 60%);
+    pointer-events : none;
+}
+.sidebar-collapse-btn:hover {
+    background : rgba(255,255,255,.24);
+}
+.sidebar-collapse-btn:active { transform: scale(0.93); }
+
+.collapse-arrow-icon {
+    width      : 12px;
+    height     : 12px;
+    color      : rgba(255,255,255,.92);
+    flex-shrink: 0;
+    transition : transform .30s cubic-bezier(.4,0,.2,1);
+}
+/* Arrow points left (‹) when expanded, right (›) when collapsed */
+.sidebar-navbar.collapsed .collapse-arrow-icon {
+    transform: rotate(180deg);
+}
+
+/* Logo — second item */
+.sidebar-footer__logo {
+    width         : 26px;
+    height        : 26px;
+    border-radius : 50%;
+    object-fit    : cover;
+    flex-shrink   : 0;
+    order         : 1;
+    border        : 1px solid rgba(255,255,255,.22);
+    transition    : width .26s, height .26s;
+}
+
+/* Text — third item */
+.sidebar-footer__text {
+    display        : flex;
+    flex-direction : column;
+    gap            : 1px;
+    flex           : 1;
+    overflow       : hidden;
+    order          : 2;
+    transition     : opacity .20s, max-width .26s;
+    max-width      : 140px;
+}
+.sidebar-footer__copy {
+    font-size    : 10.5px;
+    font-weight  : 600;
+    color        : rgba(255,255,255,.85);
+    white-space  : nowrap;
+    overflow     : hidden;
+    text-overflow: ellipsis;
+}
+.sidebar-footer__rights {
+    font-size    : 9.5px;
+    color        : rgba(255,255,255,.45);
+    white-space  : nowrap;
+    overflow     : hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── Collapsed footer — btn + logo only, text gone ── */
+.sidebar-navbar.collapsed .sidebar-footer {
+    justify-content : center;
+    padding         : 10px 4px;
+    gap             : 6px;
+}
+
+.sidebar-navbar.collapsed .sidebar-footer__logo {
+    width  : 22px;
+    height : 22px;
+}
+.sidebar-navbar.collapsed .sidebar-footer__text {
+    opacity   : 0;
+    max-width : 0;
+    overflow  : hidden;
+    flex      : 0;
+    margin    : 0;
+    padding   : 0;
+}
+.sidebar-navbar.collapsed .sidebar-collapse-btn {
+    width  : 20px;
+    height : 20px;
+}
+.sidebar-navbar.collapsed .collapse-arrow-icon {
+    width  : 11px;
+    height : 11px;
+}
+
+
+/* ================================================================
+   COLLAPSED HEADER
+   ================================================================ */
+.sidebar-navbar.collapsed .sidebar-header {
+    padding         : 10px 0;
+    justify-content : center;
+    min-height      : 52px;
+}
+.sidebar-navbar.collapsed .sidebar-header .logo-section {
+    display         : flex;
+    justify-content : center;
+    align-items     : center;
+    gap             : 0;
+    width           : 100%;
+}
+.sidebar-navbar.collapsed .sidebar-header .logo-section img {
+    width         : 30px;
+    height        : 30px;
+    border-radius : 50%;
+    display       : block !important;
+    opacity       : 1 !important;
+}
+.sidebar-navbar.collapsed .sidebar-header .logo-section > div:last-child {
+    display: none;
+}
+.sidebar-navbar.collapsed .logo-section {
+    opacity        : 1 !important;
+    pointer-events : auto !important;
+    width          : 56px;
+}

@@ -1,0 +1,314 @@
+/* ================================================================
+   common/static/common/css/pf_select.css
+   Searchable select component for profile_form fields.
+   Matches the Form Design panel dropdown style exactly.
+   All colors use CSS variables from colors.css.
+   ================================================================ */
+
+/* ── Wrapper ────────────────────────────────────────────────── */
+.pf-sel-wrap {
+    position: relative;
+    width: 100%;
+    font-family: inherit;
+}
+
+/* ── Trigger (the visible "input" that shows selected value) ─── */
+.pf-sel-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    width: 100%;
+    height: 30px;
+    padding: 4px 9px;
+    border: 1px solid var(--color-border-medium, #ccc);
+    border-radius: var(--radius-xs, 4px);
+    background: var(--color-form-input-bg, #fff);
+    color: var(--color-form-input-text, #222);
+    font-size: 12.5px;
+    font-family: inherit;
+    cursor: pointer;
+    user-select: none;
+    box-sizing: border-box;
+    transition: border-color .15s, box-shadow .15s;
+    outline: none;
+}
+.pf-sel-trigger:hover {
+    border-color: var(--color-form-input-border-focus, var(--color-primary));
+}
+.pf-sel-trigger.open,
+.pf-sel-trigger:focus-within {
+    border-color: var(--color-form-input-border-focus, var(--color-primary));
+    box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb, 99,102,241), .12);
+}
+
+.pf-sel-val {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    font-size: 12.5px;
+}
+.pf-sel-arr {
+    font-size: 10px;
+    color: var(--color-text-muted, #aaa);
+    flex-shrink: 0;
+    transition: transform .15s;
+}
+.pf-sel-trigger.open .pf-sel-arr {
+    transform: rotate(180deg);
+}
+
+/* ── Popup ──────────────────────────────────────────────────── */
+.pf-sel-popup {
+    display: none;
+    position: absolute;
+    top: calc(100% + 3px);
+    left: 0;
+    right: 0;
+    z-index: 8800;
+    background: var(--color-bg-secondary, #fff);
+    border: 1px solid var(--color-primary, #7c3aed);
+    border-radius: var(--radius-small, 6px);
+    box-shadow: 0 6px 22px rgba(0,0,0,.14);
+    overflow: hidden;
+    min-width: 160px;
+}
+.pf-sel-popup.open {
+    display: block;
+    
+}
+
+/* ── Search input inside popup ──────────────────────────────── */
+.pf-sel-search {
+    display: block;
+    width: 100%;
+    padding: 7px 10px;
+    border: none;
+    border-bottom: 1px solid var(--color-border-light, #e5e7eb);
+    background: var(--color-bg-tertiary, #f9fafb);
+    color: var(--color-text-primary, #111);
+    font-size: 12px;
+    font-family: inherit;
+    outline: none;
+    box-sizing: border-box;
+}
+.pf-sel-search:focus {
+    border-bottom-color: var(--color-primary, #7c3aed);
+    background: var(--color-bg-secondary, #fff);
+}
+.pf-sel-search::placeholder {
+    color: var(--color-text-muted, #9ca3af);
+    font-style: italic;
+}
+
+/* ── Options list ───────────────────────────────────────────── */
+.pf-sel-list {
+    max-height: 210px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+.pf-sel-list::-webkit-scrollbar       { width: 4px; }
+.pf-sel-list::-webkit-scrollbar-thumb { background: var(--color-primary, #7c3aed); border-radius: 2px; }
+
+/* ── Individual option ──────────────────────────────────────── */
+.pf-sel-opt {
+    padding: 7px 12px;
+    font-size: 12.5px;
+    color: var(--color-text-primary, #111);
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background .08s, border-color .08s;
+}
+.pf-sel-opt:hover {
+    background: var(--color-bg-tertiary, #f3f4f6);
+    border-left-color: var(--color-primary, #7c3aed);
+}
+.pf-sel-opt.selected {
+    background: var(--color-primary, #7c3aed);
+    color: #fff;
+    border-left-color: var(--color-primary, #7c3aed);
+    font-weight: 600;
+}
+
+/* No-match message */
+.pf-sel-opt.pf-sel-no-match {
+    color: var(--color-text-muted, #9ca3af);
+    cursor: default;
+    font-style: italic;
+    border-left-color: transparent !important;
+    background: transparent !important;
+    font-weight: normal;
+}
+
+/* ── Keyboard-navigation highlight ─────────────────────────── */
+/* Mirrors the hover style so mouse and keyboard feel identical.
+   Declared after :hover so it wins on keyboard-only interaction,
+   but .selected still wins (declared after this block). */
+.pf-sel-opt.pf-sel-highlighted {
+    background: var(--color-bg-tertiary, #f3f4f6);
+    border-left-color: var(--color-primary, #7c3aed);
+}
+/* When the highlighted item is also the currently selected one,
+   keep the solid primary background — don't dim it. */
+.pf-sel-opt.pf-sel-highlighted.selected {
+    background: var(--color-primary, #7c3aed);
+    color: #fff;
+}
+
+/* ── "Add: <query>" custom-value row ────────────────────────── */
+.pf-sel-add-new {
+    font-style: italic;
+    color: var(--color-primary, #7c3aed);
+    opacity: 0.85;
+}
+.pf-sel-add-new::before {
+    content: '＋ ';
+    font-style: normal;
+    opacity: 0.7;
+}
+.pf-sel-add-new:hover,
+.pf-sel-add-new.pf-sel-highlighted {
+    background: var(--color-bg-tertiary, #f3f4f6);
+    border-left-color: var(--color-primary, #7c3aed);
+    opacity: 1;
+}
+
+/* ── Inside .pf-hf-ctl (header strip fields) ────────────────── */
+.pf-hf-ctl .pf-sel-trigger {
+    height: 30px;
+}
+
+/* ── Disabled state ─────────────────────────────────────────── */
+.pf-sel-wrap[data-disabled="1"] .pf-sel-trigger {
+    background: var(--color-disabled-bg, #f5f5f5);
+    color: var(--color-disabled-text, #aaa);
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+
+.pf-mchk-wrap {
+    position: relative;
+    width: 100%;
+    font-family: inherit;
+}
+ 
+.pf-mchk-popup {
+    display: none;
+    position: absolute;
+    top: calc(100% + 3px);
+    left: 0;
+    min-width: 180px;
+    min-width: 200px;
+    max-width: 360px;
+    z-index: 9900;
+    background: var(--color-bg-secondary, #fff);
+    border: 1px solid var(--color-primary, #7c3aed);
+    border-radius: var(--radius-small, 6px);
+    box-shadow: 0 6px 22px rgba(0,0,0,.14);
+    overflow: hidden;
+}
+ 
+.pf-mchk-popup.open {
+    display: block;
+}
+ 
+.pf-mchk-list {
+    max-height: 220px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+.pf-mchk-list::-webkit-scrollbar       { width: 4px; }
+.pf-mchk-list::-webkit-scrollbar-thumb { background: var(--color-primary, #7c3aed); border-radius: 2px; }
+ 
+.pf-mchk-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 12.5px;
+    color: var(--color-text-primary, #222);
+    border-left: 3px solid transparent;
+    transition: background .08s, border-color .08s;
+}
+ 
+.pf-mchk-item:hover {
+    background: var(--color-bg-tertiary, #f3f4f6);
+    border-left-color: var(--color-primary, #7c3aed);
+}
+ 
+.pf-mchk-item.pf-mchk-checked {
+    background: var(--color-primary, #7c3aed);
+    color: #fff;
+    border-left-color: var(--color-primary, #7c3aed);
+}
+ 
+.pf-mchk-item.pf-mchk-checked:hover {
+    opacity: 0.9;
+}
+ 
+.pf-mchk-chk {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    accent-color: #fff;
+    cursor: pointer;
+    margin: 0;
+    pointer-events: none;
+}
+ 
+.pf-mchk-item:not(.pf-mchk-checked) .pf-mchk-chk {
+    accent-color: var(--color-primary, #7c3aed);
+}
+ 
+.pf-mchk-lbl {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+}
+ 
+.pf-mchk-clear-bar {
+    display: flex;
+    justify-content: flex-end;
+    padding: 3px 10px 3px;
+    border-bottom: 1px solid var(--color-border-light, #eee);
+    background: var(--color-bg-tertiary, #f9fafb);
+}
+ 
+.pf-mchk-clear-link {
+    font-size: 11px;
+    color: var(--color-primary, #7c3aed);
+    cursor: pointer;
+    opacity: 0.75;
+    transition: opacity 0.15s;
+}
+ 
+.pf-mchk-clear-link:hover {
+    opacity: 1;
+    text-decoration: underline;
+}
+ 
+.pf-mchk-trigger .pf-sel-val {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+ 
+.pf-mchk-trigger.pf-sel-trigger {
+    height: 30px;
+}
+
+.pf-sel-opt.pf-sel-disabled {
+    opacity: .45;
+    cursor: not-allowed;
+    pointer-events: none;
+}

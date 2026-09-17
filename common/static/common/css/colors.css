@@ -1,0 +1,399 @@
+/* ================================================================
+   CENTRALIZED COLOR SYSTEM  v3.0
+   common/static/common/css/colors.css
+
+   THEME SWITCHING:
+     Default (red-white) — no attribute needed
+     Blue   → <html data-theme="blue-white">
+     Purple → <html data-theme="purple-white">
+     Green  → <html data-theme="green-white">
+     Teal   → <html data-theme="teal-white">
+
+   HOW TO SWITCH IN DJANGO:
+     <html data-theme="{{ user_preferences.theme|default:'red-white' }}">
+   ================================================================ */
+
+
+/* ════════════════════════════════════════════════════════════
+   RED-WHITE  (default — matches your banking app screenshots)
+   ════════════════════════════════════════════════════════════ */
+:root,
+:root[data-theme="red-white"] {
+
+    /* ── Primary Brand ────────────────────────────────────── */
+    --color-primary:                  #c0123c;
+    --color-primary-dark:             #960e2f;
+    --color-primary-darker:           #6e0922;
+    --color-primary-light:            #e01647;
+    --color-primary-rgb:              192, 18, 60;   /* for rgba() usage */
+
+    /* ── Gradients ────────────────────────────────────────── */
+    --gradient-primary:               linear-gradient(135deg, #c0123c 0%, #8b0d2b 100%);
+    --gradient-sidebar:               linear-gradient(180deg, #c0123c 0%, #960e2f 55%, #6e0922 100%);
+    --gradient-progress:              linear-gradient(90deg,  #c0123c 0%, #e8184d 100%);
+    --gradient-success:               linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+    --gradient-danger:                linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    --gradient-warning:               linear-gradient(135deg, #d97706 0%, #b45309 100%);
+    --gradient-info:                  linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+
+    /* ── Sidebar ──────────────────────────────────────────── */
+    --color-sidebar-header-bg:        rgba(0,0,0,0.16);
+    --color-sidebar-item-hover:       rgba(255,255,255,0.12);
+    --color-sidebar-item-active:      rgba(255,255,255,0.20);
+    --color-sidebar-subitem-bg:       rgba(110,9,34,0.96);
+    --color-sidebar-text:             #ffffff;
+
+    /* ── Accent ───────────────────────────────────────────── */
+    --color-accent-gold:              #ffd700;
+    --color-accent-red:               #ff4757;
+    --color-accent-blue:              #3b82f6;
+    --color-accent-green:             #22c55e;
+    --color-accent-orange:            #f97316;
+
+    /* ── Backgrounds ──────────────────────────────────────── */
+    --color-bg-primary:               #f4f5f7;
+    --color-bg-secondary:             #ffffff;
+    --color-bg-tertiary:              #f8f9fa;
+    --color-bg-card:                  #ffffff;
+    --color-bg-overlay:               rgba(0,0,0,0.46);
+
+    /* ── Text ─────────────────────────────────────────────── */
+    --color-text-primary:             #1a1a2e;
+    --color-text-secondary:           #555566;
+    --color-text-tertiary:            #888899;
+    --color-text-muted:               #aaaabc;
+    --color-text-white:               #ffffff;
+    --color-text-link:                #c0123c;
+    --color-text-link-hover:          #960e2f;
+
+    /* ── Borders ──────────────────────────────────────────── */
+    --color-border-light:             #e4e4ec;
+    --color-border-medium:            #d0d0de;
+    --color-border-dark:              #b8b8cc;
+    --color-border-primary:           #c0123c;
+
+    /* ── Buttons ──────────────────────────────────────────── */
+    --color-btn-primary-bg:           #c0123c;
+    --color-btn-primary-hover:        #960e2f;
+    --color-btn-primary-text:         #ffffff;
+
+    --color-btn-success-bg:           #16a34a;
+    --color-btn-success-hover:        #15803d;
+    --color-btn-success-text:         #ffffff;
+
+    --color-btn-danger-bg:            #dc2626;
+    --color-btn-danger-hover:         #b91c1c;
+    --color-btn-danger-text:          #ffffff;
+
+    --color-btn-warning-bg:           #d97706;
+    --color-btn-warning-hover:        #b45309;
+    --color-btn-warning-text:         #ffffff;
+
+    --color-btn-secondary-bg:         #6b7280;
+    --color-btn-secondary-hover:      #4b5563;
+    --color-btn-secondary-text:       #ffffff;
+
+    --color-btn-info-bg:              #2563eb;
+    --color-btn-info-hover:           #1d4ed8;
+    --color-btn-info-text:            #ffffff;
+
+    /* ── Stat cards ───────────────────────────────────────── */
+    --color-stat-card-1:              #c0123c;
+    --color-stat-card-2:              #2563eb;
+    --color-stat-card-3:              #16a34a;
+    --color-stat-card-4:              #d97706;
+
+    /* ── Alert/message colours ────────────────────────────── */
+    --color-alert-success-bg:         #dcfce7;
+    --color-alert-success-border:     #16a34a;
+    --color-alert-success-text:       #14532d;
+
+    --color-alert-error-bg:           #fee2e2;
+    --color-alert-error-border:       #dc2626;
+    --color-alert-error-text:         #7f1d1d;
+
+    --color-alert-warning-bg:         #fef9c3;
+    --color-alert-warning-border:     #d97706;
+    --color-alert-warning-text:       #78350f;
+
+    --color-alert-info-bg:            #dbeafe;
+    --color-alert-info-border:        #2563eb;
+    --color-alert-info-text:          #1e3a8a;
+
+    /* Alert modal icon ring colours */
+    --color-ring-error-bg:            #fdeaed;
+    --color-ring-success-bg:          #dcfce7;
+    --color-ring-warning-bg:          #fef9c3;
+    --color-ring-info-bg:             #dbeafe;
+
+    /* ── Form elements ────────────────────────────────────── */
+    --color-form-input-bg:            #ffffff;
+    --color-form-input-border:        #d0d0de;
+    --color-form-input-border-focus:  #c0123c;
+    --color-form-input-text:          #1a1a2e;
+    --color-form-input-placeholder:   #9999aa;
+    --color-form-label-text:          #444455;
+    --color-form-label-required:      #dc2626;
+
+    /* ── Table ────────────────────────────────────────────── */
+    --color-table-header-bg:          #f8f9fa;
+    --color-table-header-text:        #1a1a2e;
+    --color-table-row-even:           #ffffff;
+    --color-table-row-odd:            #fafafa;
+    --color-table-row-hover:          #f0f4ff;
+    --color-table-border:             #e4e4ec;
+
+    /* ── Footer ───────────────────────────────────────────── */
+    --color-footer-bg:                #ffffff;
+    --color-footer-border:            #e4e4ec;
+    --color-footer-text:              #666677;
+    --color-footer-progress-bg:       #e9ecef;
+
+    /* ── Minimized chips ──────────────────────────────────── */
+    --color-minimized-bg:             #ffffff;
+    --color-minimized-border:         #e4e4ec;
+    --color-minimized-hover:          #f5f5fa;
+
+    /* ── Dropdown ─────────────────────────────────────────── */
+    --color-dropdown-bg:              #ffffff;
+    --color-dropdown-border:          #e4e4ec;
+    --color-dropdown-hover:           #f5f0ff;
+
+    /* ── Disabled state ───────────────────────────────────── */
+    --color-disabled-bg:              #f0f0f5;
+    --color-disabled-text:            #9999aa;
+    --color-disabled-border:          #d0d0de;
+
+    /* ── Scrollbar ────────────────────────────────────────── */
+    --color-scrollbar-track:          #f4f5f7;
+    --color-scrollbar-thumb:          #c8c8d8;
+    --color-scrollbar-thumb-hover:    #9999aa;
+    --color-scrollbar-sidebar:        rgba(255,255,255,0.28);
+
+    /* ── Shadows ──────────────────────────────────────────── */
+    --shadow-xs:                      0 1px 3px rgba(0,0,0,0.08);
+    --shadow-small:                   0 2px 6px rgba(0,0,0,0.10);
+    --shadow-medium:                  0 4px 16px rgba(0,0,0,0.09);
+    --shadow-large:                   0 10px 40px rgba(0,0,0,0.16);
+    --shadow-primary:                 0 3px 12px rgba(192,18,60,0.28);
+    --shadow-dropdown:                0 10px 32px rgba(0,0,0,0.18);
+
+    /* ── Hover overlays ───────────────────────────────────── */
+    --color-hover-overlay:            rgba(0,0,0,0.05);
+    --color-hover-primary:            rgba(192,18,60,0.08);
+
+    /* ── Border radius ────────────────────────────────────── */
+    --radius-xs:                      3px;
+    --radius-small:                   6px;
+    --radius-medium:                  10px;
+    --radius-large:                   14px;
+    --radius-xl:                      20px;
+    --radius-pill:                    50px;
+    --radius-circle:                  50%;
+
+    /* ── Spacing ──────────────────────────────────────────── */
+    --spacing-xs:    4px;
+    --spacing-sm:    8px;
+    --spacing-md:   14px;
+    --spacing-lg:   20px;
+    --spacing-xl:   30px;
+    --spacing-xxl:  48px;
+
+    /* ── Z-Index layers ───────────────────────────────────── */
+    --z-sidebar:          100;
+    --z-header:            90;
+    --z-footer:          9997;
+    --z-modal-overlay:   9998;
+    --z-modal:           9999;
+    --z-dropdown:       10000;
+    --z-toast:          10500;
+    --z-messages:       10002;
+
+    /* ── Transitions ──────────────────────────────────────── */
+    --transition-fast:    .13s ease;
+    --transition-normal:  .20s ease;
+    --transition-medium:  .30s ease;
+    --transition-slow:    .45s ease;
+}
+
+
+/* ════════════════════════════════════════════════════════════
+   PURPLE-WHITE
+   ════════════════════════════════════════════════════════════ */
+:root[data-theme="purple-white"] {
+    --color-primary:                  #7c3aed;
+    --color-primary-dark:             #6d28d9;
+    --color-primary-darker:           #5b21b6;
+    --color-primary-light:            #8b5cf6;
+    --color-primary-rgb:              124, 58, 237;
+
+    --gradient-primary:               linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+    --gradient-sidebar:               linear-gradient(180deg, #7c3aed 0%, #6d28d9 55%, #4c1d95 100%);
+    --gradient-progress:              linear-gradient(90deg,  #7c3aed 0%, #a78bfa 100%);
+
+    --color-sidebar-header-bg:        rgba(0,0,0,0.14);
+    --color-sidebar-item-hover:       rgba(255,255,255,0.11);
+    --color-sidebar-item-active:      rgba(255,255,255,0.18);
+    --color-sidebar-subitem-bg:       rgba(76,29,149,0.97);
+
+    --color-text-link:                #7c3aed;
+    --color-text-link-hover:          #6d28d9;
+    --color-border-primary:           #7c3aed;
+
+    --color-btn-primary-bg:           #7c3aed;
+    --color-btn-primary-hover:        #6d28d9;
+    --color-form-input-border-focus:  #7c3aed;
+
+    --color-stat-card-1:              #7c3aed;
+    --shadow-primary:                 0 3px 12px rgba(124,58,237,0.28);
+    --color-hover-primary:            rgba(124,58,237,0.08);
+
+    --color-ring-error-bg:            #fdeaed;
+    --color-ring-success-bg:          #dcfce7;
+    --color-ring-warning-bg:          #fef9c3;
+    --color-ring-info-bg:             #ede9fe;
+}
+
+
+/* ════════════════════════════════════════════════════════════
+   BLUE-WHITE
+   ════════════════════════════════════════════════════════════ */
+:root[data-theme="blue-white"] {
+    --color-primary:                  #1d4ed8;
+    --color-primary-dark:             #1e40af;
+    --color-primary-darker:           #1e3a8a;
+    --color-primary-light:            #2563eb;
+    --color-primary-rgb:              29, 78, 216;
+
+    --gradient-primary:               linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    --gradient-sidebar:               linear-gradient(180deg, #2563eb 0%, #1d4ed8 55%, #1e3a8a 100%);
+    --gradient-progress:              linear-gradient(90deg,  #2563eb 0%, #60a5fa 100%);
+
+    --color-sidebar-header-bg:        rgba(0,0,0,0.14);
+    --color-sidebar-item-hover:       rgba(255,255,255,0.11);
+    --color-sidebar-item-active:      rgba(255,255,255,0.18);
+    --color-sidebar-subitem-bg:       rgba(30,58,138,0.97);
+
+    --color-text-link:                #2563eb;
+    --color-text-link-hover:          #1d4ed8;
+    --color-border-primary:           #2563eb;
+
+    --color-btn-primary-bg:           #2563eb;
+    --color-btn-primary-hover:        #1d4ed8;
+    --color-form-input-border-focus:  #2563eb;
+
+    --color-stat-card-1:              #2563eb;
+    --shadow-primary:                 0 3px 12px rgba(37,99,235,0.28);
+    --color-hover-primary:            rgba(37,99,235,0.08);
+
+    --color-ring-info-bg:             #dbeafe;
+}
+
+
+/* ════════════════════════════════════════════════════════════
+   GREEN-WHITE
+   ════════════════════════════════════════════════════════════ */
+:root[data-theme="green-white"] {
+    --color-primary:                  #15803d;
+    --color-primary-dark:             #166534;
+    --color-primary-darker:           #14532d;
+    --color-primary-light:            #16a34a;
+    --color-primary-rgb:              21, 128, 61;
+
+    --gradient-primary:               linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+    --gradient-sidebar:               linear-gradient(180deg, #16a34a 0%, #15803d 55%, #14532d 100%);
+    --gradient-progress:              linear-gradient(90deg,  #16a34a 0%, #4ade80 100%);
+
+    --color-sidebar-header-bg:        rgba(0,0,0,0.14);
+    --color-sidebar-item-hover:       rgba(255,255,255,0.11);
+    --color-sidebar-item-active:      rgba(255,255,255,0.18);
+    --color-sidebar-subitem-bg:       rgba(20,83,45,0.97);
+
+    --color-text-link:                #15803d;
+    --color-text-link-hover:          #166534;
+    --color-border-primary:           #16a34a;
+
+    --color-btn-primary-bg:           #16a34a;
+    --color-btn-primary-hover:        #15803d;
+    --color-form-input-border-focus:  #16a34a;
+
+    --color-stat-card-1:              #15803d;
+    --shadow-primary:                 0 3px 12px rgba(21,128,61,0.28);
+    --color-hover-primary:            rgba(21,128,61,0.08);
+}
+
+
+/* ════════════════════════════════════════════════════════════
+   TEAL-WHITE
+   ════════════════════════════════════════════════════════════ */
+:root[data-theme="teal-white"] {
+    --color-primary:                  #0f766e;
+    --color-primary-dark:             #0d6b63;
+    --color-primary-darker:           #115e59;
+    --color-primary-light:            #14b8a6;
+    --color-primary-rgb:              15, 118, 110;
+
+    --gradient-primary:               linear-gradient(135deg, #14b8a6 0%, #0f766e 100%);
+    --gradient-sidebar:               linear-gradient(180deg, #14b8a6 0%, #0f766e 55%, #115e59 100%);
+    --gradient-progress:              linear-gradient(90deg,  #14b8a6 0%, #5eead4 100%);
+
+    --color-sidebar-header-bg:        rgba(0,0,0,0.14);
+    --color-sidebar-item-hover:       rgba(255,255,255,0.11);
+    --color-sidebar-item-active:      rgba(255,255,255,0.18);
+    --color-sidebar-subitem-bg:       rgba(17,94,89,0.97);
+
+    --color-text-link:                #0f766e;
+    --color-text-link-hover:          #0d6b63;
+    --color-border-primary:           #14b8a6;
+
+    --color-btn-primary-bg:           #14b8a6;
+    --color-btn-primary-hover:        #0f766e;
+    --color-form-input-border-focus:  #14b8a6;
+
+    --color-stat-card-1:              #0f766e;
+    --shadow-primary:                 0 3px 12px rgba(15,118,110,0.28);
+    --color-hover-primary:            rgba(15,118,110,0.08);
+}
+
+
+/* ════════════════════════════════════════════════════════════
+   DARK MODE  (opt-in with data-theme="dark")
+   ════════════════════════════════════════════════════════════ */
+:root[data-theme="dark"] {
+    --color-bg-primary:               #0f0f14;
+    --color-bg-secondary:             #1a1a24;
+    --color-bg-tertiary:              #22222e;
+    --color-bg-card:                  #1a1a24;
+
+    --color-text-primary:             #e8e8f0;
+    --color-text-secondary:           #a8a8c0;
+    --color-text-tertiary:            #7070a0;
+    --color-text-muted:               #505078;
+
+    --color-border-light:             #2a2a40;
+    --color-border-medium:            #383858;
+    --color-border-dark:              #484870;
+
+    --color-form-input-bg:            #1a1a24;
+    --color-form-input-border:        #383858;
+    --color-form-input-text:          #e8e8f0;
+    --color-form-input-placeholder:   #606080;
+
+    --color-table-header-bg:          #22222e;
+    --color-table-row-even:           #1a1a24;
+    --color-table-row-odd:            #1e1e2a;
+    --color-table-row-hover:          #2a2a3e;
+    --color-table-border:             #2a2a40;
+
+    --color-footer-bg:                #1a1a24;
+    --color-footer-border:            #2a2a40;
+    --color-footer-text:              #a8a8c0;
+
+    --color-dropdown-bg:              #1a1a24;
+    --color-dropdown-border:          #2a2a40;
+    --color-dropdown-hover:           #22223a;
+
+    --color-scrollbar-track:          #1a1a24;
+    --color-scrollbar-thumb:          #383858;
+    --color-scrollbar-thumb-hover:    #4a4a70;
+}

@@ -1,0 +1,149 @@
+{# _tf_field.html — renders ONE field element based on field.type #}
+{# data-tabindex is used by tabbed_form.js for Tab/Enter navigation  #}
+
+{% if field.type == '1' or field.type == 'text' %}
+    <input type="text" name="{{ field.name }}" id="id_{{ field.name }}"
+           {% if field.tabIndex %}data-tabindex="{{ field.tabIndex }}"{% endif %}
+           placeholder="{{ field.placeholder|default:'' }}"
+           {% if field.required %}required{% endif %}
+           {% if field.value %}value="{{ field.value }}"{% endif %}>
+
+{% elif field.type == '2' or field.type == 'number' %}
+    <input type="number" name="{{ field.name }}" id="id_{{ field.name }}"
+           {% if field.tabIndex %}data-tabindex="{{ field.tabIndex }}"{% endif %}
+           placeholder="{{ field.placeholder|default:'0' }}"
+           step="{{ field.step|default:'0.01' }}"
+           {% if field.min is not None %}min="{{ field.min }}"{% endif %}
+           {% if field.max is not None %}max="{{ field.max }}"{% endif %}
+           {% if field.required %}required{% endif %}
+           {% if field.value %}value="{{ field.value }}"{% endif %}
+           {% if field.oninput %}oninput="{{ field.oninput }}"{% endif %}>
+
+{% elif field.type == '3' or field.type == 'select' %}
+    <select name="{{ field.name }}" id="id_{{ field.name }}"
+            {% if field.tabIndex %}data-tabindex="{{ field.tabIndex }}"{% endif %}
+            {% if field.required %}required{% endif %}>
+        {% for opt in field.options %}
+        <option value="{{ opt.value }}"
+                {% if field.value == opt.value|stringformat:'s' %}selected{% endif %}>
+            {{ opt.label }}
+        </option>
+        {% endfor %}
+    </select>
+
+{% elif field.type == '4' or field.type == 'file' %}
+    <input type="file" name="{{ field.name }}" id="id_{{ field.name }}"
+           {% if field.tabIndex %}data-tabindex="{{ field.tabIndex }}"{% endif %}
+           {% if field.accept %}accept="{{ field.accept }}"{% endif %}
+           {% if field.required %}required{% endif %}
+           {% if field.onchange %}onchange="{{ field.onchange }}"{% endif %}>
+
+{% elif field.type == '5' or field.type == 'textarea' %}
+    <textarea name="{{ field.name }}" id="id_{{ field.name }}"
+              {% if field.tabIndex %}data-tabindex="{{ field.tabIndex }}"{% endif %}
+              rows="{{ field.rows|default:3 }}"
+              placeholder="{{ field.placeholder|default:'' }}"
+              {% if field.required %}required{% endif %}>{{ field.value|default:'' }}</textarea>
+
+{% elif field.type == '6' or field.type == 'date' %}
+    {% include "common/includes/datepicker.html" with field=field %}
+
+{% elif field.type == '7' or field.type == 'time' %}
+    <input type="time" name="{{ field.name }}" id="id_{{ field.name }}"
+           {% if field.tabIndex %}data-tabindex="{{ field.tabIndex }}"{% endif %}
+           {% if field.required %}required{% endif %}
+           {% if field.value %}value="{{ field.value }}"{% endif %}>
+
+{% elif field.type == '8' or field.type == 'datetime-local' %}
+    <input type="datetime-local" name="{{ field.name }}" id="id_{{ field.name }}"
+           {% if field.tabIndex %}data-tabindex="{{ field.tabIndex }}"{% endif %}
+           {% if field.required %}required{% endif %}
+           {% if field.value %}value="{{ field.value }}"{% endif %}>
+
+{% elif field.type == '9' or field.type == 'month' %}
+    <input type="month" name="{{ field.name }}" id="id_{{ field.name }}"
+           {% if field.tabIndex %}data-tabindex="{{ field.tabIndex }}"{% endif %}
+           {% if field.required %}required{% endif %}
+           {% if field.value %}value="{{ field.value }}"{% endif %}>
+
+{% elif field.type == '10' or field.type == 'checkbox' %}
+    <div class="tf-check-wrap">
+        <input type="checkbox" name="{{ field.name }}" id="id_{{ field.name }}"
+               {% if field.tabIndex %}data-tabindex="{{ field.tabIndex }}"{% endif %}
+               {% if field.required %}required{% endif %}
+               {% if field.value %}checked{% endif %}>
+        {% if field.checkbox_label %}
+        <label for="id_{{ field.name }}" class="tf-check-lbl">{{ field.checkbox_label }}</label>
+        {% endif %}
+    </div>
+
+{% elif field.type == '11' or field.type == 'radio' %}
+    <div class="tf-radio-group">
+        {% for opt in field.options %}
+        <label class="tf-radio-lbl">
+            <input type="radio" name="{{ field.name }}" value="{{ opt.value }}"
+                   {% if field.tabIndex %}data-tabindex="{{ field.tabIndex }}"{% endif %}
+                   {% if field.value == opt.value %}checked{% endif %}
+                   {% if field.required %}required{% endif %}>
+            {{ opt.label }}
+        </label>
+        {% endfor %}
+    </div>
+
+{% elif field.type == '12' or field.type == 'password' %}
+    <input type="password" name="{{ field.name }}" id="id_{{ field.name }}"
+           {% if field.tabIndex %}data-tabindex="{{ field.tabIndex }}"{% endif %}
+           placeholder="{{ field.placeholder|default:'' }}"
+           {% if field.required %}required{% endif %}>
+
+{% elif field.type == '13' or field.type == 'email' %}
+    <input type="email" name="{{ field.name }}" id="id_{{ field.name }}"
+           {% if field.tabIndex %}data-tabindex="{{ field.tabIndex }}"{% endif %}
+           placeholder="{{ field.placeholder|default:'' }}"
+           {% if field.required %}required{% endif %}
+           {% if field.value %}value="{{ field.value }}"{% endif %}>
+
+{% elif field.type == '14' or field.type == 'tel' %}
+    <input type="tel" name="{{ field.name }}" id="id_{{ field.name }}"
+           {% if field.tabIndex %}data-tabindex="{{ field.tabIndex }}"{% endif %}
+           placeholder="{{ field.placeholder|default:'' }}"
+           {% if field.required %}required{% endif %}
+           {% if field.value %}value="{{ field.value }}"{% endif %}>
+
+{% elif field.type == '17' or field.type == 'readonly' %}
+    <input type="text" name="{{ field.name }}" id="id_{{ field.name }}"
+           value="{{ field.value|default:'' }}" readonly>
+
+{% elif field.type == '18' or field.type == 'hidden' %}
+    <input type="hidden" name="{{ field.name }}" id="id_{{ field.name }}"
+           value="{{ field.value|default:'' }}">
+
+{% elif field.type == 'photo' %}
+    <div class="tf-photo-wrap">
+        <div class="tf-photo-box" id="photo-box-{{ field.name }}"
+             onclick="document.getElementById('photo-file-{{ field.name }}').click()">
+            <img id="photo-img-{{ field.name }}" src="" alt=""
+                 style="display:none;width:100%;height:100%;object-fit:cover;">
+            <span id="photo-ph-{{ field.name }}" style="font-size:28px;color:#ccc;">🖼️</span>
+        </div>
+        <input type="file" id="photo-file-{{ field.name }}" name="{{ field.name }}"
+               accept="image/*" style="display:none;"
+               onchange="tfPhotoPreview('{{ field.name }}',this)">
+        <div class="tf-photo-actions">
+            <button type="button" class="tf-browse-btn"
+                    onclick="document.getElementById('photo-file-{{ field.name }}').click()">➡</button>
+            <button type="button" class="tf-browse-btn"
+                    onclick="tfPhotoClear('{{ field.name }}')" style="color:#c00;">✕</button>
+        </div>
+    </div>
+
+{% elif field.type == 'section_hdr' %}
+    {# rendered directly as .tf-section-hdr div in tabbed_form.html #}
+
+{% else %}
+    <input type="text" name="{{ field.name }}" id="id_{{ field.name }}"
+           {% if field.tabIndex %}data-tabindex="{{ field.tabIndex }}"{% endif %}
+           placeholder="{{ field.placeholder|default:'' }}"
+           {% if field.required %}required{% endif %}
+           {% if field.value %}value="{{ field.value }}"{% endif %}>
+{% endif %}

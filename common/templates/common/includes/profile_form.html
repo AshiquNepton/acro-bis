@@ -1,0 +1,771 @@
+{% comment %}
+════════════════════════════════════════════════════════════════════
+  common/templates/common/includes/profile_form.html   v3.1
+
+  Universal form engine — every section is OPTIONAL.
+  Include with:
+      {% include 'common/includes/profile_form.html' with fc=form_config %}
+
+  ── UNIFIED HERO CARD ───────────────────────────────────────────
+  The hero card combines photo + identity info + header fields into
+  ONE card. All three zones are driven from the backend:
+
+  ZONE 1 — Photo/Avatar (left):
+    • Add {'name':'photo','label':'Photo','type':'photo'} to
+      header_fields → clickable upload avatar
+    • OR set hero.show_avatar=True, hero.avatar_field='photo'
+      (fallback when no photo in header_fields)
+    • OR set hero.show_avatar=False → static hero.hero_icon shown
+
+  ZONE 2 — Identity (centre):
+    • Provide 'hero' dict in form_config → name, meta rows, badges
+    • Omit 'hero' entirely → centre column not rendered
+
+  ZONE 3 — Header fields (right):
+    • Provide 'header_fields' list → label-above / input-below cells
+    • Any field type supported (text/number/select/date/checkbox…)
+    • Add lookup_btn=True to any field for the 🔍 lookup button
+    • photo-type fields are consumed by Zone 1, not rendered here
+
+  Entire card hidden if BOTH hero and header_fields are absent.
+
+  ── form_config schema ──────────────────────────────────────────
+  {
+    'form_id'       : str,
+    'title'         : str,           # page title (unused in template, for context)
+
+    'hero'          : { ... },       # omit to hide identity column
+    'toolbar'       : [ ... ],       # icon-button toolbar (Close/Save/New/Delete go here)
+    'header_fields' : [ ... ],       # omit to hide right panel
+    'show_sidenav'  : True/False,
+    'tabs'          : [ ... ],
+  }
+
+  NOTE: pf-action-bar removed in v3.2. All buttons (Close/Save/New/Delete
+  and any extras) belong in the 'toolbar' list. The toolbar is rendered
+  as a flat icon-button row, the same as seen in the screenshot.
+
+  ── hero config keys ────────────────────────────────────────────
+  {
+    'show_avatar'    : True/False,
+    'avatar_field'   : 'photo',      # file input name (upload mode)
+    'avatar_url'     : '',           # pre-load URL (edit mode)
+    'hero_icon'      : '🗂',        # shown when show_avatar=False
+    'name_field'     : 'emp_name',
+    'default_name'   : 'New Record',
+    'show_meta_rows' : True/False,
+    'row1_field'     : 'designation',
+    'row1_icon'      : '',           # SVG inner path; '' = briefcase
+    'row2_field'     : 'email',
+    'row2_icon'      : '',           # SVG inner path; '' = envelope
+    'badge1_label'   : 'Active',     # '' / None = hide
+    'badge1_class'   : 'pf-badge-active',
+    'badge2_field'   : 'department', # '' / None = hide
+  }
+
+  ── field types ─────────────────────────────────────────────────
+    '1'  / 'text'           → <input type=text>
+    '2'  / 'number'         → <input type=number>
+    '3'  / 'select'         → <select>
+    '4'  / 'file'           → <input type=file>
+    '5'  / 'textarea'       → <textarea>
+    '6'  / 'date'           → <input type=date>
+    '7'  / 'time'           → <input type=time>
+    '8'  / 'datetime-local' → <input type=datetime-local>
+    '9'  / 'month'          → <input type=month>
+    '10' / 'checkbox'       → <input type=checkbox>
+    '11' / 'radio'          → radio group
+    '12' / 'password'       → <input type=password>
+    '13' / 'email'          → <input type=email>
+    '14' / 'tel'            → <input type=tel>
+    '17' / 'readonly'       → <input readonly>
+    '18' / 'hidden'         → <input type=hidden>
+    'list_modal'            → ListModal position / list entry grid (list.png)
+    'photo'                 → avatar upload (Zone 1 only)
+    'section_hdr'           → section divider (no input)
+════════════════════════════════════════════════════════════════════
+{% endcomment %}
+{% load static %}
+
+
+{% comment %} {# ════════════════════════════════════════════════════════════
+   TOOLBAR  — optional row of icon-buttons
+   ════════════════════════════════════════════════════════════ #} {% endcomment %}
+
+
+{% comment %} {# ════════════════════════════════════════════════════════════
+   PAGE WRAPPER
+   ════════════════════════════════════════════════════════════ #} {% endcomment %}
+<div class="pf-page" id="pf-page-{{ fc.form_id }}">
+{% include 'common/includes/_toolbar.html' with fc=fc %}
+ 
+{% comment %} {# ── Menu items data island ──────────────────────────────────────
+   data-key  = label string → JS looks up SVG from PF_ICONS registry
+   data-sep  = '1' → render as divider, ignore other attrs
+   data-danger = '1' → red color
+────────────────────────────────────────────────────────────────── #} {% endcomment %}
+{% if fc.menu_items %}
+<ul id="pf-menu-items-{{ fc.form_id }}" style="display:none">
+    {% for item in fc.menu_items %}
+    <li data-key="{{ item.label|default:'' }}"
+        data-label="{{ item.label|default:'' }}"
+        data-onclick="{{ item.onclick|default:'' }}"
+        data-danger="{{ item.danger|yesno:'1,0' }}"
+        data-sep="{{ item.sep|yesno:'1,0' }}"></li>
+    {% endfor %}
+</ul>
+{% endif %}
+<form id="{{ fc.form_id }}" method="post" enctype="multipart/form-data" novalidate>
+{% csrf_token %}
+{% comment %} 
+{# ════════════════════════════════════════════════════════════
+   UNIFIED HERO CARD
+   ─────────────────────────────────────────────────────────────
+   Visual layout (matches reference image):
+   ┌─────────────────────────────────────────────────────────────┐
+   │  ┌───────┐  Name (large bold)       │  Reg No  │ Emp Name  │
+   │  │ PHOTO │  ◉ designation           │  [____]  │ [_______] │
+   │  │       │  ✉ email                 │  Dept    │ Active    │
+   │  └───────┘  [Active] [Dept badge]   │  [____]  │ [__]      │
+   └─────────────────────────────────────────────────────────────┘
+
+   HOW IT WORKS — all driven from backend, nothing hardcoded:
+   ┌──────────────────────────────────────────────────────────────┐
+   │ LEFT PHOTO  → header_fields entry with type='photo'          │
+   │              If absent: hero.avatar_field (upload) or        │
+   │              hero.hero_icon (static emoji/SVG)               │
+   │                                                              │
+   │ CENTRE INFO → fc.hero dict (name, meta rows, badges)         │
+   │              Omit fc.hero entirely to hide this column       │
+   │                                                              │
+   │ RIGHT FIELDS→ all header_fields where type != 'photo'        │
+   │              Rendered as label (small, grey) + input (below) │
+   │              Supports every field type: text/number/select/  │
+   │              date/checkbox/email/tel/readonly + lookup btn   │
+   └──────────────────────────────────────────────────────────────┘
+
+   Django template constraint: cannot reassign variables inside
+   loops. Solution: render ALL three zones unconditionally; zones
+   that have nothing to show simply produce no HTML. The photo zone
+   uses a loop-break pattern — first match wins, rest are hidden by
+   the `pf-avatar-extra` class which is display:none.
+   ════════════════════════════════════════════════════════════ #} {% endcomment %}
+
+{% if fc.hero or fc.header_fields %}
+<div class="pf-hero-card" id="pf-hero-{{ fc.form_id }}">
+
+    {% comment %} {# ══════════════════════════════════════════════════════
+       ZONE 1 — PHOTO / AVATAR  (left column)
+       ══════════════════════════════════════════════════════
+       Pass 1: scan header_fields for type='photo'.
+               The FIRST one becomes the real avatar.
+               Any extras are hidden (shouldn't happen in practice).
+       Pass 2: if NO photo field was in header_fields AND
+               hero.show_avatar is True → fall back to hero config.
+       Pass 3: if hero.show_avatar is False → static icon.
+    #} {% endcomment %}
+
+    {% comment %} {# Pass 1 — photo field from header_fields.
+       The photo field can appear ANYWHERE in the list (first, last, middle).
+       We simply always render it with the correct id — position in the list
+       does not matter. Only one photo field should exist per form. #} {% endcomment %}
+    {% for f in fc.header_fields %}
+    {% if f.type == 'photo' %}
+    <div class="pf-hero-photo"
+         id="pf-avatar-box-{{ fc.form_id }}"
+         onclick="document.getElementById('pf-avatar-file-{{ fc.form_id }}').click()"
+         title="Click to change photo">
+        <img id="pf-avatar-img-{{ fc.form_id }}"
+             src="{{ f.value|default:'' }}"
+             alt="Photo"
+             {% if f.value %}style="display:block;"{% endif %}>
+        <div class="pf-hero-photo-ph" id="pf-avatar-ph-{{ fc.form_id }}">
+            <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div class="pf-hero-photo-ov">
+            <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </div>
+    </div>
+    <input type="file"
+           id="pf-avatar-file-{{ fc.form_id }}"
+           name="{{ f.name }}"
+           accept="{{ f.accept|default:'image/*' }}"
+           style="display:none;"
+           onchange="pfAvatarPreview(this,'{{ fc.form_id }}')">
+    {% endif %}
+    {% endfor %}
+
+    {# Pass 2 — hero.avatar_field fallback (only if NO photo in header_fields) #}
+    {% if fc.hero and fc.hero.show_avatar and fc.hero.avatar_field %}
+    {% with _hf=fc.header_fields %}
+    <div class="pf-hero-photo pf-hero-photo--hero-fallback"
+         id="pf-avatar-box-{{ fc.form_id }}"
+         onclick="document.getElementById('pf-avatar-file-{{ fc.form_id }}').click()"
+         title="Click to change photo">
+        <img id="pf-avatar-img-{{ fc.form_id }}"
+             src="{{ fc.hero.avatar_url|default:'' }}"
+             alt="Photo"
+             {% if fc.hero.avatar_url %}style="display:block;"{% endif %}>
+        <div class="pf-hero-photo-ph">
+            <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div class="pf-hero-photo-ov">
+            <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </div>
+    </div>
+    <input type="file"
+           id="pf-avatar-file-{{ fc.form_id }}"
+           name="{{ fc.hero.avatar_field }}"
+           accept="image/*"
+           style="display:none;"
+           onchange="pfAvatarPreview(this,'{{ fc.form_id }}')">
+    {% endwith %}
+    {% endif %}
+
+    {# Pass 3 — static icon (show_avatar=False, no photo field) #}
+    {% if fc.hero and not fc.hero.show_avatar %}
+    <div class="pf-hero-photo pf-hero-photo--static"
+         id="pf-avatar-box-{{ fc.form_id }}">
+        <span class="pf-hero-icon">{{ fc.hero.hero_icon|default:'🗂'|safe }}</span>
+    </div>
+    {% endif %}
+{% comment %} 
+    {# ══════════════════════════════════════════════════════
+       ZONE 2 — IDENTITY  (centre column: name + meta + badges)
+       Only rendered when fc.hero dict is provided.
+    ══════════════════════════════════════════════════════ #} {% endcomment %}
+    {% if fc.hero %}{% with h=fc.hero %}
+    <div class="pf-hero-identity">
+
+        <div class="pf-hero-name" id="pf-display-name-{{ fc.form_id }}">
+            {{ h.default_name|default:'New Record' }}
+        </div>
+
+        {% if h.show_meta_rows %}
+        <div class="pf-hero-meta">
+            {% if h.row1_field %}
+            <div class="pf-hero-row">
+                <svg viewBox="0 0 24 24">{% if h.row1_icon %}{{ h.row1_icon|safe }}{% else %}<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>{% endif %}</svg>
+                <span id="pf-display-row1-{{ fc.form_id }}">—</span>
+            </div>
+            {% endif %}
+            {% if h.row2_field %}
+            <div class="pf-hero-row">
+                <svg viewBox="0 0 24 24">{% if h.row2_icon %}{{ h.row2_icon|safe }}{% else %}<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>{% endif %}</svg>
+                <span id="pf-display-row2-{{ fc.form_id }}">—</span>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if h.badge1_label or h.badge2_field %}
+        <div class="pf-hero-badges">
+            {% if h.badge1_label %}<span class="pf-badge {{ h.badge1_class|default:'pf-badge-active' }}">● {{ h.badge1_label }}</span>{% endif %}
+            {% if h.badge2_field %}<span class="pf-badge pf-badge-sub" id="pf-display-sub-{{ fc.form_id }}">—</span>{% endif %}
+        </div>
+        {% endif %}
+
+    </div>{# /pf-hero-identity #}
+    {% endwith %}{% endif %}
+
+    {% comment %} {# ══════════════════════════════════════════════════════
+       ZONE 3 — HEADER FIELDS  (right panel, label + input)
+       All header_fields except type='photo' are rendered here.
+       Each field = label row (small grey) + control row (input).
+       Width is taken from f.width if set, else auto.
+    ══════════════════════════════════════════════════════ #} {% endcomment %}
+    {% if fc.header_fields %}
+    <div class="pf-hero-fields" id="pf-hstrip-{{ fc.form_id }}">
+        {% for f in fc.header_fields %}
+        {% if f.type != 'photo' %}
+
+        <div class="pf-hf-cell" {% if f.width %}style="width:{{ f.width }};"{% endif %}>
+            <label class="pf-hf-lbl" for="id_{{ f.name }}">
+                {{ f.label }}{% if f.required %}<span class="pf-hf-req">*</span>{% endif %}
+            </label>
+            <div class="pf-hf-ctl">
+
+                {# ── select (type 3 = search-only, type 19 = search+add) ── #}
+                {% if f.type == '3' or f.type == '19' or f.type == 'select' %}
+                <select name="{{ f.name }}" id="id_{{ f.name }}"
+                        {% if f.required %}required{% endif %}
+                        {% if f.onchange %}onchange="{{ f.onchange }}"{% endif %}
+                        {% if f.type == '19' %}data-allow-add="1"{% endif %}>
+                    {% for opt in f.options %}
+                    <option value="{{ opt.value }}"
+                            {% if f.value == opt.value|stringformat:'s' %}selected{% endif %}>{{ opt.label }}</option>
+                    {% endfor %}
+                </select>
+
+                {# ── date ── #}
+                {% elif f.type == '6' or f.type == 'date' %}
+                {% include "common/includes/datepicker.html" with field=f %}
+
+
+                {# ── time ── #}
+                {% elif f.type == '7' or f.type == 'time' %}
+                {% include "common/includes/timepicker.html" with field=f %}
+
+
+                {# ── number ── #}
+                {% elif f.type == '2' or f.type == 'number' %}
+                <input type="number" name="{{ f.name }}" id="id_{{ f.name }}"
+                    value="{{ f.value|default:'' }}"
+                    {% if f.required %}required{% endif %}
+                    {% if f.readonly %}readonly{% endif %}>
+
+                {# ── checkbox ── #}
+                {% elif f.type == '10' or f.type == 'checkbox' %}
+                <div class="pf-hf-check">
+                    <input type="checkbox" name="{{ f.name }}" id="id_{{ f.name }}"
+                           {% if f.value %}checked{% endif %}
+                           {% if f.required %}required{% endif %}>
+                    {% if f.checkbox_label %}<label for="id_{{ f.name }}">{{ f.checkbox_label }}</label>{% endif %}
+                </div>
+
+                {# ── email ── #}
+                {% elif f.type == '13' or f.type == 'email' %}
+                <input type="email" name="{{ f.name }}" id="id_{{ f.name }}"
+                       value="{{ f.value|default:'' }}"
+                       placeholder="{{ f.placeholder|default:'' }}"
+                       {% if f.required %}required{% endif %}>
+
+                {# ── tel ── #}
+                {% elif f.type == '14' or f.type == 'tel' %}
+                <input type="tel" name="{{ f.name }}" id="id_{{ f.name }}"
+                       value="{{ f.value|default:'' }}"
+                       placeholder="{{ f.placeholder|default:'' }}"
+                       {% if f.required %}required{% endif %}>
+
+                {# ── readonly ── #}
+                {% elif f.type == '17' or f.type == 'readonly' %}
+                <input type="text" name="{{ f.name }}" id="id_{{ f.name }}"
+                       value="{{ f.value|default:'' }}" readonly>
+
+                {# ── hidden ── #}
+                {% elif f.type == '18' or f.type == 'hidden' %}
+                <input type="hidden" name="{{ f.name }}" id="id_{{ f.name }}"
+                       value="{{ f.value|default:'' }}">
+
+                {# ADD THIS BLOCK: #}
+                {# ── search_add ── #}
+                {% elif f.type == 'search_add' %}
+                <div class="pf-sa-wrap" data-name="{{ f.name }}">
+                    <input type="text"
+                           id="id_{{ f.name }}_display"
+                           placeholder="{{ f.placeholder|default:'Search or type new…' }}"
+                           {% if f.required %}required{% endif %}
+                           autocomplete="off"
+                           class="pf-sa-input"
+                           data-options="{{ f.options_json|default:'[]' }}"
+                           {% if f.onchange %}data-onchange="{{ f.onchange }}"{% endif %}>
+                    <div class="pf-sa-drop" style="display:none;"></div>
+                </div>
+
+                {# ── list_modal (opens ListModal data grid) ── #}
+                {% elif f.type == 'list_modal' or f.type == 'list' %}
+                <div class="pf-field-input-row" style="display:flex; align-items:center; gap:4px; width:100%;">
+                    <input type="text" name="{{ f.name }}" id="id_{{ f.name }}"
+                           value="{{ f.value|default:'' }}"
+                           placeholder="{{ f.placeholder|default:'Click to enter list…' }}"
+                           readonly style="cursor:pointer;"
+                           onclick="openCommonListModal('id_{{ f.name }}', '{{ f.modal_title|default:f.label }}', '{{ f.column_label|default:f.label }}')"
+                           onkeydown="if(event.key==='Enter'){event.preventDefault();openCommonListModal('id_{{ f.name }}', '{{ f.modal_title|default:f.label }}', '{{ f.column_label|default:f.label }}');}">
+                    <button type="button" class="pf-lookup-btn"
+                            onclick="openCommonListModal('id_{{ f.name }}', '{{ f.modal_title|default:f.label }}', '{{ f.column_label|default:f.label }}')" title="Open List">
+                        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    </button>
+                </div>
+
+                {# ── text / default — with optional lookup button ── #}
+                {% else %}
+                <div class="pf-hf-input-row">
+                    <input type="{% if f.type == '12' or f.type == 'password' %}password{% else %}text{% endif %}"
+                           name="{{ f.name }}" id="id_{{ f.name }}"
+                           value="{{ f.value|default:'' }}"
+                           placeholder="{{ f.placeholder|default:'' }}"
+                           {% if f.autocomplete %}autocomplete="{{ f.autocomplete }}"{% endif %}
+                           {% if f.required %}required{% endif %}
+                           {% if f.readonly %}readonly{% endif %}
+                           {% if f.oninput %}oninput="{{ f.oninput }}"{% endif %}
+                           {% if f.onchange %}onchange="{{ f.onchange }}"{% endif %}
+                           {% if f.onkeydown %}onkeydown="{{ f.onkeydown }}"{% endif %}
+                           {% if f.onclick %}onclick="{{ f.onclick }}"{% endif %}>
+                    {% if f.browse_btn %}
+                    <input type="file"
+                           id="pf-file-picker-{{ f.name }}"
+                           name="{{ f.name }}_file"
+                           accept="{{ f.browse_accept|default:'*' }}"
+                           style="display:none;"
+                           onchange="pfBrowsePicked('{{ f.name }}', this)">
+                    <button type="button"
+                            class="pf-browse-btn"
+                            onclick="document.getElementById('pf-file-picker-{{ f.name }}').click()"
+                            title="Browse file">
+                        {{ f.browse_label|default:'...' }}
+                    </button>
+                    {% elif f.lookup_btn %}
+                    <button type="button" class="pf-lookup-btn"
+                            onclick="{% if f.lookup_onclick %}{{ f.lookup_onclick }}{% elif f.onclick %}{{ f.onclick }}{% else %}pfLookupNow('{{ fc.form_id }}'){% endif %}" title="Lookup">
+                        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    </button>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+            </div>{# /pf-hf-ctl #}
+        </div>{# /pf-hf-cell #}
+
+        {% endif %}{# /not photo #}
+        {% endfor %}
+    </div>{# /pf-hero-fields #}
+    {% endif %}
+
+</div>{# /pf-hero-card #}
+{% endif %}{# /fc.hero or fc.header_fields #}
+
+
+
+
+
+{% comment %} {# ════════════════════════════════════════════════════════════
+   BODY: optional sidenav + content
+   ════════════════════════════════════════════════════════════ #} {% endcomment %}
+{% if fc.tabs %}
+<div class="pf-body-wrap {% if fc.show_sidenav %}pf-body-wrap--with-nav{% else %}pf-body-wrap--no-nav{% endif %} {% if fc.hero or fc.header_fields %}pf-body-wrap--has-header{% else %}pf-body-wrap--no-header{% endif %}">
+
+    {# ── Sidenav — only if show_sidenav ── #}
+    {% if fc.show_sidenav %}
+    <nav class="pf-sidenav" id="pf-sidenav-{{ fc.form_id }}">
+        {% for tab in fc.tabs %}
+        <div class="pf-sidenav-item {% if forloop.first %}active{% endif %}"
+             id="pf-nav-{{ fc.form_id }}-{{ tab.id }}"
+             onclick="pfTab('{{ fc.form_id }}', '{{ tab.id }}', this)">
+            <svg viewBox="0 0 24 24">
+                {% if tab.nav_icon %}{{ tab.nav_icon|safe }}
+                {% elif forloop.counter == 1 %}<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                {% elif forloop.counter == 2 %}<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+                {% elif forloop.counter == 3 %}<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                {% elif forloop.counter == 4 %}<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                {% elif forloop.counter == 5 %}<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+                {% elif forloop.counter == 6 %}<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                {% elif forloop.counter == 7 %}<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                {% else %}<circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41"/>
+                {% endif %}
+            </svg>
+            {{ tab.label }}
+        </div>
+        {% endfor %}
+    </nav>
+    {% endif %}
+
+    {# ── Content (tabs + panes) ── #}
+    <div class="pf-content" id="pf-content-{{ fc.form_id }}">
+
+        {# Tab strip #}
+        <div class="pf-tabs" id="pf-tabs-{{ fc.form_id }}">
+            {% for tab in fc.tabs %}
+            <div class="pf-tab {% if forloop.first %}active{% endif %}"
+                 id="pf-tab-{{ fc.form_id }}-{{ tab.id }}"
+                 onclick="pfTab('{{ fc.form_id }}', '{{ tab.id }}', null)">
+                {% if tab.tab_icon %}
+                <svg viewBox="0 0 24 24">{{ tab.tab_icon|safe }}</svg>
+                {% endif %}
+                {{ tab.label }}
+            </div>
+            {% endfor %}
+        </div>
+
+        {# Panes #}
+        {% for tab in fc.tabs %}
+        <div class="pf-pane {% if forloop.first %}active{% endif %}"
+             id="pf-pane-{{ fc.form_id }}-{{ tab.id }}">
+
+            {% if tab.template %}
+                {% include tab.template %}
+            {% elif tab.columns %}
+<div class="pf-field-grid pf-cols-{{ tab.columns|length }}" data-col-sizes="{% for col in tab.columns %}{{ col|length }}{% if not forloop.last %},{% endif %}{% endfor %}">                {% for col in tab.columns %}
+                    {% for field in col %}
+
+                        {# ── section_hdr ── #}
+                        {% if field.type == 'section_hdr' %}
+                        <div class="pf-section-hdr">{{ field.label }}</div>
+
+                        {# ── custom_html ── #}
+                        {% elif field.type == 'custom_html' or field.type == 'custom' %}
+                        <div class="pf-custom-field" {% if field.style %}style="{{ field.style }}"{% endif %}>
+                            {% if field.template %}
+                                {% include field.template %}
+                            {% else %}
+                                {{ field.html|safe }}
+                            {% endif %}
+                        </div>
+
+                        {# ── hidden ── #}
+                        {% elif field.type == '18' or field.type == 'hidden' %}
+                        <input type="hidden" name="{{ field.name }}" id="id_{{ field.name }}"
+                               value="{{ field.value|default:'' }}">
+
+                        {# ── photo ── #}
+                        {% elif field.type == 'photo' %}
+                        <div class="pf-field">
+                            <label class="pf-field-lbl">{{ field.label }}</label>
+                            <div class="pf-field-ctl">
+                                <div class="pf-photo-wrap">
+                                    <div class="pf-photo-box" id="pf-photo-box-{{ field.name }}"
+                                         onclick="document.getElementById('pf-photo-{{ field.name }}').click()">
+                                        <img id="pf-photo-img-{{ field.name }}" src="" alt="">
+                                        🖼️
+                                    </div>
+                                    <input type="file" id="pf-photo-{{ field.name }}"
+                                           name="{{ field.name }}" accept="image/*"
+                                           style="display:none;"
+                                           onchange="pfPhotoPreview('{{ field.name }}', this)">
+                                    <div class="pf-photo-actions">
+                                        <button type="button" class="pf-photo-btn"
+                                                onclick="document.getElementById('pf-photo-{{ field.name }}').click()">Browse</button>
+                                        <button type="button" class="pf-photo-btn pf-photo-btn-del"
+                                                onclick="pfPhotoClear('{{ field.name }}')">✕</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {# ── checkbox ── #}
+                        {% elif field.type == '10' or field.type == 'checkbox' %}
+                        <div class="pf-field">
+                            <label class="pf-field-lbl">
+                                {{ field.label }}{% if field.required %}<span class="req">*</span>{% endif %}
+                            </label>
+                            <div class="pf-field-ctl">
+                                <div class="pf-check-wrap">
+                                    <input type="checkbox" name="{{ field.name }}" id="id_{{ field.name }}"
+                                           {% if field.value %}checked{% endif %}
+                                           {% if field.required %}required{% endif %}>
+                                    {% if field.checkbox_label %}
+                                    <label for="id_{{ field.name }}" class="pf-check-lbl">{{ field.checkbox_label }}</label>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        {# ── radio ── #}
+                        {% elif field.type == '11' or field.type == 'radio' %}
+                        <div class="pf-field">
+                            <label class="pf-field-lbl">
+                                {{ field.label }}{% if field.required %}<span class="req">*</span>{% endif %}
+                            </label>
+                            <div class="pf-field-ctl">
+                                <div class="pf-radio-group">
+                                    {% for opt in field.options %}
+                                    <label class="pf-radio-lbl">
+                                        <input type="radio" name="{{ field.name }}" value="{{ opt.value }}"
+                                               {% if field.value == opt.value %}checked{% endif %}
+                                               {% if field.required %}required{% endif %}>
+                                        {{ opt.label }}
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+
+                        {# ── textarea ── #}
+                        {% elif field.type == '5' or field.type == 'textarea' %}
+                        <div class="pf-field">
+                            <label class="pf-field-lbl">
+                                {{ field.label }}{% if field.required %}<span class="req">*</span>{% endif %}
+                            </label>
+                            <div class="pf-field-ctl">
+                                <textarea name="{{ field.name }}" id="id_{{ field.name }}"
+                                          rows="{{ field.rows|default:3 }}"
+                                          placeholder="{{ field.placeholder|default:'' }}"
+                                          {% if field.required %}required{% endif %}
+                                          {% if field.oninput %}oninput="{{ field.oninput }}"{% endif %}>{{ field.value|default:'' }}</textarea>
+                            </div>
+                        </div>
+
+                        {# ── all other input types ── #}
+                        {% else %}
+                        <div class="pf-field">
+                            <label class="pf-field-lbl" for="id_{{ field.name }}">
+                                {{ field.label }}{% if field.required %}<span class="req">*</span>{% endif %}
+                            </label>
+                            <div class="pf-field-ctl">
+{% comment %} {% if field.browse_btn %}
+<div class="pf-field-row">
+{% endif %} {% endcomment %}
+ 
+{% if field.type == '3' or field.type == '19' or field.type == 'select' %}
+    <select name="{{ field.name }}" id="id_{{ field.name }}"
+            {% if field.required %}required{% endif %}
+            {% if field.onchange %}onchange="{{ field.onchange }}"{% endif %}
+            {% if field.type == '19' %}data-allow-add="1"{% endif %}>
+        {% for opt in field.options %}
+        <option value="{{ opt.value }}"
+                {% if field.value == opt.value|stringformat:'s' %}selected{% endif %}>
+            {{ opt.label }}
+        </option>
+        {% endfor %}
+    </select>
+ 
+{% elif field.type == '6' or field.type == 'date' %}
+    {% include "common/includes/datepicker.html" with field=field %}
+ 
+{% elif field.type == '7' or field.type == 'time' %}
+    <input type="time" name="{{ field.name }}" id="id_{{ field.name }}"
+           value="{{ field.value|default:'' }}"
+           {% if field.required %}required{% endif %}>
+ 
+{% elif field.type == '8' or field.type == 'datetime-local' %}
+    <input type="datetime-local" name="{{ field.name }}" id="id_{{ field.name }}"
+           value="{{ field.value|default:'' }}"
+           {% if field.required %}required{% endif %}>
+ 
+{% elif field.type == '9' or field.type == 'month' %}
+    <input type="month" name="{{ field.name }}" id="id_{{ field.name }}"
+           value="{{ field.value|default:'' }}"
+           {% if field.required %}required{% endif %}>
+ 
+{% elif field.type == '2' or field.type == 'number' %}
+    <input type="number" name="{{ field.name }}" id="id_{{ field.name }}"
+           value="{{ field.value|default:'' }}"
+           step="{{ field.step|default:'0.01' }}"
+           {% if field.min is not None %}min="{{ field.min }}"{% endif %}
+           {% if field.max is not None %}max="{{ field.max }}"{% endif %}
+           {% if field.required %}required{% endif %}
+           {% if field.readonly %}readonly{% endif %}
+           {% if field.oninput %}oninput="{{ field.oninput }}"{% endif %}>
+ 
+{% elif field.type == '12' or field.type == 'password' %}
+    <input type="password" name="{{ field.name }}" id="id_{{ field.name }}"
+           placeholder="{{ field.placeholder|default:'' }}"
+           {% if field.required %}required{% endif %}>
+ 
+{% elif field.type == '13' or field.type == 'email' %}
+    <input type="email" name="{{ field.name }}" id="id_{{ field.name }}"
+           value="{{ field.value|default:'' }}"
+           placeholder="{{ field.placeholder|default:'' }}"
+           {% if field.required %}required{% endif %}>
+ 
+{% elif field.type == '14' or field.type == 'tel' %}
+    <input type="tel" name="{{ field.name }}" id="id_{{ field.name }}"
+           value="{{ field.value|default:'' }}"
+           placeholder="{{ field.placeholder|default:'' }}"
+           {% if field.required %}required{% endif %}>
+ 
+{% elif field.type == '17' or field.type == 'readonly' %}
+    {% if field.lookup_btn %}
+    <div class="pf-field-input-row" style="display:flex; align-items:center; gap:4px;">
+        <input type="text" name="{{ field.name }}" id="id_{{ field.name }}"
+               value="{{ field.value|default:'' }}"
+               placeholder="{{ field.placeholder|default:'' }}"
+               {% if field.onclick %}onclick="{{ field.onclick }}" style="cursor:pointer;"{% endif %}
+               {% if field.onkeydown %}onkeydown="{{ field.onkeydown }}"{% endif %}
+               readonly>
+        <button type="button" class="pf-lookup-btn"
+                onclick="{% if field.lookup_onclick %}{{ field.lookup_onclick }}{% elif field.onclick %}{{ field.onclick }}{% else %}pfLookupNow('{{ fc.form_id }}'){% endif %}" title="Lookup">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+    </div>
+    {% else %}
+    <input type="text" name="{{ field.name }}" id="id_{{ field.name }}"
+           value="{{ field.value|default:'' }}"
+           placeholder="{{ field.placeholder|default:'' }}"
+           {% if field.onclick %}onclick="{{ field.onclick }}" style="cursor:pointer;"{% endif %}
+           {% if field.onkeydown %}onkeydown="{{ field.onkeydown }}"{% endif %}
+           readonly>
+    {% endif %}
+
+{% elif field.type == 'list_modal' or field.type == 'list' %}
+    <div class="pf-field-input-row" style="display:flex; align-items:center; gap:4px;">
+        <input type="text" name="{{ field.name }}" id="id_{{ field.name }}"
+               value="{{ field.value|default:'' }}"
+               placeholder="{{ field.placeholder|default:'Click to enter list…' }}"
+               readonly style="cursor:pointer;"
+               onclick="{% if field.onclick %}{{ field.onclick }}{% else %}openCommonListModal('id_{{ field.name }}', '{{ field.modal_title|default:field.label }}', '{{ field.column_label|default:field.label }}'){% endif %}"
+               onkeydown="{% if field.onkeydown %}{{ field.onkeydown }}{% else %}if(event.key==='Enter'){event.preventDefault();openCommonListModal('id_{{ field.name }}', '{{ field.modal_title|default:field.label }}', '{{ field.column_label|default:field.label }}');}{% endif %}">
+        <button type="button" class="pf-lookup-btn"
+                onclick="{% if field.lookup_onclick %}{{ field.lookup_onclick }}{% elif field.onclick %}{{ field.onclick }}{% else %}openCommonListModal('id_{{ field.name }}', '{{ field.modal_title|default:field.label }}', '{{ field.column_label|default:field.label }}'){% endif %}" title="Open List">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+    </div>
+
+{% elif field.type == '4' or field.type == 'file' %}
+    <input type="file" name="{{ field.name }}" id="id_{{ field.name }}"
+           {% if field.accept %}accept="{{ field.accept }}"{% endif %}
+           {% if field.required %}required{% endif %}
+           {% if field.onchange %}onchange="{{ field.onchange }}"{% endif %}>
+
+{% else %}
+    {# text / default — shows filename path when browse_btn is used #}
+    {% if field.lookup_btn %}
+    <div class="pf-field-input-row" style="display:flex; align-items:center; gap:4px;">
+        <input type="text" name="{{ field.name }}" id="id_{{ field.name }}"
+               value="{{ field.value|default:'' }}"
+               placeholder="{{ field.placeholder|default:'' }}"
+               {% if field.required %}required{% endif %}
+               {% if field.readonly %}readonly{% if field.onclick %} style="cursor:pointer;"{% endif %}{% endif %}
+               {% if field.onclick %}onclick="{{ field.onclick }}"{% endif %}
+               {% if field.onkeydown %}onkeydown="{{ field.onkeydown }}"{% endif %}
+               {% if field.oninput %}oninput="{{ field.oninput }}"{% endif %}
+               {% if field.onchange %}onchange="{{ field.onchange }}"{% endif %}>
+        <button type="button" class="pf-lookup-btn"
+                onclick="{% if field.lookup_onclick %}{{ field.lookup_onclick }}{% elif field.onclick %}{{ field.onclick }}{% else %}pfLookupNow('{{ fc.form_id }}'){% endif %}" title="Lookup">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+    </div>
+    {% else %}
+    <input type="text" name="{{ field.name }}" id="id_{{ field.name }}"
+           value="{{ field.value|default:'' }}"
+           placeholder="{{ field.placeholder|default:'' }}"
+           {% if field.required %}required{% endif %}
+           {% if field.readonly %}readonly{% if field.onclick %} style="cursor:pointer;"{% endif %}{% endif %}
+           {% if field.onclick %}onclick="{{ field.onclick }}"{% endif %}
+           {% if field.onkeydown %}onkeydown="{{ field.onkeydown }}"{% endif %}
+           {% if field.oninput %}oninput="{{ field.oninput }}"{% endif %}
+           {% if field.onchange %}onchange="{{ field.onchange }}"{% endif %}>
+    {% endif %}
+{% endif %}
+ 
+{% if field.browse_btn %}
+    {# Hidden real file input — triggered by the Browse button #}
+    <input type="file"
+           id="pf-file-picker-{{ field.name }}"
+           name="{{ field.name }}_file"
+           accept="{{ field.browse_accept|default:'*' }}"
+           style="display:none;"
+           onchange="pfBrowsePicked('{{ field.name }}', this)">
+ 
+    <button type="button"
+            class="pf-browse-btn"
+            onclick="document.getElementById('pf-file-picker-{{ field.name }}').click()"
+            title="Browse file">
+        {{ field.browse_label|default:'...' }}
+    </button>
+</div>{# /pf-field-row #}
+{% endif %}
+ 
+{% if field.unit %}
+<span style="font-size:11px;color:var(--color-text-tertiary);margin-top:2px;">{{ field.unit }}</span>
+{% endif %}
+
+                                {% if field.unit %}
+                                <span style="font-size:11px;color:var(--color-text-tertiary);margin-top:2px;">{{ field.unit }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                    {% endfor %}{# /field #}
+                {% endfor %}{# /col #}
+            </div>{# /pf-field-grid #}
+            {% endif %}
+        </div>{# /pf-pane #}
+        {% endfor %}{# /tabs #}
+
+    </div>{# /pf-content #}
+</div>{# /pf-body-wrap #}
+{% endif %}{# /if fc.tabs #}
+
+</form>
+</div>{# /pf-page #}

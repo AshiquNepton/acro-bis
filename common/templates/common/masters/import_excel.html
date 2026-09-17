@@ -1,0 +1,585 @@
+{% extends layout_base|default:'common/layout.html' %}
+{% comment %} common/templates/common/masters/import_excel.html {% endcomment %}
+{% load static %}
+
+{% block title %}Import from Excel{% endblock %}
+
+{% block app_css %}
+<link rel="stylesheet" href="{% static 'common/css/profile_form.css' %}">
+<style>
+  /* ── Only styles that don't exist in profile_form.css ─────────────────── */
+
+  /* Edited-row highlight */
+  .ix-row-edited {
+    background: var(--color-hover-primary, #eff6ff) !important;
+    outline: 1px solid var(--color-primary, #2563eb);
+    outline-offset: -1px;
+  }
+  .ix-row-edited td { color: var(--color-text-primary, #1e293b); }
+
+  /* Inline edit cell */
+  .ix-cell-editable { cursor: text; padding: 0 !important; }
+  .ix-cell-editable input {
+    width: 100%; height: 100%; min-height: 30px;
+    border: none;
+    border-bottom: 2px solid var(--color-primary, #2563eb);
+    background: transparent;
+    padding: 4px 10px;
+    font-size: .82rem; font-family: inherit;
+    color: var(--color-text-primary, #333);
+    outline: none; box-sizing: border-box;
+  }
+  .ix-cell-editable input:focus {
+    background: var(--color-bg-card, #fff);
+    box-shadow: inset 0 -2px 0 var(--color-primary, #2563eb);
+  }
+
+  /* Edit-mode active indicator on toolbar button */
+  .ix-edit-active {
+    background: var(--color-hover-primary, #eff6ff) !important;
+    border-color: var(--color-primary, #2563eb) !important;
+    color: var(--color-primary, #2563eb) !important;
+  }
+
+  /* Row error / unchecked states */
+  .ix-row-error td.ix-cell-missing { color: #dc2626; font-weight: 600; }
+  .ix-row-unchecked { opacity: .42; }
+
+  /* Warning banner */
+  .ix-warn {
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    color: #92400e;
+    padding: 10px 14px;
+    border-radius: var(--radius-small, 6px);
+    font-size: .83rem;
+    margin-bottom: 8px;
+  }
+
+  /* Result banner */
+  .ix-result {
+    padding: 14px 18px;
+    border-radius: var(--radius-small, 6px);
+    font-size: .9rem;
+    display: flex; align-items: flex-start;
+    gap: 10px; flex-direction: column;
+  }
+  .ix-result.success { background: #f0fdf4; border: 1px solid #86efac; color: #166534; }
+  .ix-result.error   { background: #fff5f5; border: 1px solid #fca5a5; color: #7f1d1d; }
+  .ix-result-title   { font-weight: 700; }
+  .ix-error-list     { list-style: disc; padding-left: 18px; font-size: .82rem; margin-top: 4px; }
+
+  /* Scrollable table pane */
+  .ix-table-wrap {
+    overflow-x: auto;
+    max-height: 520px;
+    overflow-y: auto;
+    border: 1px solid var(--color-border-light, #e0e0e0);
+    border-radius: var(--radius-small, 6px);
+  }
+  .ix-table thead th {
+    position: sticky; top: 0; z-index: 2;
+    background: var(--color-bg-tertiary, #f4f6f9);
+    white-space: nowrap;
+  }
+  .ix-table thead th:first-child  { width: 40px; text-align: center; }
+  .ix-table thead th:nth-child(2) { width: 44px; }
+  .ix-table td:first-child { text-align: center; }
+  .ix-table td { white-space: nowrap; }
+
+  /* Row count pill */
+  .ix-count-pill {
+    display: inline-flex; align-items: center;
+    background: var(--color-bg-tertiary, #f0f4ff);
+    border: 1px solid var(--color-border-light, #e0e0e0);
+    border-radius: var(--radius-pill, 999px);
+    padding: 2px 10px;
+    font-size: .78rem;
+    color: var(--color-text-secondary, #666);
+    font-weight: 600;
+  }
+
+  /* ── Collapse inherited full-page height from profile_form.css ── */
+  #pf-page-ix-form,
+  #ix-form {
+    min-height: 0 !important;
+    height: auto !important;
+  }
+  #ix-preview-card .pf-content,
+  #ix-preview-card .pf-pane {
+    min-height: 0 !important;
+  }
+  #ix-preview-card {
+    max-width: var(--pf-page-max-width, 100%);
+    margin-left: auto;
+    margin-right: auto;
+  }
+</style>
+{% endblock %}
+
+{% block app_content_body %}
+
+{% include 'common/includes/profile_form.html' with fc=form_config %}
+
+<div class="pf-page" style="padding-top: 0; margin-top: 0;">
+  <div style="margin-top: 10px;">
+
+  <!-- Missing-columns warning -->
+  <div class="ix-warn" id="ix-warn" style="display:none;"></div>
+
+  <!-- Preview card (hidden until a file is loaded) -->
+  <div id="ix-preview-card" style="display:none;">
+    <div class="pf-content" style="border-radius: var(--radius-large, 12px);">
+      <div class="pf-pane active" style="padding: 10px 14px 14px;">
+
+        <div style="margin-bottom: 8px;">
+          <span class="ix-count-pill" id="ix-count-label"></span>
+        </div>
+
+        <div class="ix-table-wrap">
+          <table class="pf-tbl ix-table">
+            <thead id="ix-thead"></thead>
+            <tbody id="ix-tbody"></tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Result banner -->
+  <div id="ix-result-card" style="display:none; margin-top: 10px;"></div>
+
+</div>
+{% endblock %}
+
+{% block app_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="{% static 'common/js/profile_form.js' %}"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   import_excel.js  — wired to profile_form conventions
+═══════════════════════════════════════════════════════════════════ */
+
+const IX_COLUMNS_CONFIG = {{ columns_config|safe }};
+const IX_PROCESS_URL    = '{{ process_url }}';
+const IX_TEMPLATE_URL   = '{{ template_url }}';
+
+let ixRows     = [];
+let ixColumns  = [];
+let ixEditMode = false;
+
+// ── CSRF ─────────────────────────────────────────────────────────────────────
+function ixCsrf() {
+    const m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : '';
+}
+
+// ── Toast — delegates to pfToast from profile_form.js ────────────────────────
+function ixToast(msg, type) {
+    if (typeof window.pfToast === 'function') window.pfToast(msg, type);
+}
+
+// ── Type selector ─────────────────────────────────────────────────────────────
+function ixTypeChanged() {
+    if (ixRows.length) ixRender(ixRows);
+}
+
+// ── File picker — hook into pfBrowsePicked ────────────────────────────────────
+(function () {
+    const _orig = window.pfBrowsePicked;
+    window.pfBrowsePicked = function (fieldName, input) {
+        if (typeof _orig === 'function') _orig(fieldName, input);
+        if (fieldName === 'ix_file_display' && input.files && input.files[0]) {
+            ixLoadFile(input.files[0]);
+        }
+    };
+}());
+
+function ixLoadFile(file) {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        try {
+            const wb   = XLSX.read(e.target.result, { type: 'array', cellDates: false });
+            const ws   = wb.Sheets[wb.SheetNames[0]];
+            const data = XLSX.utils.sheet_to_json(ws, { raw: false, defval: '' });
+            ixRender(data);
+        } catch (err) {
+            ixShowResult(false, 0, [{ row: '—', error: 'Could not parse file: ' + err.message }]);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+// ── Render preview table ──────────────────────────────────────────────────────
+function ixRender(data) {
+    ixRows     = data;
+    ixEditMode = false;
+    _ixSyncEditBtn();
+
+    const typeKey = document.getElementById('id_ix_import_type').value;
+    ixColumns = IX_COLUMNS_CONFIG[typeKey] || [];
+
+    const excelKeys = data.length ? Object.keys(data[0]) : [];
+    const missing   = ixColumns.filter(c => c.required && !excelKeys.includes(c.excel));
+    const warnEl    = document.getElementById('ix-warn');
+    if (missing.length) {
+        warnEl.textContent = '⚠️  Required columns missing from file: ' +
+            missing.map(c => '"' + c.excel + '"').join(', ');
+        warnEl.style.display = '';
+    } else {
+        warnEl.style.display = 'none';
+    }
+
+    // Build thead
+    const thead = document.getElementById('ix-thead');
+    thead.innerHTML = '';
+    const hr = document.createElement('tr');
+
+    const thCb = document.createElement('th');
+    thCb.innerHTML = '<input type="checkbox" id="ix-check-all" checked ' +
+                     'onchange="ixToggleAll(this.checked)" title="Toggle all">';
+    hr.appendChild(thCb);
+
+    const thNum = document.createElement('th');
+    thNum.textContent = '#';
+    hr.appendChild(thNum);
+
+    ixColumns.forEach(col => {
+        const th = document.createElement('th');
+        th.textContent = col.excel + (col.required ? ' *' : '');
+        hr.appendChild(th);
+    });
+    thead.appendChild(hr);
+
+    // Build tbody
+    const tbody = document.getElementById('ix-tbody');
+    tbody.innerHTML = '';
+    data.forEach((row, idx) => {
+        const tr = document.createElement('tr');
+        tr.dataset.idx = idx;
+
+        const tdCb = document.createElement('td');
+        tdCb.innerHTML = `<input type="checkbox" class="ix-row-cb" checked
+            onchange="ixRowToggle(this,${idx})">`;
+        tr.appendChild(tdCb);
+
+        const tdNum = document.createElement('td');
+        tdNum.style.color    = 'var(--color-text-tertiary, #aaa)';
+        tdNum.style.fontSize = '.75rem';
+        tdNum.textContent    = idx + 2;
+        tr.appendChild(tdNum);
+
+        ixColumns.forEach(col => {
+            const td  = document.createElement('td');
+            const val = String(row[col.excel] ?? '');
+            td.textContent    = val;
+            td.dataset.col    = col.excel;
+            td.dataset.rowIdx = idx;
+            if (col.required && !val.trim()) {
+                td.classList.add('ix-cell-missing');
+                tr.classList.add('ix-row-error');
+            }
+            tr.appendChild(td);
+        });
+
+        tbody.appendChild(tr);
+    });
+
+    const countEl = document.getElementById('ix-count-label');
+    if (countEl) countEl.textContent = `${data.length} row${data.length !== 1 ? 's' : ''} found`;
+
+    document.getElementById('ix-preview-card').style.display = '';
+    document.getElementById('ix-result-card').style.display  = 'none';
+}
+
+// ── Select / Deselect helpers ─────────────────────────────────────────────────
+function ixSelectAll(checked) {
+    document.querySelectorAll('.ix-row-cb').forEach(cb => {
+        cb.checked = checked;
+        ixRowToggle(cb, parseInt(cb.closest('tr').dataset.idx));
+    });
+    const allCb = document.getElementById('ix-check-all');
+    if (allCb) allCb.checked = checked;
+}
+function ixToggleAll(checked) { ixSelectAll(checked); }
+function ixRowToggle(cb, idx) {
+    cb.closest('tr').classList.toggle('ix-row-unchecked', !cb.checked);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  TEMPLATE DOWNLOAD
+// ══════════════════════════════════════════════════════════════════════════════
+
+let _ixTplModal = null;
+ 
+function _ixBuildTemplateModal() {
+    if (_ixTplModal) return;
+ 
+    const importTypes = {{ import_types|safe }};
+ 
+    _ixTplModal = new UtilityModal({
+        id      : 'ix-tpl-modal',
+        title   : 'Download Template',
+        subtitle: 'Choose a template to download',
+        icon    : '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>' +
+                  '<polyline points="17 8 12 3 7 8"/>' +
+                  '<line x1="12" y1="3" x2="12" y2="15"/>',
+        width   : '420px',
+        tabs    : [{ id: 'tpl-list', label: '', icon: '' }],   // single silent tab
+ 
+        onBuild: function (modal) {
+            // ── Hide the sidenav entirely ──────────────────────────────────
+            var bd  = document.getElementById('ix-tpl-modal-bd');
+            if (bd) {
+                var nav = bd.querySelector('.utm-nav');
+                if (nav) nav.style.display = 'none';
+ 
+                // Let the content fill the full width
+                var content = bd.querySelector('.utm-content');
+                if (content) content.style.borderLeft = 'none';
+            }
+ 
+            var pane = modal.pane('tpl-list');
+            if (!pane) return;
+ 
+            pane.style.cssText = 'padding:18px 20px;display:flex;flex-direction:column;gap:8px;';
+ 
+            // Instruction text
+            var info = document.createElement('p');
+            info.style.cssText =
+                'margin:0 0 10px;font-size:.83rem;' +
+                'color:var(--color-text-secondary,#555566)';
+            info.textContent = 'Click a template to download a pre-formatted Excel file.';
+            pane.appendChild(info);
+ 
+            // One row per registered import type
+            importTypes.forEach(function (t) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.style.cssText =
+                    'display:flex;align-items:center;gap:10px;' +
+                    'width:100%;padding:10px 14px;' +
+                    'font-size:.85rem;font-family:inherit;text-align:left;cursor:pointer;' +
+                    'color:var(--color-text-primary,#1a1a2e);' +          /* always visible */
+                    'background:var(--color-bg-tertiary,#f8f9fa);' +
+                    'border:1px solid var(--color-border-light,#e4e4ec);' +
+                    'border-radius:var(--radius-small,6px);' +
+                    'transition:background var(--transition-fast,.13s ease),' +
+                              'border-color var(--transition-fast,.13s ease);';
+ 
+                btn.innerHTML =
+                    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" ' +
+                    'stroke="var(--color-primary,#c0123c)" stroke-width="2" ' +
+                    'stroke-linecap="round" stroke-linejoin="round">' +
+                    '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>' +
+                    '<polyline points="14 2 14 8 20 8"/></svg>' +
+                    '<span>' + t.label + ' Template</span>';
+ 
+                btn.addEventListener('mouseover', function () {
+                    btn.style.background   = 'var(--color-hover-primary,rgba(192,18,60,.08))';
+                    btn.style.borderColor  = 'var(--color-primary,#c0123c)';
+                });
+                btn.addEventListener('mouseout', function () {
+                    btn.style.background  = 'var(--color-bg-tertiary,#f8f9fa)';
+                    btn.style.borderColor = 'var(--color-border-light,#e4e4ec)';
+                });
+ 
+                btn.addEventListener('click', function () {
+                    _ixDoDownload(t.key, t.label);
+                    modal.close();
+                });
+ 
+                pane.appendChild(btn);
+            });
+        },
+    });
+}
+
+ 
+function _ixDoDownload(typeKey, label) {
+    const url = IX_TEMPLATE_URL + '?type=' + encodeURIComponent(typeKey);
+    const a   = document.createElement('a');
+    a.href     = url;
+    a.download = typeKey + '_import_template.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    ixToast('Downloading ' + label + ' template…', 'i');
+}
+ 
+// Called by the toolbar button  onclick="ixDownloadTemplate()"
+function ixDownloadTemplate() {
+    _ixBuildTemplateModal();
+    _ixTplModal.open();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  EDIT MODE
+// ══════════════════════════════════════════════════════════════════════════════
+
+function ixToggleEdit() {
+    ixEditMode = !ixEditMode;
+    _ixSyncEditBtn();
+    if (ixEditMode) {
+        _ixEnableEdit();
+        ixToast('Edit mode on — click any cell to edit', 'i');
+    } else {
+        _ixDisableEdit();
+        ixToast('Edit mode off', 'i');
+    }
+}
+
+function _ixSyncEditBtn() {
+    const btn = document.querySelector('[onclick="ixToggleEdit()"]');
+    if (!btn) return;
+    btn.classList.toggle('ix-edit-active', ixEditMode);
+    btn.title = ixEditMode ? 'Turn off edit mode' : 'Toggle inline editing';
+}
+
+function _ixEnableEdit() {
+    document.getElementById('ix-tbody').querySelectorAll('tr').forEach(tr => {
+        Array.from(tr.cells).slice(2).forEach(td => {
+            if (td.dataset.editEnabled === '1') return;
+            td.dataset.editEnabled = '1';
+            td.dataset.origValue   = td.textContent;
+
+            const originalText = td.textContent;
+            td.classList.add('ix-cell-editable');
+
+            const inp = document.createElement('input');
+            inp.type  = 'text';
+            inp.value = originalText;
+
+            inp.addEventListener('blur', function () {
+                const newVal = inp.value;
+                const oldVal = td.dataset.origValue;
+                if (newVal === oldVal) return;
+
+                const rowIdx = parseInt(tr.dataset.idx);
+                const colKey = td.dataset.col;
+                ixRows[rowIdx][colKey] = newVal;
+                td.dataset.origValue   = newVal;
+
+                tr.classList.add('ix-row-edited');
+                tr.classList.remove('ix-row-error');
+
+                const colCfg = ixColumns.find(c => c.excel === colKey);
+                if (colCfg && colCfg.required && !newVal.trim()) {
+                    td.classList.add('ix-cell-missing');
+                } else {
+                    td.classList.remove('ix-cell-missing');
+                }
+                ixToast(`Row ${rowIdx + 2} updated`, 's');
+            });
+
+            td.textContent = '';
+            td.appendChild(inp);
+        });
+    });
+}
+
+function _ixDisableEdit() {
+    document.getElementById('ix-tbody').querySelectorAll('tr').forEach(tr => {
+        Array.from(tr.cells).slice(2).forEach(td => {
+            if (td.dataset.editEnabled !== '1') return;
+            delete td.dataset.editEnabled;
+
+            const inp = td.querySelector('input');
+            const val = inp ? inp.value : td.dataset.origValue || '';
+
+            td.classList.remove('ix-cell-editable');
+            td.textContent = val;
+
+            const colCfg = ixColumns.find(c => c.excel === td.dataset.col);
+            if (colCfg && colCfg.required && !val.trim()) {
+                td.classList.add('ix-cell-missing');
+            } else {
+                td.classList.remove('ix-cell-missing');
+            }
+        });
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  IMPORT
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function ixImport() {
+    const typeKey = document.getElementById('id_ix_import_type').value;
+    const btn = document.querySelector('[onclick="ixImport()"]');
+
+    // Flush any in-progress edits into ixRows before collecting checked rows
+    if (ixEditMode) {
+        document.querySelectorAll('#ix-tbody .ix-cell-editable input').forEach(inp => {
+            const td     = inp.closest('td');
+            const tr     = inp.closest('tr');
+            const rowIdx = parseInt(tr.dataset.idx);
+            const colKey = td.dataset.col;
+            if (!isNaN(rowIdx) && colKey) ixRows[rowIdx][colKey] = inp.value;
+        });
+    }
+
+    const checked = [];
+    document.querySelectorAll('.ix-row-cb:checked').forEach(cb => {
+        const idx = parseInt(cb.closest('tr').dataset.idx);
+        checked.push(ixRows[idx]);
+    });
+
+    if (!checked.length) { ixToast('No rows selected for import.', 'w'); return; }
+
+    if (btn) btn.disabled = true;
+    if (typeof window.erpLoader !== 'undefined') erpLoader.show('Importing…');
+
+    try {
+        const res  = await fetch(IX_PROCESS_URL, {
+            method : 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken' : ixCsrf(),
+            },
+            body: JSON.stringify({ import_type: typeKey, rows: checked }),
+        });
+        const data = await res.json();
+        if (!data.success) {
+            ixShowResult(false, 0, [{ row: '—', error: data.error || 'Unknown error' }]);
+        } else {
+            ixShowResult(true, data.imported, data.errors || []);
+        }
+    } catch (err) {
+        ixShowResult(false, 0, [{ row: '—', error: 'Network error: ' + err.message }]);
+    } finally {
+        if (btn) btn.disabled = false;
+        if (typeof window.erpLoader !== 'undefined') erpLoader.hide();
+    }
+}
+
+// ── Result banner ─────────────────────────────────────────────────────────────
+function ixShowResult(success, imported, errors) {
+    const el = document.getElementById('ix-result-card');
+    let html = '';
+
+    if (success && !errors.length) {
+        html = `<div class="ix-result success">
+            <div class="ix-result-title">✅ Import complete — ${imported} record${imported !== 1 ? 's' : ''} saved.</div>
+        </div>`;
+    } else if (success && errors.length) {
+        const errItems = errors.map(e => `<li>Row ${e.row}: ${e.error}</li>`).join('');
+        html = `<div class="ix-result success">
+            <div class="ix-result-title">⚠️ ${imported} saved, ${errors.length} row${errors.length !== 1 ? 's' : ''} failed.</div>
+            <ul class="ix-error-list">${errItems}</ul>
+        </div>`;
+    } else {
+        const errItems = errors.map(e => `<li>Row ${e.row}: ${e.error}</li>`).join('');
+        html = `<div class="ix-result error">
+            <div class="ix-result-title">❌ Import failed.</div>
+            <ul class="ix-error-list">${errItems}</ul>
+        </div>`;
+    }
+
+    el.innerHTML = html;
+    el.style.display = '';
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+</script>
+{% endblock %}

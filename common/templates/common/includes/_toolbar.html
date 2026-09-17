@@ -1,0 +1,115 @@
+{% comment %} common/templates/common/includes/_toolbar.html {% endcomment %}
+{% if fc.toolbar or fc.menu_items or fc.search %}
+<div class="pf-toolbar" id="pf-toolbar-{{ fc.form_id }}">
+
+    {% for btn in fc.toolbar %}
+        {% if btn.sep_before %}<div class="pf-tb-sep"></div>{% endif %}
+        <button type="button"
+                class="pf-tb-btn{% if btn.danger %} pf-tb-btn-danger{% endif %}"
+                onclick="{{ btn.onclick }}" title="{{ btn.label }}"
+                {{ btn.extra_attrs }}>
+            <span class="pf-tb-btn-icon">{{ btn.icon|safe }}</span>
+            {{ btn.label }}
+        </button>
+        {% if btn.sep_after %}<div class="pf-tb-sep"></div>{% endif %}
+    {% endfor %}
+
+    {% if fc.menu_items %}
+    <div class="pf-tb-sep"></div>
+    <button type="button" class="pf-tb-btn"
+            id="pf-menu-btn-{{ fc.form_id }}"
+            onclick="pfToolbarMenu(this, '{{ fc.form_id }}')" title="More options">
+        <span class="pf-tb-btn-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="3" y1="12" x2="21" y2="12"/>
+                <line x1="3" y1="6"  x2="21" y2="6"/>
+                <line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+        </span>Menu
+    </button>
+    {% endif %}
+
+    {# ── Optional toolbar search — enabled by fc.search ─────────────────── #}
+    {% if fc.search %}
+    <div class="pf-tb-sep"></div>
+    <div class="pf-tb-search-wrap" id="pf-tb-search-wrap-{{ fc.form_id }}">
+
+        {# Field-selector button — only if fc.search.fields is provided #}
+        {% if fc.search.fields %}
+        <button type="button"
+                class="pf-tb-search-field-btn"
+                id="pf-tb-sfbtn-{{ fc.form_id }}"
+                onclick="pfTbToggleSearchDrop('{{ fc.form_id }}')"
+                title="Choose search field">
+            <svg class="pf-tb-search-icon" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <span id="pf-tb-sflabel-{{ fc.form_id }}">All</span>
+            <svg class="pf-tb-search-caret" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+            </svg>
+        </button>
+
+        <div class="pf-tb-search-drop" id="pf-tb-sfdrop-{{ fc.form_id }}" style="display:none">
+            <div class="pf-tb-search-drop-item active"
+                 data-field=""
+                 onclick="pfTbSetSearchField('{{ fc.form_id }}','','All',this)">
+                All fields
+            </div>
+            {% for sf in fc.search.fields %}
+            <div class="pf-tb-search-drop-item"
+                 data-field="{{ sf.key }}"
+                 onclick="pfTbSetSearchField('{{ fc.form_id }}','{{ sf.key }}','{{ sf.label }}',this)">
+                {{ sf.label }}
+            </div>
+            {% endfor %}
+        </div>
+
+        {% else %}
+        {# No field selector — just the magnifier icon #}
+        <svg class="pf-tb-search-icon" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        {% endif %}
+
+        <input type="text"
+               class="pf-tb-search-input"
+               id="pf-tb-search-{{ fc.form_id }}"
+               placeholder="{{ fc.search.placeholder|default:'Search…' }}"
+               autocomplete="off">
+
+        {# Clear button — appears when input has text #}
+        <button type="button"
+                class="pf-tb-search-clear"
+                id="pf-tb-sclear-{{ fc.form_id }}"
+                style="display:none"
+                onclick="pfTbSearchClear('{{ fc.form_id }}')"
+                title="Clear search">✕</button>
+
+    </div>
+    {% endif %}
+    {# ── /toolbar search ─────────────────────────────────────────────────── #}
+
+</div>
+{% endif %}
+
+{% if fc.menu_items %}
+<ul id="pf-menu-items-{{ fc.form_id }}" style="display:none">
+    {% for item in fc.menu_items %}
+    <li data-key="{{ item.label|default:'' }}"
+        data-label="{{ item.label|default:'' }}"
+        data-onclick="{{ item.onclick|default:'' }}"
+        data-danger="{{ item.danger|yesno:'1,0' }}"
+        data-sep="{{ item.sep|yesno:'1,0' }}"></li>
+    {% endfor %}
+</ul>
+{% endif %}

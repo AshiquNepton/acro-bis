@@ -1,0 +1,314 @@
+{% extends 'common/base.html' %}
+{% load static %}
+{% comment %} common/templates/common/home.html {% endcomment %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<!-- Centralized Colors -->
+<link rel="stylesheet" href="{% static 'common/css/colors.css' %}">
+<!-- Universal Form CSS -->
+<link rel="stylesheet" href="{% static 'common/css/universal_form.css' %}">
+<!-- Base Layout CSS -->
+<link rel="stylesheet" href="{% static 'common/css/layout.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="main-container">
+    <!-- Include Sidebar -->
+    {% include 'common/includes/sidebar.html' %}
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Include Top Navbar -->
+        {% include 'common/includes/navbar.html' %}
+
+        <!-- Content Area -->
+        <div class="content-wrapper">
+            <div class="content-inner">
+                <div class="welcome-section">
+                    <h2>Welcome Dashboard</h2>
+                    <p>Select an option from the sidebar to get started</p>
+                </div>
+
+                <div class="quick-stats">
+                    <div class="stat-card">
+                        <h3>Pending</h3>
+                        <div class="stat-value">3</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Pending</h3>
+                        <div class="stat-value">5</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Active</h3>
+                        <div class="stat-value">1</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Total</h3>
+                        <div class="stat-value">2</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Include Footer -->
+        {% include 'common/includes/footer.html' %}
+    </main>
+</div>
+
+<!-- Include Messages -->
+{% include 'common/includes/messages.html' %}
+
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Universal Form JavaScript -->
+<script src="{% static 'common/js/universal_form.js' %}"></script>
+
+<script>
+// ============================================
+// Date and Time Update
+// ============================================
+function updateDateTime() {
+    const now = new Date();
+    const options = { 
+        weekday: 'short', 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+    };
+    const dateTimeStr = now.toLocaleString('en-US', options);
+    document.getElementById('currentDateTime').textContent = dateTimeStr;
+}
+
+// Update immediately and then every second
+updateDateTime();
+setInterval(updateDateTime, 1000);
+
+// ============================================
+// Session Timer
+// ============================================
+let sessionStartTime = Date.now();
+
+function updateSessionTime() {
+    const now = Date.now();
+    const elapsed = Math.floor((now - sessionStartTime) / 1000);
+    const hours = Math.floor(elapsed / 3600);
+    const minutes = Math.floor((elapsed % 3600) / 60);
+    const seconds = elapsed % 60;
+    
+    const timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    document.getElementById('sessionTime').textContent = timeStr;
+}
+
+// Update immediately and then every second
+updateSessionTime();
+setInterval(updateSessionTime, 1000);
+
+// ============================================
+// Minimized Forms Management
+// ============================================
+const minimizedForms = new Map();
+
+// Load minimized forms from sessionStorage on page load
+function loadMinimizedFormsFromSession() {
+    const storedForms = JSON.parse(sessionStorage.getItem('minimizedForms') || '[]');
+    storedForms.forEach(form => {
+        minimizedForms.set(form.id, {
+            title: form.title,
+            icon: form.icon,
+            url: form.url
+        });
+    });
+    updateMinimizedForms();
+}
+
+// Call on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadMinimizedFormsFromSession();
+});
+
+// Override the minimize function for universal forms
+window.minimizeFormToFooter = function(formId, formTitle, formIcon) {
+    const formOverlay = document.getElementById(formId);
+    if (!formOverlay) return;
+    
+    // Hide the form
+    formOverlay.style.display = 'none';
+    
+    // Add to minimized forms
+    minimizedForms.set(formId, {
+        title: formTitle || 'Form',
+        icon: formIcon || '📝'
+    });
+    
+    // Update footer
+    updateMinimizedForms();
+};
+
+// Restore form from footer
+window.restoreFormFromFooter = function(formId) {
+    // Get the form data
+    const formData = minimizedForms.get(formId);
+    if (!formData) return;
+    
+    // Check if we have a URL to navigate to
+    const storedForms = JSON.parse(sessionStorage.getItem('minimizedForms') || '[]');
+    const formInfo = storedForms.find(f => f.id === formId);
+    
+    if (formInfo && formInfo.url) {
+        // Remove from minimized list
+        minimizedForms.delete(formId);
+        
+        // Update sessionStorage
+        const updatedForms = storedForms.filter(f => f.id !== formId);
+        sessionStorage.setItem('minimizedForms', JSON.stringify(updatedForms));
+        
+        // Navigate back to form page
+        window.location.href = formInfo.url;
+    } else {
+        // Try to show form if it exists on current page
+        const formOverlay = document.getElementById(formId);
+        if (formOverlay) {
+            formOverlay.style.display = 'flex';
+            requestAnimationFrame(() => {
+                formOverlay.classList.add('form-opening');
+                setTimeout(() => {
+                    formOverlay.classList.remove('form-opening');
+                }, 300);
+            });
+            
+            // Remove from minimized forms
+            minimizedForms.delete(formId);
+            updateMinimizedForms();
+        }
+    }
+};
+
+// Close form from footer
+window.closeFormFromFooter = function(formId) {
+    // Remove from Map
+    minimizedForms.delete(formId);
+    
+    // Remove from sessionStorage
+    const storedForms = JSON.parse(sessionStorage.getItem('minimizedForms') || '[]');
+    const updatedForms = storedForms.filter(f => f.id !== formId);
+    sessionStorage.setItem('minimizedForms', JSON.stringify(updatedForms));
+    
+    // Update footer
+    updateMinimizedForms();
+};
+
+// Update the minimized forms display in footer
+function updateMinimizedForms() {
+    const container = document.getElementById('minimizedFormsContainer');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    minimizedForms.forEach((formData, formId) => {
+        const item = document.createElement('div');
+        item.className = 'minimized-form-item';
+        item.innerHTML = `
+            <span class="minimized-form-icon">${formData.icon}</span>
+            <span class="minimized-form-title">${formData.title}</span>
+            <div class="minimized-form-actions">
+                <button class="minimized-form-btn expand" onclick="restoreFormFromFooter('${formId}')" title="Restore">
+                    ⬆
+                </button>
+                <button class="minimized-form-btn close" onclick="closeFormFromFooter('${formId}')" title="Close">
+                    ✕
+                </button>
+            </div>
+        `;
+        container.appendChild(item);
+    });
+}
+
+// ============================================
+// Form Animation Fixes
+// ============================================
+
+// Override the close form overlay to add smooth transition
+window.customCloseFormOverlay = function(formId) {
+    const formOverlay = document.getElementById(formId);
+    if (!formOverlay) return;
+    
+    // Add closing animation
+    formOverlay.classList.add('form-closing');
+    
+    setTimeout(() => {
+        formOverlay.style.display = 'none';
+        formOverlay.classList.remove('form-closing');
+        
+        // Redirect to home
+        window.location.href = "{% url 'common:home' %}";
+    }, 200);
+};
+
+// ============================================
+// Form Auto-Open (if needed)
+// ============================================
+{% if show_form and db_form_config %}
+console.log('=== Form Auto-Open ===');
+console.log('Form ID:', '{{ db_form_config.form_id }}');
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Opening form...');
+    
+    // Small delay to ensure DOM is ready
+    setTimeout(() => {
+        const formOverlay = document.getElementById('{{ db_form_config.form_id }}');
+        if (formOverlay) {
+            formOverlay.style.display = 'flex';
+            formOverlay.classList.add('form-opening');
+            setTimeout(() => {
+                formOverlay.classList.remove('form-opening');
+            }, 300);
+        }
+    }, 50);
+});
+
+// Form-specific save functions
+function saveCompany() {
+    const form = document.getElementById('company-form-form');
+    if (form && form.checkValidity()) {
+        form.submit();
+    } else if (form) {
+        form.reportValidity();
+    }
+}
+
+function saveCustomer() {
+    const form = document.getElementById('customer-form-form');
+    if (form && form.checkValidity()) {
+        form.submit();
+    } else if (form) {
+        form.reportValidity();
+    }
+}
+
+function saveDatabase() {
+    const form = document.getElementById('database-config-form-form');
+    if (form && form.checkValidity()) {
+        form.submit();
+    } else if (form) {
+        form.reportValidity();
+    }
+}
+
+function testConnection() {
+    // Implement test connection logic
+    showToast('Testing connection...', 'info');
+}
+{% endif %}
+</script>
+
+<script src="{% static 'common/js/home.js' %}"></script>
+{% endblock %}

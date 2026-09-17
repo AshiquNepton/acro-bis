@@ -1,0 +1,125 @@
+{% extends 'financial/base.html' %}
+{% load static %}
+
+{% block title %}Financial Dashboard - {{ company_name }}{% endblock %}
+
+{% block app_css %}
+<style>
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .card {
+        background: white;
+        padding: 25px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .card h2 {
+        color: var(--primary-color, #28a745);
+        margin-bottom: 15px;
+        font-size: 22px;
+    }
+    
+    .card p {
+        color: #666;
+        line-height: 1.6;
+    }
+    
+    .stats {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+        margin-top: 20px;
+    }
+    
+    .stat-box {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+    }
+    
+    .stat-box .number {
+        font-size: 32px;
+        font-weight: bold;
+        color: var(--primary-color, #28a745);
+    }
+    
+    .stat-box .label {
+        color: #666;
+        margin-top: 5px;
+        font-size: 14px;
+    }
+    
+    .quick-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 15px;
+    }
+    
+    .action-btn {
+        padding: 10px 20px;
+        background: var(--primary-color, #28a745);
+        color: white;
+        text-decoration: none;
+        border-radius: 5px;
+        transition: background 0.3s;
+        display: inline-block;
+    }
+    
+    .action-btn:hover {
+        background: var(--primary-hover, #218838);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block app_content_body %}
+<div class="dashboard-grid">
+    <div class="card">
+        <h2>📊 Overview</h2>
+        <div class="stats">
+            <div class="stat-box">
+                <div class="number">$0</div>
+                <div class="label">Total Assets</div>
+            </div>
+            <div class="stat-box">
+                <div class="number">$0</div>
+                <div class="label">Total Liabilities</div>
+            </div>
+            <div class="stat-box">
+                <div class="number">0</div>
+                <div class="label">Pending Vouchers</div>
+            </div>
+            <div class="stat-box">
+                <div class="number">0</div>
+                <div class="label">Accounts</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h2>⚡ Quick Actions</h2>
+        <p>Manage your finances efficiently</p>
+        <div class="quick-actions">
+            <a href="#" class="action-btn">New Voucher</a>
+            <a href="#" class="action-btn">Ledger</a>
+            <a href="#" class="action-btn">Trial Balance</a>
+            <a href="#" class="action-btn">Profit & Loss</a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>📋 Recent Transactions</h2>
+    <p style="text-align: center; padding: 40px 0; color: #999;">
+        No recent transactions.
+    </p>
+</div>
+{% endblock %}

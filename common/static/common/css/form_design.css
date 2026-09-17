@@ -1,0 +1,184 @@
+/* ================================================================
+   common/static/common/css/form_design.css   v8.0
+   Floating popup — 1/5 screen, draggable title bar.
+   All colors = CSS variables only (theme-aware).
+   ================================================================ */
+
+#fd-panel {
+    position: fixed;
+    top: 70px;
+    right: 20px;
+    width: clamp(300px, 20vw, 400px);
+    max-height: 88vh;
+    z-index: 9500;
+    display: none;
+    flex-direction: column;
+    background: var(--color-bg-secondary);
+    border: 2px solid var(--color-primary);
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.28);
+    overflow: visible;
+    transform: scale(.94) translateY(-8px);
+    opacity: 0;
+    transition: transform .18s cubic-bezier(.4,0,.2,1), opacity .15s ease;
+    resize: both;
+    min-width: 280px;
+    min-height: 300px;
+}
+#fd-panel.fd-open { transform: scale(1) translateY(0); opacity: 1; }
+
+.fd-title-bar {
+    display: flex; align-items: center; gap: 7px;
+    padding: 8px 10px;
+    background: var(--gradient-primary);
+    flex-shrink: 0; cursor: move; user-select: none;
+    border-radius: 6px 6px 0 0;
+}
+.fd-title-icon { font-size: 13px; flex-shrink: 0; }
+.fd-title-text {
+    flex: 1; font-size: 12.5px; font-weight: 700; color: #fff;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fd-title-close {
+    background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.26);
+    color: #fff; font-size: 12px; padding: 2px 7px; border-radius: 3px;
+    cursor: pointer; font-family: inherit; flex-shrink: 0; transition: background .12s;
+}
+.fd-title-close:hover { background: rgba(255,255,255,.32); }
+
+.fd-body {
+    display: flex; flex-direction: column; flex: 1;
+    overflow-y: auto; overflow-x: hidden;
+    padding: 8px 10px 10px; gap: 8px;
+}
+.fd-body::-webkit-scrollbar { width: 4px; }
+.fd-body::-webkit-scrollbar-thumb { background: var(--color-primary); border-radius: 2px; }
+
+/* ── Searchable dropdown ──────────────────────────────────── */
+.fd-dd-wrap { position: relative; flex-shrink: 0; }
+.fd-dd-trigger {
+    display: flex; align-items: center; padding: 6px 10px;
+    border: 1px solid var(--color-border-light); border-radius: 6px;
+    background: var(--color-bg-tertiary); cursor: pointer; user-select: none;
+    gap: 6px; transition: border-color .13s;
+}
+.fd-dd-trigger:hover { border-color: var(--color-primary); }
+.fd-dd-label {
+    flex: 1; font-size: 12px; font-weight: 600;
+    color: var(--color-text-primary); white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+    font-family: 'Courier New', monospace;
+}
+.fd-dd-arrow { font-size: 11px; color: var(--color-text-muted); flex-shrink: 0; }
+
+.fd-dd-popup {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    z-index: 9999; background: var(--color-bg-secondary);
+    border: 1px solid var(--color-primary); border-radius: 6px;
+    box-shadow: 0 6px 22px rgba(0,0,0,.20); overflow: hidden;
+}
+.fd-dd-popup input {
+    width: 100%; padding: 6px 10px; font-size: 12px;
+    border: none; border-bottom: 1px solid var(--color-border-light);
+    background: var(--color-bg-tertiary); color: var(--color-text-primary);
+    font-family: inherit; outline: none; box-sizing: border-box;
+}
+.fd-dd-popup input:focus { border-bottom-color: var(--color-primary); }
+.fd-dd-list { max-height: 220px; overflow-y: auto; }
+.fd-dd-list::-webkit-scrollbar { width: 4px; }
+.fd-dd-list::-webkit-scrollbar-thumb { background: var(--color-primary); border-radius: 2px; }
+
+.fd-dd-item {
+    display: flex; align-items: center; padding: 6px 10px;
+    font-size: 12px; color: var(--color-text-primary); cursor: pointer;
+    border-left: 3px solid transparent; gap: 6px;
+    transition: background .10s, border-color .10s; user-select: none;
+}
+.fd-dd-item:hover { background: var(--color-bg-tertiary); border-left-color: var(--color-primary); }
+.fd-dd-item.fd-dd-item-active {
+    background: var(--color-primary); color: #fff;
+    border-left-color: var(--color-primary); font-weight: 600;
+}
+.fd-dd-item.fd-dd-item-active .fd-dd-sub { color: rgba(255,255,255,.72); }
+
+/* Row badge — shows which row the field is in */
+.fd-row-badge {
+    font-size: 9.5px; font-weight: 700; color: #fff;
+    background: var(--color-primary); border-radius: 4px;
+    padding: 1px 5px; flex-shrink: 0; min-width: 24px;
+    text-align: center; letter-spacing: .3px; opacity: .85;
+}
+.fd-dd-item.fd-dd-item-active .fd-row-badge {
+    background: rgba(255,255,255,.28); opacity: 1;
+}
+
+.fd-drag-handle {
+    font-size: 15px; color: var(--color-text-muted);
+    cursor: grab; flex-shrink: 0; line-height: 1; padding: 0 2px;
+}
+.fd-drag-handle:active { cursor: grabbing; }
+.fd-dd-item.fd-dd-draggable { cursor: default; }
+.fd-dd-name {
+    flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-family: 'Courier New', monospace; font-size: 11.5px;
+}
+.fd-dd-sub {
+    font-size: 10.5px; color: var(--color-text-muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 45%; text-align: right; flex-shrink: 0;
+}
+.fd-dd-item.fd-drag-over { border-top: 2px solid var(--color-primary); }
+.fd-dd-item.fd-dragging  { opacity: .35; }
+
+/* ── Property grid ────────────────────────────────────────── */
+.fd-grid-wrap { flex-shrink: 0; border: 1px solid var(--color-border-light); border-radius: 6px; overflow: hidden; }
+.fd-prop-table { width: 100%; border-collapse: collapse; }
+.fd-prop-row { border-bottom: 1px solid var(--color-border-light); }
+.fd-prop-row:last-child { border-bottom: none; }
+.fd-prop-row:hover { background: var(--color-bg-tertiary); }
+.fd-prop-row.fd-prop-hidden-row { background: color-mix(in srgb, var(--color-primary) 8%, transparent); }
+.fd-prop-row.fd-prop-hidden-row .fd-prop-name { color: var(--color-primary); font-weight: 700; }
+.fd-prop-name {
+    width: 72px; padding: 4px 8px 4px 10px; font-size: 11.5px; font-weight: 500;
+    color: var(--color-text-secondary); background: var(--color-bg-tertiary);
+    border-right: 1px solid var(--color-border-light); vertical-align: middle;
+    user-select: none; white-space: nowrap;
+}
+.fd-prop-val { padding: 2px 5px; vertical-align: middle; }
+.fd-prop-val input,
+.fd-prop-val select {
+    width: 100%; padding: 3px 6px; font-size: 11.5px;
+    border: 1px solid transparent; background: transparent;
+    color: var(--color-text-primary); font-family: inherit;
+    border-radius: 3px; transition: border-color .12s, background .12s;
+}
+.fd-prop-val input:focus,
+.fd-prop-val select:focus {
+    outline: none; border-color: var(--color-primary);
+    background: var(--color-bg-secondary);
+}
+.fd-prop-val input::placeholder { color: var(--color-text-muted); font-size: 10.5px; }
+.fd-prop-val input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+/* .fd-prop-val input[type=number] { -moz-appearance: textfield; } */
+
+/* ── Buttons ──────────────────────────────────────────────── */
+.fd-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; flex-shrink: 0; }
+.fd-btn {
+    padding: 6px 4px; font-size: 11.5px; font-weight: 500; text-align: center;
+    border: 1px solid var(--color-border-light); border-radius: 5px;
+    background: var(--color-bg-tertiary); color: var(--color-text-primary);
+    cursor: pointer; font-family: inherit;
+    transition: background .12s, border-color .12s, color .12s; white-space: nowrap;
+}
+.fd-btn:hover { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+.fd-btn-primary { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+.fd-btn-primary:hover { filter: brightness(1.10); }
+.fd-btn-danger  { border-color: #dc2626; color: #dc2626; }
+.fd-btn-danger:hover { background: #dc2626; border-color: #dc2626; color: #fff; }
+.fd-btn-full    { grid-column: 1 / -1; }
+.fd-btn.fd-btn-active { background: var(--color-primary); border-color: var(--color-primary); color: #fff; font-weight: 700; }
+
+/* ── Form field highlights ────────────────────────────────── */
+.fd-wrap-selected { outline: 2px solid var(--color-primary) !important; outline-offset: 3px !important; border-radius: 4px; }
+.fd-drag-hint     { outline: 1px dashed color-mix(in srgb, var(--color-primary) 55%, transparent) !important; outline-offset: 2px !important; border-radius: 4px; }
+
