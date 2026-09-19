@@ -36,6 +36,7 @@ from datetime import date
 from typing import Optional
 
 from django.db import connections
+from core.crud import safe_atomic
 
 logger = logging.getLogger(__name__)
 
@@ -83,14 +84,20 @@ END$$;
 
 # ── Ensure table ──────────────────────────────────────────────────────────────
 
-def ensure_chart_of_code_table(db_alias: str) -> bool:
+_ENSURED_CHART_TABLES = set()
+
+
+def ensure_chart_of_code_table(db_alias: str, force: bool = False) -> bool:
     """
     Create ChartOfCode + indexes if they don't exist.
     Also widens Category / Code columns from old VARCHAR(20/15) to VARCHAR(50)
     if the table was created with the previous narrow schema.
+    Cached in memory so it executes at most once per process.
     Returns True on success, False on error.
-    Safe to call on every request — all statements are idempotent.
     """
+    if not force and db_alias in _ENSURED_CHART_TABLES:
+        return True
+
     try:
         conn = connections[db_alias]
         with conn.cursor() as cur:
@@ -98,6 +105,7 @@ def ensure_chart_of_code_table(db_alias: str) -> bool:
             cur.execute(_IDX_CATEGORY)
             cur.execute(_IDX_ENO)
             cur.execute(_ALTER_WIDEN_COLS)   # ← widens columns if needed
+        _ENSURED_CHART_TABLES.add(db_alias)
         return True
     except Exception as e:
         logger.warning('[ChartOfCode.ensure] %s on %s: %s', db_alias, db_alias, e)
@@ -139,18 +147,19 @@ class ChartOfCode:
         edate = edate or date.today().strftime('%Y-%m-%d')
         conn  = cls._conn(db_alias)
         try:
-            with conn.cursor() as cur:
-                cur.execute(
-                    f'DELETE FROM {cls.TABLE} '
-                    f'WHERE "Category"=%s AND "Code"=%s AND "TypeCode"=%s',
-                    [category, code, type_code],
-                )
-                cur.execute(
-                    f'INSERT INTO {cls.TABLE} '
-                    f'("Category","Code","TypeCode","Description","EDate","ENo") '
-                    f'VALUES (%s,%s,%s,%s,%s,%s)',
-                    [category, code, type_code, str(description), edate, eno],
-                )
+            with safe_atomic(db_alias):
+                with conn.cursor() as cur:
+                    cur.execute(
+                        f'DELETE FROM {cls.TABLE} '
+                        f'WHERE "Category"=%s AND "Code"=%s AND "TypeCode"=%s',
+                        [category, code, type_code],
+                    )
+                    cur.execute(
+                        f'INSERT INTO {cls.TABLE} '
+                        f'("Category","Code","TypeCode","Description","EDate","ENo") '
+                        f'VALUES (%s,%s,%s,%s,%s,%s)',
+                        [category, code, type_code, str(description), edate, eno],
+                    )
             return True
         except Exception as e:
             logger.error('[ChartOfCode.set] %s', e, exc_info=True)
@@ -176,30 +185,31 @@ class ChartOfCode:
         edate = date.today().strftime('%Y-%m-%d')
         conn  = cls._conn(db_alias)
         try:
-            with conn.cursor() as cur:
-                # Delete existing scope
-                if eno is not None:
-                    cur.execute(
-                        f'DELETE FROM {cls.TABLE} '
-                        f'WHERE "Category"=%s AND "Code"=%s AND "ENo"=%s',
-                        [category, code, int(eno)],
-                    )
-                else:
-                    cur.execute(
-                        f'DELETE FROM {cls.TABLE} '
-                        f'WHERE "Category"=%s AND "Code"=%s',
-                        [category, code],
-                    )
-                saved = 0
-                for key, value in items.items():
-                    type_code = f'{key_prefix}{key}'
-                    cur.execute(
-                        f'INSERT INTO {cls.TABLE} '
-                        f'("Category","Code","TypeCode","Description","EDate","ENo") '
-                        f'VALUES (%s,%s,%s,%s,%s,%s)',
-                        [category, code, type_code, str(value), edate, eno],
-                    )
-                    saved += 1
+            with safe_atomic(db_alias):
+                with conn.cursor() as cur:
+                    # Delete existing scope
+                    if eno is not None:
+                        cur.execute(
+                            f'DELETE FROM {cls.TABLE} '
+                            f'WHERE "Category"=%s AND "Code"=%s AND "ENo"=%s',
+                            [category, code, int(eno)],
+                        )
+                    else:
+                        cur.execute(
+                            f'DELETE FROM {cls.TABLE} '
+                            f'WHERE "Category"=%s AND "Code"=%s',
+                            [category, code],
+                        )
+                    saved = 0
+                    for key, value in items.items():
+                        type_code = f'{key_prefix}{key}'
+                        cur.execute(
+                            f'INSERT INTO {cls.TABLE} '
+                            f'("Category","Code","TypeCode","Description","EDate","ENo") '
+                            f'VALUES (%s,%s,%s,%s,%s,%s)',
+                            [category, code, type_code, str(value), edate, eno],
+                        )
+                        saved += 1
             return saved
         except Exception as e:
             logger.error('[ChartOfCode.set_many] %s', e, exc_info=True)

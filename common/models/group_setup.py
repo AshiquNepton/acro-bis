@@ -32,18 +32,26 @@ CREATE TABLE IF NOT EXISTS "ItemGroups" (
 CREATE_ITEM_GROUPS_INDEXES_SQL = [
     'CREATE INDEX IF NOT EXISTS "idx_itemgroups_category" ON "ItemGroups" ("Category");',
     'CREATE INDEX IF NOT EXISTS "idx_itemgroups_desc"     ON "ItemGroups" ("Description");',
+    'CREATE INDEX IF NOT EXISTS "idx_itemgroups_cat_lower_desc" ON "ItemGroups" ("Category", LOWER("Description"));',
 ]
 
 
 # ─── Table creator ────────────────────────────────────────────────────────────
 
-def ensure_item_groups_table(db_alias: str = 'customer_db') -> bool:
+_ENSURED_ITEM_GROUPS_TABLES = set()
+
+
+def ensure_item_groups_table(db_alias: str = 'customer_db', force: bool = False) -> bool:
     """
     Create the ItemGroups table + indexes on *db_alias* if they don't exist.
+    Cached in memory so it executes at most once per process.
 
     Returns True  → table was just created.
     Returns False → table already existed (no-op).
     """
+    if not force and db_alias in _ENSURED_ITEM_GROUPS_TABLES:
+        return False
+
     try:
         conn = connections[db_alias]
 
@@ -57,6 +65,7 @@ def ensure_item_groups_table(db_alias: str = 'customer_db') -> bool:
             already_exists = cur.fetchone() is not None
 
         if already_exists:
+            _ENSURED_ITEM_GROUPS_TABLES.add(db_alias)
             return False
 
         with conn.cursor() as cur:
@@ -65,6 +74,7 @@ def ensure_item_groups_table(db_alias: str = 'customer_db') -> bool:
                 cur.execute(idx_sql)
 
         logger.info('[common] Created ItemGroups table on db="%s"', db_alias)
+        _ENSURED_ITEM_GROUPS_TABLES.add(db_alias)
         return True
 
     except (ProgrammingError, OperationalError) as e:

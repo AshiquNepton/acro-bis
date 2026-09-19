@@ -175,23 +175,21 @@
     height: 100%;
 }
 
-.rpt-report-tbl.design-active {
+.rpt-report-tbl.design-active,
+.rpt-tbl.design-active {
     user-select: none;
 }
 
-.rpt-report-tbl.design-active th {
+.rpt-report-tbl.design-active th,
+.rpt-tbl.design-active th {
     background: var(--color-hover-primary, #f0f4ff);
     border-right: 2px solid var(--color-border-medium, #90caf9) !important;
     cursor: col-resize;
     position: relative;
 }
 
-.rpt-report-tbl.design-active th:last-child {
-    cursor: default;
-    border-right: none !important;
-}
-
-.rpt-report-tbl.design-active td {
+.rpt-report-tbl.design-active td,
+.rpt-tbl.design-active td {
     background: var(--color-bg-primary, #fafbff);
     border-right: 1px dashed var(--color-border-light, #cfd8dc) !important;
 }

@@ -3,7 +3,7 @@ from datetime import date, datetime
 from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase
-from common.views.crud import (
+from core.crud import (
     BaseCRUD,
     _coerce,
     _safe,
@@ -175,7 +175,7 @@ class BaseCRUDSQLGenerationTests(SimpleTestCase):
         mock_connections.__getitem__.return_value = mock_conn
         return mock_cursor
 
-    @patch('common.views.crud.connections')
+    @patch('core.crud.connections')
     def test_get_sql_generation(self, mock_connections):
         mock_cursor = self._setup_mock_cursor(mock_connections)
         mock_cursor.description = [('RegNo',), ('EmpName',), ('BasicPay',), ('Active',)]
@@ -194,7 +194,7 @@ class BaseCRUDSQLGenerationTests(SimpleTestCase):
         self.assertIn('SELECT * FROM "Employees" WHERE "RegNo" = %s', sql)
         self.assertEqual(params, ['E101'])
 
-    @patch('common.views.crud.connections')
+    @patch('core.crud.connections')
     def test_get_record_not_found(self, mock_connections):
         mock_cursor = self._setup_mock_cursor(mock_connections)
         mock_cursor.fetchone.return_value = None
@@ -205,7 +205,7 @@ class BaseCRUDSQLGenerationTests(SimpleTestCase):
         self.assertFalse(data['success'])
         self.assertEqual(data['error'], 'Record not found')
 
-    @patch('common.views.crud.connections')
+    @patch('core.crud.connections')
     def test_delete_sql_generation(self, mock_connections):
         mock_cursor = self._setup_mock_cursor(mock_connections)
         mock_cursor.fetchone.return_value = (1,)
@@ -226,7 +226,7 @@ class BaseCRUDSQLGenerationTests(SimpleTestCase):
         self.assertIn('DELETE FROM "Employees" WHERE "RegNo" = %s', delete_sql)
         self.assertEqual(delete_params, ['E101'])
 
-    @patch('common.views.crud.connections')
+    @patch('core.crud.connections')
     def test_lookup_sql_generation(self, mock_connections):
         mock_cursor = self._setup_mock_cursor(mock_connections)
         mock_cursor.description = [('RegNo',), ('EmpName',)]
@@ -242,7 +242,7 @@ class BaseCRUDSQLGenerationTests(SimpleTestCase):
         self.assertIn('SELECT * FROM "Employees" WHERE "EmpName" = %s', sql)
         self.assertEqual(params, ['Alice'])
 
-    @patch('common.views.crud.connections')
+    @patch('core.crud.connections')
     def test_search_sql_generation(self, mock_connections):
         mock_cursor = self._setup_mock_cursor(mock_connections)
         mock_cursor.fetchall.return_value = [('E101', 'Alice')]
@@ -258,7 +258,7 @@ class BaseCRUDSQLGenerationTests(SimpleTestCase):
         self.assertIn('SELECT "RegNo", "EmpName" FROM "Employees" WHERE "EmpName" ILIKE %s LIMIT %s', sql)
         self.assertEqual(params, ['%Ali%', 10])
 
-    @patch('common.views.crud.connections')
+    @patch('core.crud.connections')
     def test_list_sql_generation(self, mock_connections):
         mock_cursor = self._setup_mock_cursor(mock_connections)
         mock_cursor.description = [('RegNo',), ('EmpName',), ('Active',)]
@@ -278,7 +278,7 @@ class BaseCRUDSQLGenerationTests(SimpleTestCase):
         self.assertIn('LIMIT 5', sql)
         self.assertEqual(params, [1])
 
-    @patch('common.views.crud.connections')
+    @patch('core.crud.connections')
     def test_check_duplicate_sql(self, mock_connections):
         mock_cursor = self._setup_mock_cursor(mock_connections)
         mock_cursor.fetchone.return_value = ('E101',)
@@ -338,8 +338,8 @@ class BaseCRUDSaveTests(SimpleTestCase):
         self.assertFalse(data['success'])
         self.assertIn('Required fields missing', data['error'])
 
-    @patch('common.views.crud._is_identity_column', return_value=False)
-    @patch('common.views.crud.connections')
+    @patch('core.crud._is_identity_column', return_value=False)
+    @patch('core.crud.connections')
     def test_save_insert(self, mock_connections, mock_is_identity):
         mock_cursor = self._setup_mock_cursor(mock_connections)
         # Existence check returns None (new record)
@@ -362,7 +362,7 @@ class BaseCRUDSaveTests(SimpleTestCase):
         self.assertIn('INSERT INTO "Employees"', insert_sql)
         self.assertIn('RETURNING "RegNo"', insert_sql)
 
-    @patch('common.views.crud.connections')
+    @patch('core.crud.connections')
     def test_save_update(self, mock_connections):
         mock_cursor = self._setup_mock_cursor(mock_connections)
         # Existence check returns record (updating existing record)
@@ -383,7 +383,7 @@ class BaseCRUDSaveTests(SimpleTestCase):
         self.assertIn('WHERE "RegNo" = %s', update_sql)
         self.assertEqual(update_params[-1], 'E101')
 
-    @patch('common.views.crud.connections')
+    @patch('core.crud.connections')
     def test_save_duplicate_aborted(self, mock_connections):
         mock_cursor = self._setup_mock_cursor(mock_connections)
         # Step 4 existence check returns None (new record)
@@ -400,3 +400,66 @@ class BaseCRUDSaveTests(SimpleTestCase):
         self.assertFalse(data['success'])
         self.assertTrue(data.get('duplicate'))
         self.assertEqual(data.get('existing_pk'), 'E999')
+
+    @patch('core.crud._is_identity_column', return_value=False)
+    @patch('core.crud.connections')
+    def test_save_is_new_true_already_exists_reallocates(self, mock_connections, mock_is_identity):
+        """When is_new=True and prefilled ID already exists, reallocate to next_id_value without overwriting."""
+        mock_cursor = self._setup_mock_cursor(mock_connections)
+        # 1. Existence check finds ID '100' already exists
+        # 2. next_id_value query returns 101
+        # 3. INSERT returns 101
+        mock_cursor.fetchone.side_effect = [
+            (1,),       # existence check for '100' -> exists
+            (100,),     # MAX(RegNo) -> 100, so next is 101
+            (101,),     # INSERT ... RETURNING RegNo
+        ]
+
+        post_data = {'_is_new': '1', 'reg_no': '100', 'emp_name': 'New Employee'}
+        response = self.crud.save(post_data)
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertTrue(data['success'])
+        self.assertEqual(data['pk'], 101)
+        self.assertIn('created', data['message'])
+
+    @patch('core.crud.connections')
+    def test_save_is_new_false_not_found_aborts(self, mock_connections):
+        """When is_new=False and ID is not found, reject rather than inserting corrupted record."""
+        mock_cursor = self._setup_mock_cursor(mock_connections)
+        mock_cursor.fetchone.return_value = None  # Record doesn't exist
+
+        post_data = {'_is_new': '0', 'reg_no': 'E999', 'emp_name': 'Deleted Employee'}
+        response = self.crud.save(post_data)
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertFalse(data['success'])
+        self.assertIn('does not exist', data['error'])
+
+    @patch('core.crud._is_identity_column', return_value=False)
+    @patch('core.crud.connections')
+    def test_save_concurrent_collision_retry(self, mock_connections, mock_is_identity):
+        """When concurrent insert causes duplicate key IntegrityError, retry with new PK."""
+        from django.db import IntegrityError
+        mock_cursor = self._setup_mock_cursor(mock_connections)
+        # Attempt 1: exists check -> None, execute INSERT raises IntegrityError
+        # Attempt 2: next_id_value -> 102, execute INSERT succeeds -> returns 102
+        mock_cursor.fetchone.side_effect = [
+            None,      # existence check
+            (101,),    # next_id_value call in retry
+            (102,),    # INSERT ... RETURNING RegNo
+        ]
+        mock_cursor.execute.side_effect = [
+            None,                                                                 # SELECT 1 (exists)
+            IntegrityError('duplicate key value violates unique constraint "pk_employees"'),  # INSERT attempt 1
+            None,                                                                 # SELECT MAX (next_id_value)
+            None,                                                                 # INSERT attempt 2
+        ]
+
+        post_data = {'_is_new': '1', 'reg_no': '101', 'emp_name': 'Concurrent User'}
+        response = self.crud.save(post_data)
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertTrue(data['success'])
+        self.assertEqual(data['pk'], 102)
+        self.assertIn('created', data['message'])

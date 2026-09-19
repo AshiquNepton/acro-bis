@@ -301,20 +301,37 @@ def _resolve_itemgroup_id(db_alias: str, category_id: int, description: str,
             cache[cache_key] = group_id
             return group_id
 
-        # ── Insert new row ─────────────────────────────────────────────────
-        cur.execute('SELECT COALESCE(MAX("GroupID"), 0) FROM "ItemGroups"')
-        next_id = cur.fetchone()[0] + 1
+        # ── Insert new row with collision retry ────────────────────────────
+        for attempt in range(5):
+            try:
+                cur.execute('SELECT COALESCE(MAX("GroupID"), 0) + 1 FROM "ItemGroups"')
+                next_id = cur.fetchone()[0]
 
-        cur.execute(
-            'INSERT INTO "ItemGroups" '
-            '("GroupID", "Category", "Description", "Under", "NREC") '
-            'VALUES (%s, %s, %s, %s, %s)',
-            [next_id, category_id, description.strip(), 1, None],
-        )
-        logger.info(
-            '_resolve_itemgroup_id: inserted "%s" → GroupID=%d (Category=%d)',
-            description.strip(), next_id, category_id,
-        )
+                cur.execute(
+                    'INSERT INTO "ItemGroups" '
+                    '("GroupID", "Category", "Description", "Under", "NREC") '
+                    'VALUES (%s, %s, %s, %s, %s)',
+                    [next_id, category_id, description.strip(), 1, None],
+                )
+                logger.info(
+                    '_resolve_itemgroup_id: inserted "%s" → GroupID=%d (Category=%d)',
+                    description.strip(), next_id, category_id,
+                )
+                cache[cache_key] = next_id
+                return next_id
+            except Exception:
+                cur.execute(
+                    'SELECT "GroupID" FROM "ItemGroups" '
+                    'WHERE "Category" = %s AND LOWER("Description") = LOWER(%s) '
+                    'LIMIT 1',
+                    [category_id, description.strip()],
+                )
+                row = cur.fetchone()
+                if row:
+                    group_id = row[0]
+                    cache[cache_key] = group_id
+                    return group_id
+                continue
 
     cache[cache_key] = next_id
     return next_id
@@ -535,8 +552,17 @@ def _upsert_row(db_alias: str, table: str, pk_col: str, data: dict):
         else:
             col_clause = ', '.join(q(c) for c in cols)
             val_clause = ', '.join('%s' for _ in cols)
-            cur.execute(
-                f'INSERT INTO {q(table)} ({col_clause}) VALUES ({val_clause})',
-                vals,
-            )
+            try:
+                cur.execute(
+                    f'INSERT INTO {q(table)} ({col_clause}) VALUES ({val_clause})',
+                    vals,
+                )
+            except Exception:
+                update_cols = [c for c in cols if c != pk_col]
+                if update_cols:
+                    set_clause = ', '.join(f'{q(c)} = %s' for c in update_cols)
+                    cur.execute(
+                        f'UPDATE {q(table)} SET {set_clause} WHERE {q(pk_col)} = %s',
+                        [data[c] for c in update_cols] + [pk_val],
+                    )
             

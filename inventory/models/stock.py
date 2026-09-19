@@ -5,10 +5,13 @@ from django.db import models
 logger = logging.getLogger(__name__)
 
 
-def ensure_stocks_table(db_alias: str) -> bool:
+_ENSURED_STOCK_TABLES = set()
+
+
+def ensure_stocks_table(db_alias: str, force: bool = False) -> bool:
     """
     Create the Stocks table in the given database alias if it does not
-    already exist.  Called automatically before any CRUD operation.
+    already exist. Cached in memory so it executes at most once per process.
 
     Schema mirrors the SQL Server DDL specified in the business requirements:
       - Composite PK: ItemID + PurchasePrice + Rate1
@@ -19,6 +22,9 @@ def ensure_stocks_table(db_alias: str) -> bool:
       2. Unit{n}_{field} NUMERIC columns — flattened per-unit rates for
          fast SQL queries (up to 6 units x 5 price levels)
     """
+    if not force and db_alias in _ENSURED_STOCK_TABLES:
+        return True
+
     ddl = """
         CREATE TABLE IF NOT EXISTS "Stocks" (
             -- Identity
@@ -94,15 +100,23 @@ def ensure_stocks_table(db_alias: str) -> bool:
             CONSTRAINT "PK_Stock"  PRIMARY KEY ("ItemID", "PurchasePrice", "Rate1"),
             CONSTRAINT "FK_Stocks_Item" FOREIGN KEY ("ItemID")
                 REFERENCES "InventoryItems" ("ItemID") ON DELETE CASCADE
-        )
+        );
+        CREATE INDEX IF NOT EXISTS "idx_stocks_itemid" ON "Stocks" ("ItemID");
     """
     try:
         with connections[db_alias].cursor() as cur:
             cur.execute(ddl)
-            for i in range(1, 7):
-                for rate_col in ['BaseRate', 'MRPRate', 'DRPRate', 'FDPRate', 'BranchRate']:
-                    cur.execute(f'ALTER TABLE "Stocks" ADD COLUMN IF NOT EXISTS "Unit{i}{rate_col}" NUMERIC(19,4) NULL')
-            cur.execute('ALTER TABLE "Stocks" ADD COLUMN IF NOT EXISTS "MultiUnitData" TEXT NULL')
+            # Ensure multiunit columns exist in one combined batch if missing
+            try:
+                alter_cols = []
+                for i in range(1, 7):
+                    for rate_col in ['BaseRate', 'MRPRate', 'DRPRate', 'FDPRate', 'BranchRate']:
+                        alter_cols.append(f'ADD COLUMN IF NOT EXISTS "Unit{i}{rate_col}" NUMERIC(19,4) NULL')
+                alter_cols.append('ADD COLUMN IF NOT EXISTS "MultiUnitData" TEXT NULL')
+                cur.execute(f'ALTER TABLE "Stocks" {", ".join(alter_cols)}')
+            except Exception:
+                pass
+        _ENSURED_STOCK_TABLES.add(db_alias)
         logger.debug('ensure_stocks_table: table ready in %s', db_alias)
         return True
     except (OperationalError, ProgrammingError) as exc:

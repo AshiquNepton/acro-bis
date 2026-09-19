@@ -259,13 +259,13 @@ def save_doc(request):
     file_obj = request.FILES['doc_file']
     filename = file_obj.name
 
-    print(f'│')
-    print(f'│  ► FTP Upload starting...')
-    print(f'│     Module   : {module}')
-    print(f'│     Company  : {company_name} ({company_code})')
-    print(f'│     Ref ID   : {ref_id}')
-    print(f'│     Group    : {group_id}')
-    print(f'│     File     : {filename}')
+    print(f'|')
+    print(f'|  -> FTP Upload starting...')
+    print(f'|     Module   : {module}')
+    print(f'|     Company  : {company_name} ({company_code})')
+    print(f'|     Ref ID   : {ref_id}')
+    print(f'|     Group    : {group_id}')
+    print(f'|     File     : {filename}')
 
     try:
         data = b''.join(file_obj.chunks())
@@ -281,10 +281,10 @@ def save_doc(request):
             group_code   = group_id,
         )
 
-        print(f'│  ✔  Upload complete')
-        print(f'│     Size     : {len(data):,} bytes')
-        print(f'│     Path     : {remote_path}')
-        print(f'│')
+        print(f'|  [OK]  Upload complete')
+        print(f'|     Size     : {len(data):,} bytes')
+        print(f'|     Path     : {remote_path}')
+        print(f'|')
 
         return JsonResponse({
             'success'  : True,
@@ -296,7 +296,7 @@ def save_doc(request):
 
     except Exception as e:
         logger.error('[save_doc] %s', e, exc_info=True)
-        print(f'│  ✗  Upload failed: {e}')
+        print(f'|  [ERROR]  Upload failed: {e}')
         return JsonResponse({'success': False, 'error': str(e)})
 
 
@@ -317,7 +317,7 @@ def delete_doc(request):
         ftp = FTPManager()
         with ftp._connect() as f:
             f.delete(file_path)
-        print(f'│  ✔  FTP Deleted: {file_path}')
+        print(f'|  [OK]  FTP Deleted: {file_path}')
         return JsonResponse({'success': True, 'message': 'File deleted'})
     except Exception as e:
         logger.error('[delete_doc] %s', e, exc_info=True)
@@ -345,14 +345,14 @@ def serve_doc(request):
         mime_type, ext = _mime(filename)
         disposition    = 'inline' if ext in _INLINE else 'attachment'
 
-        print(f'│  ► Serving: {file_path}')
+        print(f'|  -> Serving: {file_path}')
         buf = io.BytesIO()
         ftp = FTPManager()
         with ftp._connect() as f:
             f.retrbinary('RETR ' + file_path, buf.write)
         buf.seek(0)
         data = buf.read()
-        print(f'│  ✔  Served: {filename} ({len(data):,} bytes)')
+        print(f'|  [OK]  Served: {filename} ({len(data):,} bytes)')
 
         response = HttpResponse(data, content_type=mime_type)
         response['Content-Disposition'] = f'{disposition}; filename="{filename}"'

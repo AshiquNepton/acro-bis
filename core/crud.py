@@ -57,7 +57,9 @@ You can also call check_duplicate() directly from a view for live/blur checks:
 import logging
 import re
 from datetime import datetime, date
-from django.db import connections, ProgrammingError, DataError
+from contextlib import contextmanager
+from django.db import connections, ProgrammingError, DataError, transaction, IntegrityError
+from django.db.utils import ConnectionDoesNotExist
 from django.http import JsonResponse
 
 logger = logging.getLogger(__name__)
@@ -252,6 +254,41 @@ def _is_identity_column(db_alias, table, pk_col):
 
 _is_identity_column._cache = {}
 
+# In-memory table verification cache to eliminate repetitive DDL round trips
+_ENSURED_TABLES = set()
+
+
+def clear_ensured_table_cache(db_alias=None, table=None):
+    """Clear cached table existence checks (used when schema changes or on retry)."""
+    global _ENSURED_TABLES
+    if db_alias and table:
+        _ENSURED_TABLES.discard((db_alias, table))
+    elif db_alias:
+        _ENSURED_TABLES = {k for k in _ENSURED_TABLES if k[0] != db_alias}
+    else:
+        _ENSURED_TABLES.clear()
+
+
+@contextmanager
+def safe_atomic(db_alias: str):
+    """
+    Context manager that safely executes a block inside transaction.atomic(using=db_alias).
+    Falls back to no-op if db_alias is unregistered or mocked during unit tests.
+    """
+    try:
+        from django.db import connections as dj_connections
+        if (
+            db_alias
+            and hasattr(dj_connections, 'databases')
+            and db_alias in dj_connections.databases
+        ):
+            with transaction.atomic(using=db_alias):
+                yield
+            return
+    except ConnectionDoesNotExist:
+        pass
+    yield
+
 
 # ─── BaseCRUD ─────────────────────────────────────────────────────────────────
 
@@ -292,15 +329,27 @@ class BaseCRUD:
     def _conn(self):
         return connections[self.db_alias]
 
+    def _atomic(self):
+        return safe_atomic(self.db_alias)
+
     def _tbl(self):
         return f'"{self.table}"'
 
-    def _ensure_table(self):
-        if self.table_creator:
+    def _ensure_table(self, force: bool = False):
+        if not self.table_creator:
+            return
+        key = (self.db_alias, self.table)
+        if not force and key in _ENSURED_TABLES:
+            return
+        try:
             created = self.table_creator(self.db_alias)
+            _ENSURED_TABLES.add(key)
             if created:
                 logger.info('[BaseCRUD] Auto-created table "%s" on "%s"',
                             self.table, self.db_alias)
+        except Exception as e:
+            logger.warning('[BaseCRUD._ensure_table] %s on %s: %s',
+                           self.table, self.db_alias, e)
 
     def _row_to_dict(self, cols, row):
         result = {}
@@ -445,60 +494,38 @@ class BaseCRUD:
             logger.error('[BaseCRUD.get] %s – %s', self.table, e, exc_info=True)
             return JsonResponse({'success': False, 'error': str(e)})
 
-    def save(self, post_data, unique_fields=None):
+    def save(self, post_data, unique_fields=None, is_new: bool = None):
         """
-        INSERT or UPDATE based on whether PK already exists.
+        INSERT or UPDATE based on client intent and PK existence with concurrency protection.
 
         Parameters
         ----------
         post_data     : dict-like (request.POST)
         unique_fields : list of (db_col, form_field_name) | None
-            When provided, a duplicate check is run BEFORE the INSERT.
-            Each tuple maps a DB column to the form field name used to
-            read the value from post_data.
-
-            Examples
-            ────────
-            # Single field — block duplicate dept names
-            crud.save(request.POST, unique_fields=[('FName', 'dept_name')])
-
-            # Compound — name + parent must be unique together
-            crud.save(request.POST, unique_fields=[
-                ('FName',  'dept_name'),
-                ('Under',  'under'),
-            ])
-
-        For UPDATE, the current record is always excluded from the duplicate
-        check so a record is not flagged as a duplicate of itself.
-
-        INSERT behaviour for identity/serial PK columns
-        ────────────────────────────────────────────────
-        When pk_value is None (new record) AND the PK column is a PostgreSQL
-        IDENTITY column, the PK is omitted from the INSERT entirely so the
-        database generates it automatically.  After the insert we fetch the
-        generated value via RETURNING and return it as 'pk' in the response.
+        is_new        : bool | None (True=INSERT, False=UPDATE, None=auto-detect)
         """
         import time
+        from django.db import transaction, IntegrityError
         _t         = time.time
         _elapsed   = lambda start: f'{((_t() - start) * 1000):.1f}ms'
         save_start = _t()
         form_name  = self.table
 
-        print(f'\n┌─ SAVING  [{form_name}] ────────────────────────────')
+        print(f'\n+-- SAVING  [{form_name}] ----------------------------')
 
         try:
             # ── Step 1: Validate required fields ──────────────────────────
             t1      = _t()
             missing = self._validate(post_data)
             if missing:
-                print(f'│  ✗ Validation failed  ({_elapsed(t1)})')
-                print(f'│    Missing: {", ".join(missing)}')
-                print(f'└─ ABORTED  [{form_name}] ─────────────────────────────\n')
+                print(f'|  [ERROR] Validation failed  ({_elapsed(t1)})')
+                print(f'|    Missing: {", ".join(missing)}')
+                print(f'+-- ABORTED  [{form_name}] -----------------------------\n')
                 return JsonResponse({
                     'success': False,
                     'error'  : f'Required fields missing: {", ".join(missing)}'
                 })
-            print(f'│  ✔ Validation passed  ({_elapsed(t1)})')
+            print(f'|  [OK] Validation passed  ({_elapsed(t1)})')
 
             # ── Step 2: Read PK from POST ─────────────────────────────────
             pk_form_field = next(
@@ -507,34 +534,57 @@ class BaseCRUD:
             pk_value = self._pk_val(
                 post_data.get(pk_form_field, '') if pk_form_field else ''
             )
-            print(f'│  ℹ  PK  {self.pk_col} = {pk_value!r}')
+            print(f'|  [INFO] PK  {self.pk_col} = {pk_value!r}')
 
             # ── Step 3: Ensure table exists ───────────────────────────────
             t3 = _t()
             self._ensure_table()
-            print(f'│  ✔ Table ready  ({_elapsed(t3)})')
+            print(f'|  [OK] Table ready  ({_elapsed(t3)})')
 
-            # ── Step 4: Determine INSERT vs UPDATE ────────────────────────
-            t4     = _t()
-            exists = False
+            # ── Step 4: Determine client intent & INSERT vs UPDATE ────────
+            t4 = _t()
+            if is_new is None:
+                raw_is_new = post_data.get('_is_new')
+                if raw_is_new is None:
+                    raw_is_new = post_data.get('is_new')
+                if raw_is_new is not None:
+                    is_new = str(raw_is_new).strip() in ('1', 'true', 'True')
+
+            already_exists = False
             with self._conn().cursor() as cur:
                 if pk_value:
                     cur.execute(
                         f'SELECT 1 FROM {self._tbl()} WHERE "{self.pk_col}" = %s',
                         [pk_value]
                     )
-                    exists = cur.fetchone() is not None
-            print(f'│  ✔ Existence check: {"UPDATE" if exists else "INSERT"}  ({_elapsed(t4)})')
+                    already_exists = cur.fetchone() is not None
+
+            if is_new is True:
+                # Client intended to INSERT a new record.
+                # If suggested pk_value was already taken by a concurrent insert,
+                # reallocate next free ID so we NEVER overwrite an existing record!
+                exists = False
+                if already_exists:
+                    pk_value = str(self.next_id_value())
+                    print(f'|  [INFO] PK {self.pk_col} was already taken concurrently. Reallocated to: {pk_value}')
+            elif is_new is False:
+                # Client intended to UPDATE an existing record.
+                if not already_exists:
+                    print(f'|  [ERROR] Record with PK={pk_value} not found for update')
+                    print(f'+-- ABORTED  [{form_name}] -----------------------------\n')
+                    return JsonResponse({
+                        'success': False,
+                        'error'  : f'Record with {self.pk_col} "{pk_value}" does not exist or was deleted.'
+                    })
+                exists = True
+            else:
+                exists = already_exists
+
+            print(f'|  [OK] Action determined: {"UPDATE" if exists else "INSERT"} (is_new={is_new})  ({_elapsed(t4)})')
 
             # ── Step 5: Duplicate check (INSERT only, or always if caller wants) ──
-            #
-            # On UPDATE we still check but exclude the current record so the
-            # record is never flagged as a duplicate of itself.
             if unique_fields:
                 t5d = _t()
-
-                # Resolve values from post_data using the form_field names
-                # unique_fields = [(db_col, form_field_name), …]
                 resolved = []
                 for db_col, form_field_name in unique_fields:
                     raw_val = post_data.get(form_field_name, '')
@@ -544,14 +594,13 @@ class BaseCRUD:
                 dup     = self.check_duplicate(resolved, exclude_pk=exclude)
 
                 if dup['is_duplicate']:
-                    # Build a human-readable label from the matched fields
                     field_labels = ', '.join(
                         f'"{self.field_map.get(dc, dc)}"'
                         for dc, _ in dup['matched_fields']
                     )
                     existing_id = dup['existing_pk']
-                    print(f'│  ✗ Duplicate detected — existing PK={existing_id}  ({_elapsed(t5d)})')
-                    print(f'└─ ABORTED  [{form_name}] ─────────────────────────────\n')
+                    print(f'|  [ERROR] Duplicate detected — existing PK={existing_id}  ({_elapsed(t5d)})')
+                    print(f'+-- ABORTED  [{form_name}] -----------------------------\n')
                     return JsonResponse({
                         'success'    : False,
                         'duplicate'  : True,
@@ -561,70 +610,95 @@ class BaseCRUD:
                             f'(ID: {existing_id}).'
                         ),
                     })
-                print(f'│  ✔ No duplicate found  ({_elapsed(t5d)})')
+                print(f'|  [OK] No duplicate found  ({_elapsed(t5d)})')
 
             # ── Step 6: Coerce POST → DB dict ─────────────────────────────
             t6      = _t()
             db_data = self._post_to_db(post_data, is_update=exists)
             if not db_data:
-                print(f'│  ✗ No data after coercion  ({_elapsed(t6)})')
-                print(f'└─ ABORTED  [{form_name}] ─────────────────────────────\n')
+                print(f'|  [ERROR] No data after coercion  ({_elapsed(t6)})')
+                print(f'+-- ABORTED  [{form_name}] -----------------------------\n')
                 return JsonResponse({'success': False, 'error': 'No data to save'})
-            print(f'│  ✔ Coercion done — {len(db_data)} field(s)  ({_elapsed(t6)})')
+            print(f'|  [OK] Coercion done — {len(db_data)} field(s)  ({_elapsed(t6)})')
 
-            # ── Step 7: INSERT or UPDATE ───────────────────────────────────
+            # ── Step 7: INSERT or UPDATE with Concurrency Protection ───────
             t7 = _t()
             returned_pk = pk_value
+            max_retries = 5
 
-            with self._conn().cursor() as cur:
-                if exists:
-                    # UPDATE — always exclude PK from SET clause
-                    update_cols = {k: v for k, v in db_data.items() if k != self.pk_col}
-                    if not update_cols:
-                        print(f'│  ✗ Nothing to update')
-                        print(f'└─ ABORTED  [{form_name}] ─────────────────────────────\n')
-                        return JsonResponse({'success': False, 'error': 'Nothing to update'})
-                    set_clause = ', '.join(f'"{c}" = %s' for c in update_cols)
-                    values     = list(update_cols.values()) + [pk_value]
-                    cur.execute(
-                        f'UPDATE {self._tbl()} SET {set_clause} '
-                        f'WHERE "{self.pk_col}" = %s',
-                        values
+            for attempt in range(max_retries):
+                try:
+                    with self._atomic():
+                        with self._conn().cursor() as cur:
+                            if exists:
+                                # UPDATE — always exclude PK from SET clause
+                                update_cols = {k: v for k, v in db_data.items() if k != self.pk_col}
+                                if not update_cols:
+                                    print(f'|  [ERROR] Nothing to update')
+                                    print(f'+-- ABORTED  [{form_name}] -----------------------------\n')
+                                    return JsonResponse({'success': False, 'error': 'Nothing to update'})
+                                set_clause = ', '.join(f'"{c}" = %s' for c in update_cols)
+                                values     = list(update_cols.values()) + [pk_value]
+                                cur.execute(
+                                    f'UPDATE {self._tbl()} SET {set_clause} '
+                                    f'WHERE "{self.pk_col}" = %s',
+                                    values
+                                )
+                                action = 'updated'
+                                returned_pk = pk_value
+                            else:
+                                pk_is_identity = (
+                                    pk_value is None
+                                    and _is_identity_column(self.db_alias, self.table, self.pk_col)
+                                )
+
+                                if pk_is_identity:
+                                    insert_data = {k: v for k, v in db_data.items() if k != self.pk_col}
+                                    print(f'|  [INFO] Identity PK detected — omitting "{self.pk_col}" from INSERT')
+                                else:
+                                    if pk_value is None:
+                                        pk_value = str(self.next_id_value())
+                                    coerced_pk = _coerce(pk_value, self.col_types.get(self.pk_col, 'int'))
+                                    db_data[self.pk_col] = coerced_pk
+                                    insert_data = db_data
+
+                                cols         = list(insert_data.keys())
+                                col_clause   = ', '.join(f'"{c}"' for c in cols)
+                                placeholders = ', '.join(['%s'] * len(cols))
+
+                                cur.execute(
+                                    f'INSERT INTO {self._tbl()} ({col_clause}) '
+                                    f'VALUES ({placeholders}) '
+                                    f'RETURNING "{self.pk_col}"',
+                                    list(insert_data.values())
+                                )
+                                row = cur.fetchone()
+                                returned_pk = row[0] if row else pk_value
+                                action = 'created'
+                    break  # Success!
+                except IntegrityError as exc:
+                    err_msg = str(exc).lower()
+                    is_pk_collision = (
+                        not exists and (
+                            'pk_' in err_msg
+                            or f'"{self.pk_col.lower()}"' in err_msg
+                            or f'({self.pk_col.lower()})' in err_msg
+                            or 'primary key' in err_msg
+                            or 'duplicate key' in err_msg
+                        )
                     )
-                    action = 'updated'
+                    if is_pk_collision and attempt < max_retries - 1:
+                        next_pk = str(self.next_id_value())
+                        pk_value = next_pk
+                        logger.warning(
+                            '[BaseCRUD.save] Concurrent insert collision on %s (%s). Retrying with new PK=%s (attempt %d/%d)',
+                            self.table, exc, next_pk, attempt + 1, max_retries
+                        )
+                        continue
+                    raise
 
-                else:
-                    # INSERT — detect identity columns and strip the PK when
-                    # pk_value is None so PostgreSQL generates it automatically.
-                    pk_is_identity = (
-                        pk_value is None
-                        and _is_identity_column(self.db_alias, self.table, self.pk_col)
-                    )
-
-                    if pk_is_identity:
-                        insert_data = {k: v for k, v in db_data.items() if k != self.pk_col}
-                        print(f'│  ℹ  Identity PK detected — omitting "{self.pk_col}" from INSERT')
-                    else:
-                        if pk_value is not None:
-                            db_data[self.pk_col] = pk_value
-                        insert_data = db_data
-
-                    cols         = list(insert_data.keys())
-                    col_clause   = ', '.join(f'"{c}"' for c in cols)
-                    placeholders = ', '.join(['%s'] * len(cols))
-
-                    cur.execute(
-                        f'INSERT INTO {self._tbl()} ({col_clause}) '
-                        f'VALUES ({placeholders}) '
-                        f'RETURNING "{self.pk_col}"',
-                        list(insert_data.values())
-                    )
-                    row = cur.fetchone()
-                    returned_pk = row[0] if row else pk_value
-                    action = 'created'
-
-            print(f'│  ✔ Record {action}  (pk={returned_pk})  ({_elapsed(t7)})')
-            print(f'└─ DONE  [{form_name}]  total: {_elapsed(save_start)} ──────────────\n')
+            print(f'|  [OK] Record {action}  (pk={returned_pk})  ({_elapsed(t7)})')
+            print(f'+-- DONE  [{form_name}]  total: {_elapsed(save_start)} --------------\n')
 
             return JsonResponse({
                 'success': True,
@@ -634,21 +708,22 @@ class BaseCRUD:
 
         except ProgrammingError as e:
             if 'does not exist' in str(e).lower():
-                self._ensure_table()
-                print(f'│  ✗ Table missing — auto-created, please retry')
-                print(f'└─ RETRYABLE  [{form_name}]  total: {_elapsed(save_start)} ─────\n')
+                _ENSURED_TABLES.discard((self.db_alias, self.table))
+                self._ensure_table(force=True)
+                print(f'|  [WARN] Table missing — auto-created, please retry')
+                print(f'+-- RETRYABLE  [{form_name}]  total: {_elapsed(save_start)} -----\n')
                 return JsonResponse({
                     'success': False,
                     'error'  : 'Table was just created — please retry the save.'
                 })
-            print(f'│  ✗ ProgrammingError: {e}')
-            print(f'└─ FAILED  [{form_name}]  total: {_elapsed(save_start)} ───────────\n')
+            print(f'|  [ERROR] ProgrammingError: {e}')
+            print(f'+-- FAILED  [{form_name}]  total: {_elapsed(save_start)} -----------\n')
             logger.error('[BaseCRUD.save] %s – %s', self.table, e, exc_info=True)
             return JsonResponse({'success': False, 'error': str(e)})
 
         except DataError as e:
-            print(f'│  ✗ DataError: {e}')
-            print(f'└─ FAILED  [{form_name}]  total: {_elapsed(save_start)} ───────────\n')
+            print(f'|  [ERROR] DataError: {e}')
+            print(f'+-- FAILED  [{form_name}]  total: {_elapsed(save_start)} -----------\n')
             logger.warning('[BaseCRUD.save] DataError %s – %s', self.table, e)
 
             _db_data = locals().get('db_data', {})
@@ -680,8 +755,8 @@ class BaseCRUD:
             })
 
         except Exception as e:
-            print(f'│  ✗ Error: {e}')
-            print(f'└─ FAILED  [{form_name}]  total: {_elapsed(save_start)} ───────────\n')
+            print(f'|  [ERROR] Error: {e}')
+            print(f'+-- FAILED  [{form_name}]  total: {_elapsed(save_start)} -----------\n')
             logger.error('[BaseCRUD.save] %s – %s', self.table, e, exc_info=True)
             return JsonResponse({'success': False, 'error': str(e)})
 
@@ -776,16 +851,15 @@ class BaseCRUD:
 
     def next_id_value(self) -> int:
         """
-        Return MAX(pk_col) + 1 from the table.
-        Works for both INTEGER and TEXT pk columns that hold numeric strings.
-        Returns 1 if the table is empty or does not yet exist.
-        Pure SELECT — safe to call multiple times.
+        Return MAX(pk_col) + 1 from the table with zero delay.
+        Selects exact integer or numeric-text extraction based on declared column type,
+        avoiding trial-and-error exception overhead and database aborts.
         """
         try:
             self._ensure_table()
+            col_type = self.col_types.get(self.pk_col, 'int')
 
-            # ── Attempt 1: native integer MAX (works for INT/BIGINT columns) ─
-            try:
+            if col_type in ('int', 'bigint', 'integer'):
                 with self._conn().cursor() as cur:
                     cur.execute(
                         f'SELECT COALESCE(MAX("{self.pk_col}"), 0) + 1 '
@@ -793,19 +867,16 @@ class BaseCRUD:
                     )
                     row = cur.fetchone()
                     return int(row[0]) if row else 1
-            except Exception:
-                pass  # PK is text — fall through
-
-            # ── Attempt 2: regex-guarded cast for text-numeric columns ───────
-            with self._conn().cursor() as cur:
-                cur.execute(
-                    f'SELECT COALESCE(MAX('
-                    f'  CASE WHEN "{self.pk_col}" ~ \'^[0-9]+$\' '
-                    f'       THEN "{self.pk_col}"::BIGINT ELSE 0 END'
-                    f'), 0) + 1 FROM {self._tbl()}'
-                )
-                row = cur.fetchone()
-                return int(row[0]) if row else 1
+            else:
+                with self._conn().cursor() as cur:
+                    cur.execute(
+                        f'SELECT COALESCE(MAX('
+                        f'  CASE WHEN "{self.pk_col}" ~ \'^[0-9]+$\' '
+                        f'       THEN "{self.pk_col}"::BIGINT ELSE 0 END'
+                        f'), 0) + 1 FROM {self._tbl()}'
+                    )
+                    row = cur.fetchone()
+                    return int(row[0]) if row else 1
 
         except Exception as e:
             logger.error('[BaseCRUD.next_id_value] %s – %s', self.table, e, exc_info=True)

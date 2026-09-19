@@ -117,6 +117,7 @@
 {% endif %}
 <form id="{{ fc.form_id }}" method="post" enctype="multipart/form-data" novalidate>
 {% csrf_token %}
+<input type="hidden" name="_is_new" id="_is_new_{{ fc.form_id }}" value="1">
 {% comment %} 
 {# ════════════════════════════════════════════════════════════
    UNIFIED HERO CARD

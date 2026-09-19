@@ -32,12 +32,27 @@
             view         : cfg.defaultView || 'tiles',
             searchTimer  : null,
             searchField  : '',   // '' = all fields
+            selectedRowIds: new Set(),
         };
 
         _bindSearch(id, cfg);
         _bindSort(id, cfg);
         _bindSearchDropClose(id);
         _render(id, cfg);
+    };
+
+    window.rptToggleRowSelect = function (el, id, rowId) {
+        var isTile = el.classList.contains('rpt-tile');
+        var selCls = isTile ? 'rpt-tile-selected' : 'rpt-row-selected';
+        el.classList.toggle(selCls);
+        var st = _state[id];
+        if (!st) return;
+        st.selectedRowIds = st.selectedRowIds || new Set();
+        if (el.classList.contains(selCls)) {
+            st.selectedRowIds.add(String(rowId));
+        } else {
+            st.selectedRowIds.delete(String(rowId));
+        }
     };
 
     window.rptSetRows = function (id, rows) {
@@ -336,7 +351,14 @@
                       + '</div>';
         }
 
-        return '<div class="rpt-tile" onclick="window.location.href=\'' + _esc(url) + '\'">'
+        var st = _state[id] || {};
+        var isSel = st.selectedRowIds && st.selectedRowIds.has(String(pk));
+        var selCls = isSel ? ' rpt-tile-selected' : '';
+        var clickHandler = (url && url !== '#')
+            ? 'window.location.href=\'' + _esc(url) + '\''
+            : 'rptToggleRowSelect(this,\'' + id + '\',\'' + _esc(pk) + '\')';
+
+        return '<div class="rpt-tile' + selCls + '" onclick="' + clickHandler + '">'
              +   photoHtml
              +   '<div class="rpt-tile-body">'
              +     '<div class="rpt-tile-name">' + name + '</div>'
@@ -409,32 +431,58 @@
                 var styles = [];
                 if (col.color) styles.push('background:' + col.color);
                 if (col.textColor) styles.push('color:' + col.textColor);
+                var align = col.align || (col.type === 'number' ? (col.key === 'slno' ? 'center' : 'right') : 'left');
+                if (align) styles.push('text-align:' + align);
                 var styleAttr = styles.length ? ' style="' + styles.join(';') + '"' : '';
                 return '<td' + (col.bold ? ' class="rpt-cell-bold"' : '') + styleAttr + '>' + _cellHtml(row[col.key], col) + '</td>';
             }).join('');
-            html += '<tr onclick="window.location.href=\'' + _esc(url) + '\'">' + cells + '</tr>';
+            var rowPk = _getPk(row, cfg);
+            var isSel = st.selectedRowIds && st.selectedRowIds.has(String(rowPk));
+            var selCls = isSel ? ' rpt-row-selected' : '';
+            var clickHandler = (url && url !== '#')
+                ? 'window.location.href=\'' + _esc(url) + '\''
+                : 'rptToggleRowSelect(this,\'' + id + '\',\'' + _esc(rowPk) + '\')';
+            html += '<tr class="' + selCls + '" data-row-id="' + _esc(rowPk) + '" onclick="' + clickHandler + '">' + cells + '</tr>';
         });
         tbody.innerHTML = html;
         var tbl = document.getElementById('rpt-list-tbl-' + id);
         if (tbl) {
-            /* Apply saved column widths via colgroup */
+            /* Apply saved column widths via colgroup and header styles */
             var savedWidths = {};
             try { savedWidths = JSON.parse(localStorage.getItem('rpt_col_widths_' + id) || '{}'); } catch(e) {}
             var cg = tbl.querySelector('colgroup');
             if (!cg) { cg = document.createElement('colgroup'); tbl.insertBefore(cg, tbl.firstChild); }
             cg.innerHTML = '';
+            var totalW = 0;
             visCols.forEach(function (col) {
                 var c = document.createElement('col');
-                var w = savedWidths[col.key] || col.width;
-                if (w) c.style.width = w + 'px';
+                var w = parseInt(savedWidths[col.key] || col.width || 120, 10);
+                c.style.width = w + 'px';
+                totalW += w;
                 cg.appendChild(c);
             });
-            /* action column — no fixed width */
-            cg.appendChild(document.createElement('col'));
+            tbl.style.tableLayout = 'fixed';
+            tbl.style.width = totalW + 'px';
+            tbl.style.minWidth = totalW + 'px';
 
-            tbl.querySelectorAll('thead th').forEach(function (th, i) {
-                if (visCols[i]) { th.dataset.col = visCols[i].key; th.style.cursor = 'pointer'; }
-            });
+            var thead = tbl.querySelector('thead');
+            if (thead) {
+                var ths = thead.querySelectorAll('th');
+                visCols.forEach(function (col, i) {
+                    var th = ths[i];
+                    if (th) {
+                        th.dataset.col = col.key;
+                        th.style.cursor = 'pointer';
+                        var w = parseInt(savedWidths[col.key] || col.width || 120, 10);
+                        th.style.width = w + 'px';
+                        th.style.minWidth = w + 'px';
+                        th.style.maxWidth = w + 'px';
+                        th.style.boxSizing = 'border-box';
+                        var align = col.align || (col.type === 'number' ? (col.key === 'slno' ? 'center' : 'right') : 'left');
+                        th.style.textAlign = align;
+                    }
+                });
+            }
             _updateSortArrows(id, 'rpt-list-tbl-' + id, visCols, 0);
         }
     }
@@ -505,10 +553,18 @@
                 var styles = [];
                 if (col.color) styles.push('background:' + col.color);
                 if (col.textColor) styles.push('color:' + col.textColor);
+                var align = col.align || (col.type === 'number' ? (col.key === 'slno' ? 'center' : 'right') : 'left');
+                if (align) styles.push('text-align:' + align);
                 var styleAttr = styles.length ? ' style="' + styles.join(';') + '"' : '';
                 return '<td' + (col.bold ? ' class="rpt-cell-bold"' : '') + styleAttr + '>' + _cellHtml(row[col.key], col) + '</td>';
             }).join('');
-            html += '<tr onclick="window.location.href=\'' + _esc(url) + '\'">'
+            var rowPk = _getPk(row, cfg);
+            var isSel = st.selectedRowIds && st.selectedRowIds.has(String(rowPk));
+            var selCls = isSel ? ' rpt-row-selected' : '';
+            var clickHandler = (url && url !== '#')
+                ? 'window.location.href=\'' + _esc(url) + '\''
+                : 'rptToggleRowSelect(this,\'' + id + '\',\'' + _esc(rowPk) + '\')';
+            html += '<tr class="' + selCls + '" data-row-id="' + _esc(rowPk) + '" onclick="' + clickHandler + '">'
                  + '<td>' + avatarHtml + '</td>' + cells + '</tr>';
         });
         tbody.innerHTML = html;
@@ -523,17 +579,42 @@
             var avatarCol = document.createElement('col');
             avatarCol.style.width = '44px';
             cg.appendChild(avatarCol);
+            var totalW = 44;
             visCols.forEach(function (col) {
                 var c = document.createElement('col');
-                var w = savedWidths[col.key] || col.width;
-                if (w) c.style.width = w + 'px';
+                var w = parseInt(savedWidths[col.key] || col.width || 120, 10);
+                c.style.width = w + 'px';
+                totalW += w;
                 cg.appendChild(c);
             });
-            cg.appendChild(document.createElement('col'));
+            tbl.style.tableLayout = 'fixed';
+            tbl.style.width = totalW + 'px';
+            tbl.style.minWidth = totalW + 'px';
 
-            tbl.querySelectorAll('thead th').forEach(function (th, i) {
-                if (i > 0 && visCols[i - 1]) { th.dataset.col = visCols[i - 1].key; th.style.cursor = 'pointer'; }
-            });
+            var thead = tbl.querySelector('thead');
+            if (thead) {
+                var ths = thead.querySelectorAll('th');
+                if (ths[0]) {
+                    ths[0].style.width = '44px';
+                    ths[0].style.minWidth = '44px';
+                    ths[0].style.maxWidth = '44px';
+                    ths[0].style.boxSizing = 'border-box';
+                }
+                visCols.forEach(function (col, i) {
+                    var th = ths[i + 1];
+                    if (th) {
+                        th.dataset.col = col.key;
+                        th.style.cursor = 'pointer';
+                        var w = parseInt(savedWidths[col.key] || col.width || 120, 10);
+                        th.style.width = w + 'px';
+                        th.style.minWidth = w + 'px';
+                        th.style.maxWidth = w + 'px';
+                        th.style.boxSizing = 'border-box';
+                        var align = col.align || (col.type === 'number' ? (col.key === 'slno' ? 'center' : 'right') : 'left');
+                        th.style.textAlign = align;
+                    }
+                });
+            }
             _updateSortArrows(id, 'rpt-grid-tbl-' + id, visCols, 1);
         }
     }
@@ -632,6 +713,15 @@
         if (type === 'badge')  return _badgeHtml(val);
         if (type === 'email')  return '<a href="mailto:' + _esc(val) + '" onclick="event.stopPropagation()" style="color:var(--color-primary)">' + _esc(val) + '</a>';
         if (type === 'tel')    return '<a href="tel:' + _esc(val) + '" onclick="event.stopPropagation()">' + _esc(val) + '</a>';
+        if (type === 'number') {
+            var n = Number(val);
+            if (!isNaN(n)) {
+                if (col.key === 'slno' || col.format === '0' || (Number.isInteger(n) && !col.total)) {
+                    return String(Math.round(n));
+                }
+                return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+        }
         return _esc(val);
     }
 

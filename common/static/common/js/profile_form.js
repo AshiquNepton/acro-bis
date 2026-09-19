@@ -422,6 +422,9 @@
             }
         });
 
+        var isNewEl = formEl.querySelector('[name="_is_new"]');
+        if (isNewEl) isNewEl.value = '0';
+
         _updateHero(formId, _cfg(formId), formEl);
 
         var cfg = _cfg(formId);
@@ -620,6 +623,10 @@
         var keep = Array.isArray(keepFields) ? keepFields : (keepFields ? [keepFields] : []);
         formEl.querySelectorAll('input, select, textarea').forEach(function (el) {
             if (keep.indexOf(el.name) !== -1 || el.name === 'csrfmiddlewaretoken') return;
+            if (el.name === '_is_new') {
+                el.value = '1';
+                return;
+            }
             if (el.type === 'checkbox' || el.type === 'radio') {
                 el.checked = false;
             } else if (el.tagName === 'SELECT') {

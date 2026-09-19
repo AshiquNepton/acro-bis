@@ -61,30 +61,32 @@ class Organization(models.Model):
         managed  = False          # Table is managed outside Django migrations
 
 
-def ensure_organization_logo_columns(db_alias: str = 'customer_db') -> None:
+_ENSURED_ORG_LOGO_COLS = set()
+
+
+def ensure_organization_logo_columns(db_alias: str = 'customer_db', force: bool = False) -> None:
     """
     Adds logo columns to Organization table if they don't exist.
-    Safe to call multiple times — uses ADD COLUMN IF NOT EXISTS.
+    Cached in memory so it executes at most once per process.
     """
+    if not force and db_alias in _ENSURED_ORG_LOGO_COLS:
+        return
+
     from django.db import connections
     import logging
     logger = logging.getLogger(__name__)
 
-    _LOGO_COLS = [
-        ('HeaderFullLogo', 'VARCHAR(500)'),
-        ('HeaderSideLogo', 'VARCHAR(500)'),
-        ('FooterFullLogo', 'VARCHAR(500)'),
-        ('FooterSideLogo', 'VARCHAR(500)'),
-    ]
-
     try:
         conn = connections[db_alias]
         with conn.cursor() as cur:
-            for col_name, col_type in _LOGO_COLS:
-                cur.execute(
-                    f'ALTER TABLE "Organization" '
-                    f'ADD COLUMN IF NOT EXISTS "{col_name}" {col_type}'
-                )
+            cur.execute("""
+                ALTER TABLE "Organization"
+                ADD COLUMN IF NOT EXISTS "HeaderFullLogo" VARCHAR(500),
+                ADD COLUMN IF NOT EXISTS "HeaderSideLogo" VARCHAR(500),
+                ADD COLUMN IF NOT EXISTS "FooterFullLogo" VARCHAR(500),
+                ADD COLUMN IF NOT EXISTS "FooterSideLogo" VARCHAR(500)
+            """)
+        _ENSURED_ORG_LOGO_COLS.add(db_alias)
         logger.info('[ensure_organization_logo_columns] done on db=%s', db_alias)
     except Exception as e:
         logger.warning('[ensure_organization_logo_columns] %s', e)

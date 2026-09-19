@@ -38,14 +38,21 @@ CREATE_FILTER_DETAILS_INDEXES_SQL = [
 ]
 
 
-def ensure_filter_details_table(db_alias: str = 'customer_db') -> bool:
+_ENSURED_FILTER_TABLES = set()
+
+
+def ensure_filter_details_table(db_alias: str = 'customer_db', force: bool = False) -> bool:
     """
     Create the FilterDetails table + indexes if they don't exist.
     Also repairs missing PK constraint on tables created by older code.
+    Cached in memory so it executes at most once per process.
 
     Returns True  → table was just created.
     Returns False → table already existed (may have applied constraint fix).
     """
+    if not force and db_alias in _ENSURED_FILTER_TABLES:
+        return False
+
     try:
         conn = connections[db_alias]
 
@@ -66,6 +73,7 @@ def ensure_filter_details_table(db_alias: str = 'customer_db') -> bool:
                 for idx_sql in CREATE_FILTER_DETAILS_INDEXES_SQL:
                     cur.execute(idx_sql)
             logger.info('[common] Created FilterDetails table on db="%s"', db_alias)
+            _ENSURED_FILTER_TABLES.add(db_alias)
             return True
 
         # ── Table exists — check whether PK constraint is present ─────────
@@ -101,6 +109,7 @@ def ensure_filter_details_table(db_alias: str = 'customer_db') -> bool:
                 '[common] Added PK_FilterDetails constraint on db="%s"', db_alias
             )
 
+        _ENSURED_FILTER_TABLES.add(db_alias)
         return False
 
     except (ProgrammingError, OperationalError) as e:

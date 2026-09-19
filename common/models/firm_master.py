@@ -16,15 +16,20 @@ from django.db import connections, OperationalError, ProgrammingError
 logger = logging.getLogger(__name__)
 
 
-def ensure_firm_master_table(db_alias: str) -> bool:
+_ENSURED_FIRM_TABLES = set()
+
+
+def ensure_firm_master_table(db_alias: str, force: bool = False) -> bool:
     """
     Create the FirmMaster table in the given database alias if it does
-    not already exist.  Called automatically before any CRUD operation
-    so the table is always ready.
+    not already exist. Cached in memory so it executes at most once per process.
 
     Returns True on success, False on failure (non-fatal — callers log
     the error and continue so the rest of the form still loads).
     """
+    if not force and db_alias in _ENSURED_FIRM_TABLES:
+        return True
+
     ddl = """
         CREATE TABLE IF NOT EXISTS "FirmMaster" (
             "FirmID"   integer      NOT NULL,
@@ -42,6 +47,7 @@ def ensure_firm_master_table(db_alias: str) -> bool:
     try:
         with connections[db_alias].cursor() as cur:
             cur.execute(ddl)
+        _ENSURED_FIRM_TABLES.add(db_alias)
         logger.debug('ensure_firm_master_table: table ready in %s', db_alias)
         return True
     except (OperationalError, ProgrammingError) as exc:

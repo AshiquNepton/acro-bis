@@ -143,6 +143,12 @@ def sidebar_context(request):
                     ]
                 },
                 {
+                    'id': 'reports', 'label': 'Reports', 'icon': I['Note'],
+                    'items': [
+                        {'label': 'Stock Report', 'url': 'reports:stock_report'},
+                    ]
+                },
+                {
                     'id': 'settings', 'label': 'Settings', 'icon': I['Settings'],
                     'items': [
                         {'label': 'Database Config', 'url': 'common:database_config'},

@@ -44,12 +44,18 @@ CREATE_DOCUMENTS_INDEXES = [
 ]
 
 
-def ensure_documents_table(db_alias: str = 'customer_db') -> bool:
+_ENSURED_DOC_TABLES = set()
+
+
+def ensure_documents_table(db_alias: str = 'customer_db', force: bool = False) -> bool:
     """
     Auto-create the Documents table if it doesn't exist.
+    Cached in memory so it executes at most once per process.
     Returns True if created, False if already existed.
-    Same pattern as all other ensure_* in the project.
     """
+    if not force and db_alias in _ENSURED_DOC_TABLES:
+        return False
+
     try:
         conn = connections[db_alias]
         with conn.cursor() as cur:
@@ -58,11 +64,13 @@ def ensure_documents_table(db_alias: str = 'customer_db') -> bool:
                 WHERE table_schema = 'public' AND table_name = 'Documents'
             """)
             if cur.fetchone():
+                _ENSURED_DOC_TABLES.add(db_alias)
                 return False
         with conn.cursor() as cur:
             cur.execute(CREATE_DOCUMENTS_SQL)
             for idx in CREATE_DOCUMENTS_INDEXES:
                 cur.execute(idx)
+        _ENSURED_DOC_TABLES.add(db_alias)
         logger.info('[Documents] Table created on "%s"', db_alias)
         return True
     except (ProgrammingError, OperationalError) as e:

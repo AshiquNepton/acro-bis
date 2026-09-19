@@ -17,7 +17,7 @@ from common.models.report_details import (
     REPORT_DETAILS_FIELD_MAP,
     ensure_report_details_table,
 )
-from core.crud import BaseCRUD
+from core.crud import BaseCRUD, safe_atomic
 
 logger = logging.getLogger(__name__)
 
@@ -132,66 +132,71 @@ def report_save_style(request):
                 'message': f'Style "{report_name}" already exists.',
             })
 
-        if exists:
-            _delete_style_rows(request, report_name, mr_name)
+        cols = [
+            'ReportName', 'MRName', 'Section', 'FName', 'UFName',
+            'Width', 'Index', 'Alignment', 'Show', 'Heder', 'Break',
+            'UIndex', 'UWidth', 'MReport', 'DField', 'Font', 'FieldType',
+            'FormatText', 'FontName', 'SYS_ITEM', 'Color', 'TextColor',
+            'FKTable', 'FKIDField', 'FKField'
+        ]
+        col_clause = ', '.join(f'"{c}"' for c in cols)
+        val_placeholder = ', '.join(['%s'] * len(cols))
 
-        crud = _crud(request)
-            
         def _int(val, default=0):
-                """Coerce val to int safely — handles '', None, float strings, label strings."""
-                try:
-                    return int(val) if val not in (None, '', 'None') else default
-                except (ValueError, TypeError):
-                    return default
+            try:
+                return int(val) if val not in (None, '', 'None') else default
+            except (ValueError, TypeError):
+                return default
 
         def _flt(val, default=0.0):
-                try:
-                    return float(val) if val not in (None, '', 'None') else default
-                except (ValueError, TypeError):
-                    return default
-        
+            try:
+                return float(val) if val not in (None, '', 'None') else default
+            except (ValueError, TypeError):
+                return default
 
-        for i, d in enumerate(details):
-            # Build plain dict with form-field keys (matching REPORT_DETAILS_FIELD_MAP)
-            # SlNo is intentionally absent → BaseCRUD pk_value = None → INSERT path
-            # → serial DEFAULT fires → auto-increment SlNo
+        rows_to_insert = []
+        for d in details:
+            rows_to_insert.append([
+                report_name,
+                mr_name,
+                str(d.get('Section',    '') or '')[:50],
+                str(d.get('FName',      '') or '')[:150],
+                str(d.get('UFName',     '') or '')[:50],
+                _flt(d.get('Width')),
+                _flt(d.get('Index')),
+                _flt(d.get('Alignment')),
+                _int(d.get('Show'),      1),
+                _int(d.get('Heder'),     0),
+                _int(d.get('Break'),     0),
+                _flt(d.get('UIndex')),
+                _flt(d.get('UWidth')),
+                _int(d.get('MReport'),   0),
+                _int(d.get('DField'),    0),
+                _int(d.get('Font'),      0),
+                _int(d.get('FieldType'), 1),
+                str(d.get('FormatText',  '') or '')[:50],
+                str(d.get('FontName',    '') or '')[:45],
+                _int(d.get('SYS_ITEM'),  0),
+                str(d.get('Color',       '') or '')[:20],
+                str(d.get('TextColor',   '') or '')[:20],
+                str(d.get('FKTable',     '') or '')[:100],
+                str(d.get('FKIDField',   '') or '')[:100],
+                str(d.get('FKField',     '') or '')[:100],
+            ])
 
-
-            post = {
-                'report_name': report_name,
-                'mr_name'    : mr_name,
-                'section'    : str(d.get('Section',    '') or '')[:50],
-                'fname'      : str(d.get('FName',      '') or '')[:150],
-                'ufname'     : str(d.get('UFName',     '') or '')[:50],
-                'width'      : _flt(d.get('Width')),
-                'index'      : _flt(d.get('Index')),
-                'alignment'  : _flt(d.get('Alignment')),
-                'show'       : _int(d.get('Show'),      1),
-                'heder'      : _int(d.get('Heder'),     0),
-                'break_col'  : _int(d.get('Break'),     0),
-                'uindex'     : _flt(d.get('UIndex')),
-                'uwidth'     : _flt(d.get('UWidth')),
-                'mreport'    : _int(d.get('MReport'),   0),
-                'dfield'     : _int(d.get('DField'),    0),
-                'font'       : _int(d.get('Font'),      0),
-                'field_type' : _int(d.get('FieldType'), 1),
-                'format_text': str(d.get('FormatText',  '') or '')[:50],
-                'font_name'  : str(d.get('FontName',    '') or '')[:45],
-                'sys_item'   : _int(d.get('SYS_ITEM'),  0),
-                'color'      : str(d.get('Color',       '') or '')[:20],
-                'text_color' : str(d.get('TextColor',   '') or '')[:20],
-                'fk_table'   : str(d.get('FKTable',     '') or '')[:100],
-                'fk_id_field': str(d.get('FKIDField',   '') or '')[:100],
-                'fk_field'   : str(d.get('FKField',     '') or '')[:100],
-            }
-
-            result = json.loads(crud.save(post).content)
-            if not result.get('success'):
-                logger.error('[report_save_style] row %d failed: %s', i, result.get('error'))
-                return JsonResponse({
-                    'success': False,
-                    'error'  : f'Row {i + 1} ({post["section"]}): {result.get("error")}',
-                })
+        db_alias = _get_db_alias(request)
+        with safe_atomic(db_alias):
+            with _raw_conn(request).cursor() as cur:
+                if exists:
+                    cur.execute(
+                        'DELETE FROM "ReportDetails" WHERE "ReportName"=%s AND "MRName"=%s',
+                        [report_name, mr_name]
+                    )
+                for row_vals in rows_to_insert:
+                    cur.execute(
+                        f'INSERT INTO "ReportDetails" ({col_clause}) VALUES ({val_placeholder})',
+                        row_vals
+                    )
 
         return JsonResponse({
             'success': True,

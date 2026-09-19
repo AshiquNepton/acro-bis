@@ -17,7 +17,8 @@ import logging
 from decimal import Decimal
 from typing import List, Dict, Any, Optional
 
-from django.db import connections, transaction
+from django.db import connections
+from core.crud import safe_atomic
 from common.middleware.database_middleware import get_customer_db
 from errors.exceptions import ValidationError
 
@@ -96,29 +97,30 @@ class UniversalAccountingService:
                 f"Voucher out of balance! Total Debit: {total_debit}, Total Credit: {total_credit}"
             )
 
-        with connections[db].cursor() as cursor:
-            # 1. Insert Voucher Header
-            cursor.execute("""
-                INSERT INTO "GLVoucher" 
-                ("VoucherType", "ReferenceNo", "Narration", "SourceModule", "VoucherDate")
-                VALUES (%s, %s, %s, %s, COALESCE(%s::date, CURRENT_DATE))
-                RETURNING "VoucherId"
-            """, [voucher_type, reference_no, narration, source_module, voucher_date])
-            voucher_id = cursor.fetchone()[0]
-
-            # 2. Insert Lines
-            for e in entries:
+        with safe_atomic(db):
+            with connections[db].cursor() as cursor:
+                # 1. Insert Voucher Header
                 cursor.execute("""
-                    INSERT INTO "GLVoucherLine" 
-                    ("VoucherId", "AccountCode", "Debit", "Credit", "LineNarration")
-                    VALUES (%s, %s, %s, %s, %s)
-                """, [
-                    voucher_id,
-                    e['account_code'],
-                    Decimal(str(e.get('debit', 0))),
-                    Decimal(str(e.get('credit', 0))),
-                    e.get('narration', narration),
-                ])
+                    INSERT INTO "GLVoucher" 
+                    ("VoucherType", "ReferenceNo", "Narration", "SourceModule", "VoucherDate")
+                    VALUES (%s, %s, %s, %s, COALESCE(%s::date, CURRENT_DATE))
+                    RETURNING "VoucherId"
+                """, [voucher_type, reference_no, narration, source_module, voucher_date])
+                voucher_id = cursor.fetchone()[0]
+
+                # 2. Insert Lines
+                for e in entries:
+                    cursor.execute("""
+                        INSERT INTO "GLVoucherLine" 
+                        ("VoucherId", "AccountCode", "Debit", "Credit", "LineNarration")
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, [
+                        voucher_id,
+                        e['account_code'],
+                        Decimal(str(e.get('debit', 0))),
+                        Decimal(str(e.get('credit', 0))),
+                        e.get('narration', narration),
+                    ])
 
         logger.info(
             "GL Voucher posted [%s] type=%s total=%s source=%s ref=%s",

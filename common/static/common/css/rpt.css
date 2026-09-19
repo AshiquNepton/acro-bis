@@ -442,11 +442,11 @@
 
 /* Table — fixed layout so colgroup widths are honoured */
 .rpt-tbl {
-    width: 100%;
     border-collapse: collapse;
     font-size: 12.5px;
     font-family: inherit;
     table-layout: fixed;
+    min-width: 0;
 }
 
 /* Remove any display:block overrides — native table layout required for colgroup */
@@ -491,8 +491,7 @@
 .rpt-tbl tbody tr         { cursor: pointer; transition: background .08s; }
 .rpt-tbl tbody tr:hover td { background: var(--color-hover-primary, #f5f7ff); }
 .rpt-tbl tbody tr:last-child td { border-bottom: none; }
-.rpt-tbl td:last-child    { white-space: nowrap; text-align: right; padding-right: 8px; }
-.rpt-tbl th:last-child    { text-align: right; }
+.rpt-tbl td:last-child    { white-space: nowrap; padding-right: 8px; }
 
 /* Grid avatar cell */
 .rpt-tbl--grid .rpt-grid-avatar {
@@ -580,4 +579,18 @@
     .rpt-search-wrap:focus-within .rpt-search-input { width: 140px; }
     .rpt-page-info { display: none; }
 }
+
+/* ── Row Selection for Reports ─────────────────────────────────── */
+.rpt-tbl tbody tr.rpt-row-selected td {
+    background-color: #d2e7f7 !important;
+}
+.rpt-tbl tbody tr.rpt-row-selected {
+    background-color: #d2e7f7 !important;
+}
+.rpt-tile.rpt-tile-selected {
+    border-color: var(--color-primary, #8b0000) !important;
+    box-shadow: 0 0 0 2px var(--color-primary, #8b0000) !important;
+    background-color: #f0f7ff !important;
+}
+
 

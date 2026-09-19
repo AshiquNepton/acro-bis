@@ -17,7 +17,7 @@ from common.middleware.database_middleware import get_customer_db
 from common.views.decorators import login_required
 from common.views.profile_form_helpers import build_form_config, build_hero_config, field
 from common.theme_constants import tb
-from common.views.crud import BaseCRUD
+from core.crud import BaseCRUD
 
 logger = logging.getLogger(__name__)
 
@@ -498,30 +498,96 @@ def build_item_master_form_config(item_data=None, next_item_code='ITM-0001', opt
     }
 
 
+import re
 from django.db import connections
 
-def get_uom_options(request=None):
+
+def get_batch_category_options(category_ids: list, db_alias: str = None) -> dict:
+    """
+    Fetches ItemGroups for multiple categories in a single database round-trip.
+    Returns a dict mapping category_id -> list of {'value': str, 'label': str}.
+    """
     try:
         from common.middleware.database_middleware import get_customer_db
-        with connections[get_customer_db()].cursor() as cur:
-            cur.execute('SELECT "GroupID", "Description" FROM "ItemGroups" WHERE "Category"=9 ORDER BY "GroupID"')
-            return [{'value': str(r[0]), 'label': r[1]} for r in cur.fetchall()]
+        db = db_alias or get_customer_db()
+        with connections[db].cursor() as cur:
+            cur.execute(
+                'SELECT "Category", "GroupID", "Description" '
+                'FROM "ItemGroups" '
+                'WHERE "Category" = ANY(%s) '
+                'ORDER BY "Category", "Description"',
+                [list(category_ids)]
+            )
+            result = {cat: [] for cat in category_ids}
+            for cat, gid, desc in cur.fetchall():
+                if cat in result:
+                    result[cat].append({'value': str(gid), 'label': desc or ''})
+            return result
     except Exception as e:
-        logger.error("Error fetching UOM options: %s", e)
-        return []
+        logger.error("Error fetching batch category options: %s", e)
+        return {cat: [] for cat in category_ids}
 
+
+def generate_next_item_code(db_alias: str = None) -> str:
+    """
+    Generate the next available ItemCode quickly without full table scans.
+    Uses indexed scan on ItemID / ItemCode.
+    """
+    try:
+        from common.middleware.database_middleware import get_customer_db
+        db = db_alias or get_customer_db()
+        with connections[db].cursor() as cur:
+            # Check latest item with ITM- prefix
+            cur.execute('SELECT "ItemCode", "ItemID" FROM "InventoryItems" WHERE "ItemCode" LIKE %s ORDER BY "ItemID" DESC LIMIT 1', ['ITM-%'])
+            row = cur.fetchone()
+            if row and row[0]:
+                digits = re.findall(r'\d+', str(row[0]))
+                if digits:
+                    next_val = int(digits[-1]) + 1
+                    candidate = f"ITM-{next_val:04d}"
+                else:
+                    candidate = f"ITM-{(row[1] or 0) + 1:04d}"
+            else:
+                # Fallback: check absolute latest item
+                cur.execute('SELECT "ItemCode", "ItemID" FROM "InventoryItems" ORDER BY "ItemID" DESC LIMIT 1')
+                row = cur.fetchone()
+                if not row:
+                    candidate = 'ITM-0001'
+                else:
+                    code, item_id = row[0], row[1]
+                    if code and str(code).isdigit():
+                        candidate = str(int(code) + 1)
+                    else:
+                        candidate = f"ITM-{(item_id or 0) + 1:04d}"
+
+            # Ensure candidate does not already exist (concurrency & uniqueness guarantee)
+            while True:
+                cur.execute('SELECT 1 FROM "InventoryItems" WHERE "ItemCode" = %s LIMIT 1', [candidate])
+                if not cur.fetchone():
+                    return candidate
+                digits = re.findall(r'\d+', candidate)
+                if digits:
+                    num = int(digits[-1]) + 1
+                    prefix = candidate[:candidate.rfind(digits[-1])]
+                    candidate = f"{prefix}{num:04d}"
+                else:
+                    candidate = f"{candidate}-1"
+    except Exception as e:
+        logger.error("Error generating next item code: %s", e)
+        return 'ITM-0001'
+
+
+def get_uom_options(request=None):
+    batch = get_batch_category_options([9])
+    opts = batch.get(9, [])
+    # Sort UOM by integer GroupID for consistent display
+    return sorted(opts, key=lambda x: int(x['value']) if x['value'].isdigit() else 0)
 
 
 def get_options_by_category(category_id):
-    try:
-        from django.db import connections
-        from common.middleware.database_middleware import get_customer_db
-        with connections[get_customer_db()].cursor() as cur:
-            cur.execute('SELECT "GroupID", "Description" FROM "ItemGroups" WHERE "Category"=%s ORDER BY "Description"', [category_id])
-            return [{'value': str(r[0]), 'label': r[1]} for r in cur.fetchall()]
-    except Exception as e:
-        logger.error(f"Error fetching ItemGroups for category {category_id}: {e}")
-        return []
+    batch = get_batch_category_options([category_id])
+    return batch.get(category_id, [])
+
 
 def get_item_data(item_code):
     """
@@ -568,45 +634,43 @@ def get_item_data(item_code):
 def item_master_view(request):
     """
     Renders the Item Master Form.
-    Reads item_code from GET param (?item_code=...) and loads item data
-    including RegDate from InventoryItems.CreatedAt.
+    Reads item_code from GET param (?item_code=...) and loads item data.
+    Batches all 18+ category dropdown and modal option lookups into a single SQL round-trip.
     """
+    # 1. Batch fetch ALL needed ItemGroups in 1 single round-trip:
+    # Categories: 9=UOM, 1=Group1, 16=Warehouse, 7=Tax, 124=Packing, 2=Category, 4=Brand,
+    # 130=Dept, 131=Section, 132=Family, 133=Flavour, 134=Color, 138=COO, 3=Company,
+    # plus Split Modal categories: 29, 30, 31, 201, 202, 203.
+    all_needed_categories = [9, 1, 16, 7, 124, 2, 4, 130, 131, 132, 133, 134, 138, 3, 29, 30, 31, 201, 202, 203]
+    batch_map = get_batch_category_options(all_needed_categories)
+
+    uom_opts = sorted(batch_map.get(9, []), key=lambda x: int(x['value']) if x['value'].isdigit() else 0)
+
     options_map = {
-        'uom': get_uom_options(request),
-        'group1': get_options_by_category(1),
-        'warehouse': get_options_by_category(16),
-        'tax_group': get_options_by_category(7),
-        'packing': get_options_by_category(124),
-        'category': get_options_by_category(2),
-        'brand': get_options_by_category(4),
-        'department': get_options_by_category(130),
-        'section': get_options_by_category(131),
-        'family': get_options_by_category(132),
-        'flavour': get_options_by_category(133),
-        'color': get_options_by_category(134),
-        'coo': get_options_by_category(138),
-        'company': get_options_by_category(3),
+        'uom': uom_opts,
+        'group1': batch_map.get(1, []),
+        'warehouse': batch_map.get(16, []),
+        'tax_group': batch_map.get(7, []),
+        'packing': batch_map.get(124, []),
+        'category': batch_map.get(2, []),
+        'brand': batch_map.get(4, []),
+        'department': batch_map.get(130, []),
+        'section': batch_map.get(131, []),
+        'family': batch_map.get(132, []),
+        'flavour': batch_map.get(133, []),
+        'color': batch_map.get(134, []),
+        'coo': batch_map.get(138, []),
+        'company': batch_map.get(3, []),
+    }
+
+    # Split Modal choices derived from the same batch_map (0 extra queries)
+    group_choices = {
+        cat: [opt['label'] for opt in batch_map.get(cat, [])]
+        for cat in [1, 29, 30, 31, 201, 202, 203]
     }
 
     item_code = request.GET.get('item_code', '').strip()
-    next_code = 'ITM-0001'
-    
-    if not item_code:
-        # Generate new ItemCode automatically!
-        try:
-            from django.db import connections
-            with connections[get_customer_db()].cursor() as cur:
-                cur.execute('SELECT MAX(NULLIF(regexp_replace("ItemCode", \'\\D\', \'\', \'g\'), \'\')::bigint) FROM "InventoryItems"')
-                max_val = cur.fetchone()[0]
-                next_val = (max_val or 0) + 1
-                
-                cur.execute('SELECT "ItemCode" FROM "InventoryItems" WHERE "ItemCode" LIKE %s LIMIT 1', ['ITM-%'])
-                if cur.fetchone():
-                    next_code = f"ITM-{next_val:04d}"
-                else:
-                    next_code = str(next_val)
-        except Exception as e:
-            pass
+    next_code = generate_next_item_code() if not item_code else 'ITM-0001'
 
     item_data = get_item_data(item_code) if item_code else {}
 
@@ -615,21 +679,6 @@ def item_master_view(request):
         next_item_code=next_code,
         options_map=options_map
     )
-    
-    # Fetch dynamic group choices for Split Modal
-    db = get_customer_db()
-    group_choices = {1: [], 29: [], 30: [], 31: [], 201: [], 202: [], 203: []}
-    try:
-        from django.db import connections
-        with connections[db].cursor() as cur:
-            cur.execute('SELECT "Category", "Description" FROM "ItemGroups" WHERE "Category" IN (1, 29, 30, 31, 201, 202, 203)')
-            for row in cur.fetchall():
-                cat = row[0]
-                desc = row[1]
-                if cat in group_choices:
-                    group_choices[cat].append(desc)
-    except Exception as e:
-        pass
 
     return render(request, 'inventory/item_master_form.html', {
         'form_config': cfg,
@@ -728,12 +777,57 @@ def _make_stock_crud(db_alias):
     )
 
 
+def _safe_resolve_group(cur, category, val):
+    if not val:
+        return ''
+    s_val = str(val).strip()
+    if not s_val:
+        return ''
+    if s_val.isdigit():
+        return s_val
+    # 1. Look up existing
+    cur.execute(
+        'SELECT "GroupID" FROM "ItemGroups" WHERE "Category"=%s AND LOWER("Description") = LOWER(%s) LIMIT 1',
+        [category, s_val]
+    )
+    row = cur.fetchone()
+    if not row:
+        cur.execute(
+            'SELECT "GroupID" FROM "ItemGroups" WHERE LOWER("Description") = LOWER(%s) LIMIT 1',
+            [s_val]
+        )
+        row = cur.fetchone()
+    if row:
+        return str(row[0])
+
+    # 2. Insert with retry for concurrency collisions
+    for _ in range(5):
+        try:
+            cur.execute('SELECT COALESCE(MAX("GroupID"), 0) + 1 FROM "ItemGroups"')
+            new_id = cur.fetchone()[0]
+            cur.execute(
+                'INSERT INTO "ItemGroups" ("GroupID", "Category", "Description") VALUES (%s, %s, %s)',
+                [new_id, category, s_val]
+            )
+            return str(new_id)
+        except Exception:
+            cur.execute(
+                'SELECT "GroupID" FROM "ItemGroups" WHERE "Category"=%s AND LOWER("Description") = LOWER(%s) LIMIT 1',
+                [category, s_val]
+            )
+            row = cur.fetchone()
+            if row:
+                return str(row[0])
+            continue
+    return str(new_id)
+
+
 @login_required
 @require_http_methods(['POST'])
 def save_item(request):
     """
     Save Item Master: writes to InventoryItems then upserts the related
-    Stocks row (including flattened multiunit pricing columns).
+    Stocks row inside an atomic transaction with concurrency protection.
     """
     try:
         db = get_customer_db()
@@ -745,20 +839,9 @@ def save_item(request):
         with connections[db].cursor() as cur:
             for uf in uom_fields:
                 val = post.get(uf, '').strip()
-                if not val:
-                    post[uf] = ''
-                elif not val.isdigit():
-                    cur.execute('SELECT "GroupID" FROM "ItemGroups" WHERE "Category"=9 AND "Description" ILIKE %s', [val])
-                    row = cur.fetchone()
-                    if row:
-                        post[uf] = str(row[0])
-                    else:
-                        cur.execute('SELECT COALESCE(MAX("GroupID"), 0) FROM "ItemGroups"')
-                        new_id = (cur.fetchone()[0] or 0) + 1
-                        cur.execute('INSERT INTO "ItemGroups" ("GroupID", "Category", "Description") VALUES (%s, %s, %s)', [new_id, 9, val])
-                        post[uf] = str(new_id)
+                post[uf] = _safe_resolve_group(cur, 9, val)
 
-        # ── 1b. Resolve Item & ItemGroup1..5 fields (ensure integer GroupIDs from ItemGroups) ──
+        # ── 1b. Resolve Item & ItemGroup1..5 fields ─────────────────────────
         item_group_categories = {
             'Item': 29,
             'ItemGroup1': 1,
@@ -770,32 +853,7 @@ def save_item(request):
         with connections[db].cursor() as cur:
             for ig_field, def_cat in item_group_categories.items():
                 val = post.get(ig_field, '').strip()
-                if not val:
-                    post[ig_field] = ''
-                elif val.isdigit():
-                    post[ig_field] = str(int(val))
-                else:
-                    cur.execute(
-                        'SELECT "GroupID" FROM "ItemGroups" WHERE "Category"=%s AND "Description" ILIKE %s LIMIT 1',
-                        [def_cat, val]
-                    )
-                    row = cur.fetchone()
-                    if not row:
-                        cur.execute(
-                            'SELECT "GroupID" FROM "ItemGroups" WHERE "Description" ILIKE %s LIMIT 1',
-                            [val]
-                        )
-                        row = cur.fetchone()
-                    if row:
-                        post[ig_field] = str(row[0])
-                    else:
-                        cur.execute('SELECT COALESCE(MAX("GroupID"), 0) FROM "ItemGroups"')
-                        new_id = (cur.fetchone()[0] or 0) + 1
-                        cur.execute(
-                            'INSERT INTO "ItemGroups" ("GroupID", "Category", "Description") VALUES (%s, %s, %s)',
-                            [new_id, def_cat, val]
-                        )
-                        post[ig_field] = str(new_id)
+                post[ig_field] = _safe_resolve_group(cur, def_cat, val)
 
         # ── 2. Sync Brand & Category fields ────────────────────────────────
         if post.get('BrandName') and not post.get('Brand'):
@@ -810,98 +868,97 @@ def save_item(request):
 
         item_crud = _make_item_crud(db)
 
-        # ── 3. Handle ItemID generation for new items ──────────────────────
-        is_new = not post.get('ItemID', '').strip()
-        if is_new:
-            post['ItemID'] = str(item_crud.next_id_value())
-
-        # ── 4. Auto-generate ItemCode as max+1 if not provided or duplicate ─
+        # ── 3. Concurrency-safe atomic save & retry loop ───────────────────
+        is_new = not post.get('ItemID', '').strip() or post.get('_is_new') == '1'
         form_code = post.get('ItemCode', '').strip()
-        should_generate = False
-        if not form_code:
-            should_generate = True
-        elif is_new:
-            with connections[db].cursor() as cur:
-                cur.execute('SELECT 1 FROM "InventoryItems" WHERE "ItemCode" = %s', [form_code])
-                if cur.fetchone():
-                    should_generate = True
+        should_generate = not form_code
 
-        if should_generate:
-            with connections[db].cursor() as cur:
-                cur.execute('SELECT MAX(NULLIF(regexp_replace("ItemCode", \'\\D\', \'\', \'g\'), \'\')::bigint) FROM "InventoryItems"')
-                max_val = cur.fetchone()[0]
-                next_val = (max_val or 0) + 1
-                cur.execute('SELECT "ItemCode" FROM "InventoryItems" WHERE "ItemCode" LIKE %s LIMIT 1', ['ITM-%'])
-                if cur.fetchone():
-                    post['ItemCode'] = f"ITM-{next_val:04d}"
-                else:
-                    post['ItemCode'] = str(next_val)
+        from django.db import transaction, IntegrityError
+        from inventory.models.stock import ensure_stocks_table, flatten_multiunit_data
+        ensure_stocks_table(db)
 
-        # ── 5. Save to InventoryItems ───────────────────────────────────────
-        item_resp = item_crud.save(post, unique_fields=[('ItemCode', 'ItemCode')])
-        item_data = json.loads(item_resp.content)
-        if not item_data.get('success'):
-            return item_resp
+        mu_data = post.get('multiunit_data', '[]')
+        pricing_map = flatten_multiunit_data(mu_data)
+        mu_json_str = mu_data if isinstance(mu_data, str) else json.dumps(mu_data)
 
-        item_id = item_data.get('pk') or post.get('ItemID', '').strip()
+        def _flt(k):
+            v = post.get(k, '')
+            try:
+                return float(v) if v else None
+            except (ValueError, TypeError):
+                return None
 
-        # ── 6. Upsert Stocks ────────────────────────────────────────────────
-        if item_id:
-            from inventory.models.stock import ensure_stocks_table, flatten_multiunit_data
-            ensure_stocks_table(db)
-            mu_data = post.get('multiunit_data', '[]')
-            pricing_map = flatten_multiunit_data(mu_data)
-            mu_json_str = mu_data if isinstance(mu_data, str) else json.dumps(mu_data)
+        fields = [
+            '"PurchasePrice"', '"Rate0"', '"Rate1"', '"Rate2"', '"Rate3"', '"Rate4"', '"Rate5"',
+            '"LUCost"', '"Discount"', '"SpecialDiscount"', '"PurchaseDiscount"',
+            '"MultiUnitData"',
+            '"Unit1BaseRate"', '"Unit1MRPRate"', '"Unit1DRPRate"', '"Unit1FDPRate"', '"Unit1BranchRate"',
+            '"Unit2BaseRate"', '"Unit2MRPRate"', '"Unit2DRPRate"', '"Unit2FDPRate"', '"Unit2BranchRate"',
+            '"Unit3BaseRate"', '"Unit3MRPRate"', '"Unit3DRPRate"', '"Unit3FDPRate"', '"Unit3BranchRate"',
+            '"Unit4BaseRate"', '"Unit4MRPRate"', '"Unit4DRPRate"', '"Unit4FDPRate"', '"Unit4BranchRate"',
+            '"Unit5BaseRate"', '"Unit5MRPRate"', '"Unit5DRPRate"', '"Unit5FDPRate"', '"Unit5BranchRate"',
+            '"Unit6BaseRate"', '"Unit6MRPRate"', '"Unit6DRPRate"', '"Unit6FDPRate"', '"Unit6BranchRate"'
+        ]
 
-            def _flt(k):
-                v = post.get(k, '')
-                try:
-                    return float(v) if v else None
-                except (ValueError, TypeError):
-                    return None
+        vals = [
+            _flt('PurchasePrice') or 0, _flt('Rate0'), _flt('MRP') or 0, _flt('DRP'), _flt('FDP'), None, None,
+            _flt('LastUnitCost'), _flt('Discount'), _flt('SPDiscount'), _flt('PurDiscount'),
+            mu_json_str,
+            pricing_map.get('Unit1BaseRate'), pricing_map.get('Unit1MRPRate'), pricing_map.get('Unit1DRPRate'), pricing_map.get('Unit1FDPRate'), pricing_map.get('Unit1BranchRate'),
+            pricing_map.get('Unit2BaseRate'), pricing_map.get('Unit2MRPRate'), pricing_map.get('Unit2DRPRate'), pricing_map.get('Unit2FDPRate'), pricing_map.get('Unit2BranchRate'),
+            pricing_map.get('Unit3BaseRate'), pricing_map.get('Unit3MRPRate'), pricing_map.get('Unit3DRPRate'), pricing_map.get('Unit3FDPRate'), pricing_map.get('Unit3BranchRate'),
+            pricing_map.get('Unit4BaseRate'), pricing_map.get('Unit4MRPRate'), pricing_map.get('Unit4DRPRate'), pricing_map.get('Unit4FDPRate'), pricing_map.get('Unit4BranchRate'),
+            pricing_map.get('Unit5BaseRate'), pricing_map.get('Unit5MRPRate'), pricing_map.get('Unit5DRPRate'), pricing_map.get('Unit5FDPRate'), pricing_map.get('Unit5BranchRate'),
+            pricing_map.get('Unit6BaseRate'), pricing_map.get('Unit6MRPRate'), pricing_map.get('Unit6DRPRate'), pricing_map.get('Unit6FDPRate'), pricing_map.get('Unit6BranchRate'),
+        ]
 
-            with connections[db].cursor() as cur:
-                cur.execute('SELECT 1 FROM "Stocks" WHERE "ItemID"=%s', [item_id])
-                exists = cur.fetchone()
+        max_retries = 5
+        for attempt in range(max_retries):
+            try:
+                with transaction.atomic(using=db):
+                    if is_new:
+                        if not post.get('ItemID') or attempt > 0:
+                            post['ItemID'] = str(item_crud.next_id_value())
+                        if should_generate:
+                            post['ItemCode'] = generate_next_item_code(db)
 
-                fields = [
-                    '"PurchasePrice"', '"Rate0"', '"Rate1"', '"Rate2"', '"Rate3"', '"Rate4"', '"Rate5"',
-                    '"LUCost"', '"Discount"', '"SpecialDiscount"', '"PurchaseDiscount"',
-                    '"MultiUnitData"',
-                    '"Unit1BaseRate"', '"Unit1MRPRate"', '"Unit1DRPRate"', '"Unit1FDPRate"', '"Unit1BranchRate"',
-                    '"Unit2BaseRate"', '"Unit2MRPRate"', '"Unit2DRPRate"', '"Unit2FDPRate"', '"Unit2BranchRate"',
-                    '"Unit3BaseRate"', '"Unit3MRPRate"', '"Unit3DRPRate"', '"Unit3FDPRate"', '"Unit3BranchRate"',
-                    '"Unit4BaseRate"', '"Unit4MRPRate"', '"Unit4DRPRate"', '"Unit4FDPRate"', '"Unit4BranchRate"',
-                    '"Unit5BaseRate"', '"Unit5MRPRate"', '"Unit5DRPRate"', '"Unit5FDPRate"', '"Unit5BranchRate"',
-                    '"Unit6BaseRate"', '"Unit6MRPRate"', '"Unit6DRPRate"', '"Unit6FDPRate"', '"Unit6BranchRate"'
-                ]
+                    item_resp = item_crud.save(post, unique_fields=[('ItemCode', 'ItemCode')], is_new=is_new)
+                    item_data = json.loads(item_resp.content)
+                    if not item_data.get('success'):
+                        if is_new and item_data.get('duplicate') and should_generate and attempt < max_retries - 1:
+                            logger.warning("ItemCode collision on concurrent save, retrying (attempt %d)", attempt + 1)
+                            continue
+                        return item_resp
 
-                vals = [
-                    _flt('PurchasePrice') or 0, _flt('Rate0'), _flt('MRP') or 0, _flt('DRP'), _flt('FDP'), None, None,
-                    _flt('LastUnitCost'), _flt('Discount'), _flt('SPDiscount'), _flt('PurDiscount'),
-                    mu_json_str,
-                    pricing_map.get('Unit1BaseRate'), pricing_map.get('Unit1MRPRate'), pricing_map.get('Unit1DRPRate'), pricing_map.get('Unit1FDPRate'), pricing_map.get('Unit1BranchRate'),
-                    pricing_map.get('Unit2BaseRate'), pricing_map.get('Unit2MRPRate'), pricing_map.get('Unit2DRPRate'), pricing_map.get('Unit2FDPRate'), pricing_map.get('Unit2BranchRate'),
-                    pricing_map.get('Unit3BaseRate'), pricing_map.get('Unit3MRPRate'), pricing_map.get('Unit3DRPRate'), pricing_map.get('Unit3FDPRate'), pricing_map.get('Unit3BranchRate'),
-                    pricing_map.get('Unit4BaseRate'), pricing_map.get('Unit4MRPRate'), pricing_map.get('Unit4DRPRate'), pricing_map.get('Unit4FDPRate'), pricing_map.get('Unit4BranchRate'),
-                    pricing_map.get('Unit5BaseRate'), pricing_map.get('Unit5MRPRate'), pricing_map.get('Unit5DRPRate'), pricing_map.get('Unit5FDPRate'), pricing_map.get('Unit5BranchRate'),
-                    pricing_map.get('Unit6BaseRate'), pricing_map.get('Unit6MRPRate'), pricing_map.get('Unit6DRPRate'), pricing_map.get('Unit6FDPRate'), pricing_map.get('Unit6BranchRate'),
-                ]
+                    item_id = item_data.get('pk') or post.get('ItemID', '').strip()
 
-                if exists:
-                    set_clause = ', '.join([f'{f}=%s' for f in fields])
-                    cur.execute(f'UPDATE "Stocks" SET {set_clause} WHERE "ItemID"=%s', vals + [item_id])
-                else:
-                    col_clause = ', '.join(fields)
-                    val_clause = ', '.join(['%s'] * len(fields))
-                    cur.execute(f'INSERT INTO "Stocks" ("ItemID", {col_clause}) VALUES (%s, {val_clause})', [item_id] + vals)
+                    # ── 6. Upsert Stocks atomically in same transaction ────
+                    if item_id:
+                        with connections[db].cursor() as cur:
+                            set_clause = ', '.join([f'{f}=%s' for f in fields])
+                            cur.execute(f'UPDATE "Stocks" SET {set_clause} WHERE "ItemID"=%s', vals + [item_id])
+                            if cur.rowcount == 0:
+                                col_clause = ', '.join(fields)
+                                val_clause = ', '.join(['%s'] * len(fields))
+                                try:
+                                    cur.execute(f'INSERT INTO "Stocks" ("ItemID", {col_clause}) VALUES (%s, {val_clause})', [item_id] + vals)
+                                except IntegrityError:
+                                    cur.execute(f'UPDATE "Stocks" SET {set_clause} WHERE "ItemID"=%s', vals + [item_id])
 
-        return JsonResponse({
-            'success': True,
-            'message': 'Item saved successfully',
-            'pk': item_id,
-            'ItemCode': post.get('ItemCode')
-        })
+                # Return success response
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Item saved successfully',
+                    'pk': item_id,
+                    'ItemCode': post.get('ItemCode')
+                })
+            except IntegrityError as exc:
+                if is_new and attempt < max_retries - 1:
+                    logger.warning("Concurrency collision on item save, retrying: %s", exc)
+                    continue
+                raise
+
+        return JsonResponse({'success': False, 'error': 'Could not save item due to concurrent edits. Please retry.'})
 
     except Exception as e:
         logger.error(f"Error in save_item: {e}", exc_info=True)
@@ -1051,7 +1108,25 @@ def resolve_groups(request):
         from django.db import connections
         results = []
         field_map = {}
+
+        # Batch lookup all non-empty names in a single query
+        non_empty = [g for g in groups if (g.get('name') or '').strip()]
+        names = list({(g.get('name') or '').strip() for g in non_empty})
+        existing_exact = {}  # (cat, lower_name) -> gid
+        existing_desc = {}   # lower_name -> gid
+
         with connections[db].cursor() as cur:
+            if names:
+                cur.execute(
+                    'SELECT "Category", "Description", "GroupID" FROM "ItemGroups" WHERE "Description" = ANY(%s)',
+                    [names]
+                )
+                for cat, desc, gid in cur.fetchall():
+                    d_lower = (desc or '').strip().lower()
+                    existing_exact[(cat, d_lower)] = gid
+                    if d_lower not in existing_desc:
+                        existing_desc[d_lower] = gid
+
             for g in groups:
                 name = (g.get('name') or '').strip()
                 cat = g.get('category')
@@ -1061,20 +1136,37 @@ def resolve_groups(request):
                     if fname:
                         field_map[fname] = None
                     continue
-                # 1. Match category and description
-                cur.execute('SELECT "GroupID" FROM "ItemGroups" WHERE "Category"=%s AND "Description" ILIKE %s LIMIT 1', [cat, name])
-                row = cur.fetchone()
-                # 2. Fallback match by description
-                if not row:
-                    cur.execute('SELECT "GroupID" FROM "ItemGroups" WHERE "Description" ILIKE %s LIMIT 1', [name])
-                    row = cur.fetchone()
 
-                if row:
-                    gid = row[0]
-                else:
-                    cur.execute('SELECT COALESCE(MAX("GroupID"), 0) FROM "ItemGroups"')
-                    gid = (cur.fetchone()[0] or 0) + 1
-                    cur.execute('INSERT INTO "ItemGroups" ("GroupID", "Category", "Description") VALUES (%s, %s, %s)', [gid, cat, name])
+                d_lower = name.lower()
+                gid = existing_exact.get((cat, d_lower)) or existing_desc.get(d_lower)
+
+                if not gid:
+                    # Case-insensitive fallback if not exact match
+                    cur.execute('SELECT "GroupID" FROM "ItemGroups" WHERE "Category"=%s AND "Description" ILIKE %s LIMIT 1', [cat, name])
+                    row = cur.fetchone()
+                    if not row:
+                        cur.execute('SELECT "GroupID" FROM "ItemGroups" WHERE "Description" ILIKE %s LIMIT 1', [name])
+                        row = cur.fetchone()
+
+                    if row:
+                        gid = row[0]
+                    else:
+                        for _ in range(5):
+                            try:
+                                cur.execute('SELECT COALESCE(MAX("GroupID"), 0) + 1 FROM "ItemGroups"')
+                                gid = cur.fetchone()[0]
+                                cur.execute('INSERT INTO "ItemGroups" ("GroupID", "Category", "Description") VALUES (%s, %s, %s)', [gid, cat, name])
+                                break
+                            except Exception:
+                                cur.execute('SELECT "GroupID" FROM "ItemGroups" WHERE "Category"=%s AND "Description" ILIKE %s LIMIT 1', [cat, name])
+                                row = cur.fetchone()
+                                if row:
+                                    gid = row[0]
+                                    break
+                                continue
+
+                    existing_exact[(cat, d_lower)] = gid
+                    existing_desc[d_lower] = gid
 
                 results.append(gid)
                 if fname:

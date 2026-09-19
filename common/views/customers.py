@@ -5,7 +5,7 @@ from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.db import connections
 from common.views.decorators import login_required
-from common.views.crud import BaseCRUD
+from core.crud import BaseCRUD
 from common.theme_constants import tb
 
 logger = logging.getLogger(__name__)

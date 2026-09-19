@@ -14,7 +14,7 @@ urlpatterns = [
     # path('financial/', financial_reports.financial_report, name='financial_report'),
     
     # Inventory Reports
-    # path('inventory/', inventory_reports.inventory_report, name='inventory_report'),
+    path('stock-report/', inventory_reports.stock_report, name='stock_report'),
     
     # Sales Reports
     # path('sales/', sales_reports.sales_report, name='sales_report'),

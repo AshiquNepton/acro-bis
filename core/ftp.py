@@ -149,9 +149,23 @@ def _mkdir_p(ftp: ftplib.FTP, remote_dir: str) -> None:
                 raise
 
 
+_SYMBOL_MAP = {
+    '✔': '[OK]',
+    '✗': '[ERROR]',
+    'ℹ': '[INFO]',
+    '⚠': '[WARN]',
+    '[OK]': '[OK]',
+    '[ERROR]': '[ERROR]',
+    '[INFO]': '[INFO]',
+    '[WARN]': '[WARN]',
+}
+
+
 def _log(symbol: str, message: str) -> None:
     """Print a formatted FTP status line inside the save progress block."""
-    print(f'│  {symbol}  FTP {message}')
+    sym = _SYMBOL_MAP.get(symbol, symbol)
+    msg = message.replace('→', '->')
+    print(f'|  {sym}  FTP {msg}')
 
 
 # ─── FTPManager ──────────────────────────────────────────────────────────────
@@ -180,14 +194,14 @@ class FTPManager:
         Pass silent=True to suppress terminal output.
 
         Terminal examples:
-          │  ✔  FTP Connected → ftp.server.com:21  (user: ftpuser)
-          │  ✗  FTP Not configured — set FTP_HOST, FTP_USER, FTP_PASSWORD in .env
-          │  ✗  FTP Connection timed out → ftp.server.com:21 — timed out
-          │  ✗  FTP Login failed → ftp.server.com:21 — 530 Login incorrect
+          |  [OK]    FTP Connected -> ftp.server.com:21  (user: ftpuser)
+          |  [ERROR] FTP Not configured — set FTP_HOST, FTP_USER, FTP_PASSWORD in .env
+          |  [ERROR] FTP Connection timed out -> ftp.server.com:21 — timed out
+          |  [ERROR] FTP Login failed -> ftp.server.com:21 — 530 Login incorrect
         """
         if not ftp_configured():
             if not silent:
-                _log('✗', 'Not configured — set FTP_HOST, FTP_USER, FTP_PASSWORD in .env')
+                _log('[ERROR]', 'Not configured — set FTP_HOST, FTP_USER, FTP_PASSWORD in .env')
             return False
 
         ftp = ftplib.FTP()
@@ -195,7 +209,7 @@ class FTPManager:
             ftp.connect(self.host, self.port, timeout=10)
         except (socket.timeout, OSError, ftplib.all_errors) as e:
             if not silent:
-                _log('✗', f'Connection timed out → {self.host}:{self.port} — {e}')
+                _log('[ERROR]', f'Connection timed out -> {self.host}:{self.port} — {e}')
             logger.warning('[FTP] check_connection failed: %s', e)
             return False
 
@@ -203,7 +217,7 @@ class FTPManager:
             ftp.login(self.user, self.password)
         except ftplib.error_perm as e:
             if not silent:
-                _log('✗', f'Login failed → {self.host}:{self.port} — {e}')
+                _log('[ERROR]', f'Login failed -> {self.host}:{self.port} — {e}')
             logger.warning('[FTP] login failed: %s', e)
             try:
                 ftp.quit()
@@ -219,9 +233,9 @@ class FTPManager:
             pass
 
         if not silent:
-            _log('✔', f'Connected → {self.host}:{self.port}  (user: {self.user})')
+            _log('[OK]', f'Connected -> {self.host}:{self.port}  (user: {self.user})')
             if welcome:
-                _log('ℹ', f'Server: {welcome.strip()[:80]}')
+                _log('[INFO]', f'Server: {welcome.strip()[:80]}')
         return True
 
     # ── Internal connect context-manager ──────────────────────────────────
@@ -230,7 +244,7 @@ class FTPManager:
     def _connect(self):
         """Yield an authenticated ftplib.FTP. Prints status to terminal."""
         if not ftp_configured():
-            _log('✗', 'Not configured — set FTP_HOST, FTP_USER, FTP_PASSWORD in .env')
+            _log('[ERROR]', 'Not configured — set FTP_HOST, FTP_USER, FTP_PASSWORD in .env')
             raise ConnectionError('FTP credentials not configured')
 
         ftp = ftplib.FTP()
@@ -238,19 +252,19 @@ class FTPManager:
             ftp.connect(self.host, self.port, timeout=30)
             ftp.login(self.user, self.password)
             ftp.set_pasv(True)
-            _log('✔', f'Connected → {self.host}:{self.port}')
+            _log('[OK]', f'Connected -> {self.host}:{self.port}')
             logger.debug('[FTP] Connected to %s:%s', self.host, self.port)
             yield ftp
         except ftplib.error_perm as e:
-            _log('✗', f'Login failed → {self.host}:{self.port} — {e}')
+            _log('[ERROR]', f'Login failed -> {self.host}:{self.port} — {e}')
             logger.error('[FTP] Login error: %s', e, exc_info=True)
             raise
         except (socket.timeout, OSError) as e:
-            _log('✗', f'Connection timed out → {self.host}:{self.port} — {e}')
+            _log('[ERROR]', f'Connection timed out -> {self.host}:{self.port} — {e}')
             logger.error('[FTP] Timeout: %s', e)
             raise
         except ftplib.all_errors as e:
-            _log('✗', f'Error → {self.host}:{self.port} — {e}')
+            _log('[ERROR]', f'Error -> {self.host}:{self.port} — {e}')
             logger.error('[FTP] Error: %s', e, exc_info=True)
             raise
         finally:
@@ -309,8 +323,8 @@ class FTPManager:
             return uploaded
 
         if not ftp_configured():
-            _log('⚠', f'Skipping upload — FTP not configured in .env '
-                       f'({", ".join(pending.keys())})')
+            _log('[WARN]', f'Skipping upload — FTP not configured in .env '
+                        f'({", ".join(pending.keys())})')
             return uploaded
 
         for field_name, uploaded_file in pending.items():
@@ -337,18 +351,18 @@ class FTPManager:
                     group_code    = group_code,
                 )
                 uploaded[field_name] = remote_path
-                print(f'│')
-                print(f'│  ✔  FTP Document Saved')
-                print(f'│     Field    : {field_name}')
-                print(f'│     File     : {uploaded_file.name}')
-                print(f'│     Size     : {len(data):,} bytes')
-                print(f'│     Server   : {self.host}:{self.port}')
-                print(f'│     Path     : {remote_path}')
-                print(f'│')
+                print(f'|')
+                print(f'|  [OK]  FTP Document Saved')
+                print(f'|     Field    : {field_name}')
+                print(f'|     File     : {uploaded_file.name}')
+                print(f'|     Size     : {len(data):,} bytes')
+                print(f'|     Server   : {self.host}:{self.port}')
+                print(f'|     Path     : {remote_path}')
+                print(f'|')
 
             except Exception as e:
                 logger.warning('[FTP] upload_from_request: %s skipped: %s', field_name, e)
-                _log('⚠', f'[{field_name}] skipped (DB save continues) — {e}')
+                _log('[WARN]', f'[{field_name}] skipped (DB save continues) — {e}')
             finally:
                 if tmp_path and os.path.exists(tmp_path):
                     try:
@@ -369,7 +383,7 @@ class FTPManager:
                                  company_name=company_name)
         with self._connect() as ftp:
             _mkdir_p(ftp, remote_dir)
-        _log('✔', f'Folder ready: {remote_dir}')
+        _log('[OK]', f'Folder ready: {remote_dir}')
         return remote_dir
 
     def list_files(self, module: str, company_code: str,
@@ -382,10 +396,10 @@ class FTPManager:
                 _mkdir_p(ftp, remote_dir)
                 ftp.cwd(remote_dir)
                 names = ftp.nlst()
-            _log('✔', f'Listed {len(names)} file(s) in {remote_dir}')
+            _log('[OK]', f'Listed {len(names)} file(s) in {remote_dir}')
             return names
         except ftplib.error_perm as e:
-            _log('✗', f'list_files error: {e}')
+            _log('[ERROR]', f'list_files error: {e}')
             return []
 
     def upload_file(self, local_path: str, module: str, company_code: str,
@@ -402,7 +416,7 @@ class FTPManager:
             _mkdir_p(ftp, remote_dir)
             with open(local_path, 'rb') as f:
                 ftp.storbinary(f'STOR {remote_path}', f)
-        _log('✔', f'Uploaded: {remote_path}')
+        _log('[OK]', f'Uploaded: {remote_path}')
         return remote_path
 
     def upload_bytes(self, data: bytes, filename: str, module: str,
@@ -416,7 +430,7 @@ class FTPManager:
         with self._connect() as ftp:
             _mkdir_p(ftp, remote_dir)
             ftp.storbinary(f'STOR {remote_path}', io.BytesIO(data))
-        _log('✔', f'Uploaded: {remote_path} ({len(data):,} bytes)')
+        _log('[OK]', f'Uploaded: {remote_path} ({len(data):,} bytes)')
         return remote_path
 
     def download_file(self, remote_filename: str, module: str,
@@ -447,11 +461,11 @@ class FTPManager:
         try:
             with self._connect() as ftp:
                 ftp.delete(remote_path)
-            _log('✔', f'Deleted: {remote_path}')
+            _log('[OK]', f'Deleted: {remote_path}')
             return True
         except ftplib.error_perm as e:
             if '550' in str(e):
-                _log('⚠', f'Delete: not found — {remote_path}')
+                _log('[WARN]', f'Delete: not found — {remote_path}')
                 return False
             raise
 

@@ -10,8 +10,14 @@
     }
 
     function _toast(msg, type) {
-        if (typeof window.pfToast === 'function') window.pfToast(msg, type);
-        else console.log('[rpt_filter]', type, msg);
+        if (typeof window.pfToast === 'function') {
+            window.pfToast(msg, type);
+        } else if (typeof window.showToast === 'function') {
+            var map = { s: 'success', e: 'error', w: 'warning', i: 'info' };
+            window.showToast(msg, map[type] || type || 'info');
+        } else {
+            console.log('[rpt_filter]', type, msg);
+        }
     }
 
     function _esc(s) {
@@ -1439,26 +1445,34 @@ if (wrap) { wrap.click(); } else { var fsel = lastRow.querySelector('select.rfr-
                     fkField: c.fkField || '',
                     fieldType: c.fieldType || 'text',
                     type: c.type || 'text',
+                    width: c.width || null,
+                    align: c.align || '',
                 };
             });
         cfg.cols = visCols;
         var theadCols = cfg.cols.filter(function (c) { return c.type !== 'photo'; });
+        var savedWidths = {};
+        try { savedWidths = JSON.parse(localStorage.getItem('rpt_col_widths_' + reportId) || '{}'); } catch(e) {}
         var listThead = document.querySelector('#rpt-list-tbl-' + reportId + ' thead');
         if (listThead) {
             listThead.innerHTML = '<tr>' +
                 theadCols.map(function (c) {
-                    return '<th data-col="' + _esc(c.key) + '" style="cursor:pointer">' + _esc(c.label) + '</th>';
+                    var w = parseInt(savedWidths[c.key] || c.width || 120, 10);
+                    var al = c.align || (c.type === 'number' ? (c.key === 'slno' ? 'center' : 'right') : 'left');
+                    return '<th data-col="' + _esc(c.key) + '" style="cursor:pointer;width:' + w + 'px;min-width:' + w + 'px;max-width:' + w + 'px;text-align:' + al + '">' + _esc(c.label) + '</th>';
                 }).join('') +
-                '<th style="width:60px"></th></tr>';
+                '</tr>';
         }
         var gridThead = document.querySelector('#rpt-grid-tbl-' + reportId + ' thead');
         if (gridThead) {
             gridThead.innerHTML = '<tr>' +
-                '<th style="width:44px"></th>' +
+                '<th style="width:44px;min-width:44px;max-width:44px"></th>' +
                 theadCols.map(function (c) {
-                    return '<th data-col="' + _esc(c.key) + '" style="cursor:pointer">' + _esc(c.label) + '</th>';
+                    var w = parseInt(savedWidths[c.key] || c.width || 120, 10);
+                    var al = c.align || (c.type === 'number' ? (c.key === 'slno' ? 'center' : 'right') : 'left');
+                    return '<th data-col="' + _esc(c.key) + '" style="cursor:pointer;width:' + w + 'px;min-width:' + w + 'px;max-width:' + w + 'px;text-align:' + al + '">' + _esc(c.label) + '</th>';
                 }).join('') +
-                '<th style="width:60px"></th></tr>';
+                '</tr>';
         }
         if (typeof window.rptGoPage === 'function') {
             var st = window.rptGetState ? window.rptGetState(reportId) : null;
@@ -1698,7 +1712,7 @@ else if (e.key === 'Enter') { e.preventDefault(); if (active) { active.dispatchE
 
     window.rptShowReportView = function (reportId, rows, cols) {
         _reportViewState.reportId = reportId; _reportViewState.allRows = rows || []; _reportViewState.filteredRows = rows || [];
-        if (!cols) { var cfg = window.rptGetConfig ? window.rptGetConfig(reportId) : null; cols = (cfg && cfg.cols) ? cfg.cols.map(function (c, i) { return { key: c.key, label: c.label, show: true, total: false, wrap: false, format: '', color: '', col: i + 1 }; }) : []; }
+        if (!cols) { var cfg = window.rptGetConfig ? window.rptGetConfig(reportId) : null; cols = (cfg && cfg.cols) ? cfg.cols.map(function (c, i) { return { key: c.key, label: c.label, show: true, total: !!c.total, wrap: !!c.wrap, format: '', color: '', col: i + 1 }; }) : []; }
         _reportViewState.cols = cols;
         _optState.reportId = reportId;
         if (!_optState.cols.length || _optState.reportId !== reportId) _optState.cols = JSON.parse(JSON.stringify(cols));
@@ -1852,16 +1866,154 @@ else if (e.key === 'Enter') { e.preventDefault(); if (active) { active.dispatchE
         }
     };
     window.rptReportDefault = function (rid) { _toast('Default settings applied', 's'); };
-    window.rptReportTotal = function (rid) {
-        var st = _reportViewState;
-        var cols = (_optState.reportId === rid ? _optState.cols : st.cols).filter(function (c) { return c.show !== false && c.total; });
-        if (!cols.length) { _toast('Mark columns as Total in Report Options first', 'w'); return; }
-        var tbody = document.getElementById('rpt-report-tbody-' + rid); if (!tbody) return;
-        var existing = tbody.querySelector('.rpt-total-row'); if (existing) { existing.remove(); return; }
-        var allCols = (_optState.reportId === rid ? _optState.cols : st.cols).filter(function (c) { return c.show !== false; });
-        var totalRow = '<tr class="rpt-total-row" style="font-weight:700;background:var(--color-primary-light,rgba(139,0,0,.08))"><td style="padding:6px 10px;text-align:center">Total</td>' + allCols.map(function (c) { if (!c.total) return '<td style="padding:6px 10px"></td>'; var sum = st.filteredRows.reduce(function (acc, row) { return acc + (parseFloat(row[c.key]) || 0); }, 0); return '<td style="padding:6px 10px;text-align:right">' + sum.toLocaleString() + '</td>'; }).join('') + '</tr>';
-        tbody.insertAdjacentHTML('beforeend', totalRow);
+    /* ═════════════════════════════════════════════════════════════════
+       TOTALS MODAL (Using project UtilityModal engine & styles)
+    ═════════════════════════════════════════════════════════════════ */
+    var _totalModal = new UtilityModal({
+        id: 'rpt-total-modal',
+        title: 'Total',
+        icon: '<circle cx="12" cy="12" r="10"/><path d="M16 8h-8l5 4-5 4h8"/>',
+        width: '560px',
+        height: '380px',
+        tabs: [{ id: 'totals', label: '» Total', icon: 'doc' }],
+        toolbar: [
+            { label: 'OK', icon: 'save', danger: false, onclick: function () { _totalModal.close(); } },
+            { label: 'Cancel', icon: 'close', danger: false, onclick: function () { _totalModal.close(); } },
+            { label: 'Print', icon: 'print', danger: false, onclick: function () { _totalPrint(); } },
+            { label: 'To Excel', icon: 'upload', danger: false, onclick: function () { _totalExport(); } },
+        ],
+        onBuild: function (modal) {
+            var nav = document.getElementById('rpt-total-modal-nav');
+            if (nav) nav.style.cssText = 'display:none!important;width:0;overflow:hidden';
+            var pane = modal.pane('totals');
+            if (!pane) return;
+            pane.style.overflow = 'hidden';
+            pane.style.flexDirection = 'column';
+            pane.style.padding = '14px';
+
+            pane.innerHTML = UtilityModal.grid('rpt-tot-tbody', [
+                { label: 'Field Name', width: '40%' },
+                { label: 'Total', width: '30%', align: 'right' },
+                { label: 'Selected Total', width: '30%', align: 'right' },
+            ]);
+        },
+        onOpen: function (modal, ctx) {
+            var rid = (ctx && ctx.reportId) || (_optState && _optState.reportId) || 'stock-report';
+            _renderTotalModalGrid(rid);
+        }
+    });
+
+    function _getTotalCols(rid) {
+        var cols = [];
+        if (_optState && _optState.reportId === rid && _optState.cols && _optState.cols.length) {
+            cols = _optState.cols.filter(function (c) { return c.show !== false && c.total; });
+        } else if (_reportViewState && _reportViewState.reportId === rid && _reportViewState.cols && _reportViewState.cols.length) {
+            cols = _reportViewState.cols.filter(function (c) { return c.show !== false && c.total; });
+        } else {
+            var cfg = (window.rptGetConfig && window.rptGetConfig(rid)) || (window._rptConfig && window._rptConfig[rid]);
+            if (cfg && cfg.cols) {
+                cols = cfg.cols.filter(function (c) { return c.show !== false && c.total; });
+            }
+        }
+        return cols;
+    }
+
+    function _renderTotalModalGrid(rid) {
+        var st = (window.rptGetState && window.rptGetState(rid)) || _reportViewState || {};
+        var allRows = (st && st.filteredRows) || (window._rptRows && window._rptRows[rid]) || (st && st.allRows) || [];
+        var cols = _getTotalCols(rid);
+
+        var tbody = document.getElementById('rpt-tot-tbody');
+        var empty = document.getElementById('rpt-tot-tbody-empty');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (!cols.length) {
+            if (empty) {
+                empty.textContent = 'Please choose total from report options';
+                empty.style.display = 'block';
+            }
+            return;
+        }
+        if (empty) empty.style.display = 'none';
+
+        // 2. Identify selected rows in the table
+        var selectedRows = [];
+        var selectedIds = (st && st.selectedRowIds) || new Set();
+        if (selectedIds && selectedIds.size > 0) {
+            allRows.forEach(function (r) {
+                var pk = String(r.id || r.reg_no || r.ItemID || '');
+                if (selectedIds.has(pk)) selectedRows.push(r);
+            });
+        }
+
+        function _fmt(val) {
+            if (val === null || val === undefined || isNaN(val)) return '—';
+            return Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        cols.forEach(function (col) {
+            var totalSum = allRows.reduce(function (acc, r) {
+                var v = parseFloat(r[col.key]);
+                return acc + (isNaN(v) ? 0 : v);
+            }, 0);
+
+            var selSum = selectedRows.length ? selectedRows.reduce(function (acc, r) {
+                var v = parseFloat(r[col.key]);
+                return acc + (isNaN(v) ? 0 : v);
+            }, 0) : null;
+
+            var tr = document.createElement('tr');
+            tr.innerHTML = '<td style="font-weight:600;color:var(--color-text-primary)">' + _esc(col.label) + '</td>' +
+                '<td style="text-align:right;font-family:\'DM Mono\',monospace;font-size:13px;font-weight:700">' + _fmt(totalSum) + '</td>' +
+                '<td style="text-align:right;font-family:\'DM Mono\',monospace;font-size:13px;font-weight:700;color:var(--color-primary,#8b0000)">' + (selSum !== null ? _fmt(selSum) : '') + '</td>';
+            tbody.appendChild(tr);
+        });
+    }
+
+    function _totalPrint() {
+        var wrap = document.querySelector('#rpt-total-modal .utm-grid-wrap');
+        if (!wrap) return;
+        var win = window.open('', '_blank', 'width=650,height=450');
+        win.document.write('<!DOCTYPE html><html><head><title>Totals</title>' +
+            '<style>body{font-family:sans-serif;padding:24px;} table{width:100%;border-collapse:collapse;} ' +
+            'th,td{border:1px solid #ccc;padding:8px 12px;font-size:13px;} th{background:#f0f4f8;text-align:left;} ' +
+            'td:nth-child(2),td:nth-child(3){text-align:right;font-weight:bold;font-family:monospace;}</style></head><body>' +
+            '<h2 style="margin-top:0">Totals Report</h2>' + wrap.innerHTML + '</body></html>');
+        win.document.close();
+        win.focus();
+        setTimeout(function () { win.print(); }, 250);
+    }
+
+    function _totalExport() {
+        var wrap = document.querySelector('#rpt-total-modal .utm-grid-wrap');
+        if (!wrap) return;
+        var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
+            '<head><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Totals</x:Name>' +
+            '<x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--><meta charset="utf-8"></head>' +
+            '<body>' + wrap.innerHTML + '</body></html>';
+        var blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'Report_Totals.xls';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    }
+
+    window.rptOpenTotalModal = function (rid) {
+        var cols = _getTotalCols(rid);
+        if (!cols || !cols.length) {
+            _toast('Please choose total from report options', 'w');
+            return;
+        }
+        _totalModal.open({ reportId: rid });
     };
+
+    window.rptReportTotal = function (rid) {
+        window.rptOpenTotalModal(rid);
+    };
+    /* ── /Total Modal ──────────────────────────────────────────────── */
     window.rptReportRefresh = function (rid) { _renderReportTable(rid); _toast('Refreshed', 's'); };
     window.rptReportMenu = function (btn, rid) {
         window.pfOpenMenu && window.pfOpenMenu(btn, [
@@ -1967,10 +2119,10 @@ else if (e.key === 'Enter') { e.preventDefault(); if (active) { active.dispatchE
                         if (!prevMap[lc.key]) {
                             _optState.cols.push({
                                 key: lc.key, label: lc.label, show: true,
-                                total: false, wrap: false, format: '',
+                                total: !!lc.total, wrap: false, format: '',
                                 color: lc.color || '', fkTable: lc.fkTable || '',
                                 fkField: lc.fkField || '', fieldType: lc.fieldType || 'text',
-                                fkIdField: c.fkIdField || (live && live.fkIdField) || '',
+                                fkIdField: lc.fkIdField || '',
                                 col: _optState.cols.length + 1, bold: !!lc.bold, type: lc.type || 'text',
                             });
                         }
@@ -1978,7 +2130,7 @@ else if (e.key === 'Enter') { e.preventDefault(); if (active) { active.dispatchE
                 }
             } else if (liveCfg && liveCfg.cols && liveCfg.cols.length) {
                 _optState.cols = liveCfg.cols.map(function (c, i) {
-                    return { key: c.key, label: c.label, show: true, total: false, wrap: false, format: '', color: c.color || '', fkTable: c.fkTable || '', fkField: c.fkField || '', fieldType: c.fieldType || 'text', col: i + 1, bold: !!c.bold, type: c.type || 'text' };
+                    return { key: c.key, label: c.label, show: true, total: !!c.total, wrap: false, format: '', color: c.color || '', fkTable: c.fkTable || '', fkField: c.fkField || '', fieldType: c.fieldType || 'text', col: i + 1, bold: !!c.bold, type: c.type || 'text' };
                 });
             } else {
                 _optState.cols = [];
@@ -2159,7 +2311,7 @@ else if (e.key === 'Enter') { e.preventDefault(); if (active) { active.dispatchE
                     _optState.cols = JSON.parse(JSON.stringify(cfg._originalCols));
                 } else if (cfg && cfg.cols) {
                     _optState.cols = cfg.cols.map(function (c, i) {
-                        return { key: c.key, label: c.label, show: true, total: false, wrap: false, format: '', color: '', textColor: '', col: i + 1, bold: !!c.bold, type: c.type || 'text' };
+                        return { key: c.key, label: c.label, show: true, total: !!c.total, wrap: false, format: '', color: '', textColor: '', col: i + 1, bold: !!c.bold, type: c.type || 'text' };
                     });
                 }
                 _reportViewState.cols = JSON.parse(JSON.stringify(_optState.cols));
@@ -2398,8 +2550,8 @@ else if (e.key === 'Enter') { e.preventDefault(); if (active) { active.dispatchE
             key: key,
             label: label,
             show: true,
-            total: false,
-            wrap: false,
+            total: isNew ? false : !!col.total,
+            wrap: isNew ? false : !!col.wrap,
             format: format,
             width: width,
             fieldType: fieldType,

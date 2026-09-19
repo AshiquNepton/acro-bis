@@ -52,14 +52,21 @@ REPORT_DETAILS_FIELD_MAP = {
 }
 
 
-def ensure_report_details_table(db_alias: str) -> bool:
+_ENSURED_REPORT_DETAILS_TABLES = set()
+
+
+def ensure_report_details_table(db_alias: str, force: bool = False) -> bool:
     """
     Create ReportDetails if it doesn't exist, then guarantee that SlNo
     has a sequence-backed DEFAULT (handles tables created without serial).
+    Cached in memory so it executes at most once per process.
 
     Called automatically by BaseCRUD on every save/get/list via table_creator.
     Returns True if the table was freshly created, False if it already existed.
     """
+    if not force and db_alias in _ENSURED_REPORT_DETAILS_TABLES:
+        return False
+
     try:
         conn = connections[db_alias]
         with conn.cursor() as cur:
@@ -162,6 +169,7 @@ def ensure_report_details_table(db_alias: str) -> bool:
                 $$;
             """)
 
+        _ENSURED_REPORT_DETAILS_TABLES.add(db_alias)
         return not already_exists
 
     except Exception as e:

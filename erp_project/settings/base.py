@@ -44,7 +44,7 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'erp_project.urls'
-LOGIN_URL = ''
+LOGIN_URL = '/common/'
 
 TEMPLATES = [
     {
@@ -138,12 +138,17 @@ DATABASES['customer_db'] = {
     'USER'              : '',
     'PASSWORD'          : '',
     'HOST'              : 'localhost',
-    'PORT'              : '5432',
-    'CONN_MAX_AGE'      : 0,
-    'CONN_HEALTH_CHECKS': False,
+    'CONN_MAX_AGE'      : 600,
+    'CONN_HEALTH_CHECKS': True,
     'ATOMIC_REQUESTS'   : False,
     'AUTOCOMMIT'        : True,
-    'OPTIONS'           : {'connect_timeout': 10},
+    'OPTIONS'           : {
+        'connect_timeout': 10,
+        'keepalives': 1,
+        'keepalives_idle': 30,
+        'keepalives_interval': 10,
+        'keepalives_count': 5,
+    },
     'TIME_ZONE'         : 'Asia/Qatar',
     'TEST'              : {
         'CHARSET': None, 'COLLATION': None, 'NAME': None, 'MIRROR': None,

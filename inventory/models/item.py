@@ -4,11 +4,17 @@ from django.db import models
 
 logger = logging.getLogger(__name__)
 
-def ensure_inventory_items_table(db_alias: str) -> bool:
+_ENSURED_ITEM_TABLES = set()
+
+
+def ensure_inventory_items_table(db_alias: str, force: bool = False) -> bool:
     """
-    Create the InventoryItems table in the given database alias if it does
-    not already exist. Called automatically before any CRUD operation.
+    Create the InventoryItems table + indexes in the given database alias if it does
+    not already exist. Cached in memory so it executes at most once per process.
     """
+    if not force and db_alias in _ENSURED_ITEM_TABLES:
+        return True
+
     ddl = """
         CREATE TABLE IF NOT EXISTS "InventoryItems" (
             "ItemID" INT NOT NULL,
@@ -89,19 +95,32 @@ def ensure_inventory_items_table(db_alias: str) -> bool:
             "Status" SMALLINT NULL DEFAULT 1,
             "CreatedAt" TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
             CONSTRAINT "PK_InventoryItems" PRIMARY KEY ("ItemID")
-        )
+        );
+        CREATE INDEX IF NOT EXISTS "idx_inventoryitems_itemcode" ON "InventoryItems" ("ItemCode");
+        CREATE INDEX IF NOT EXISTS "idx_inventoryitems_itemname" ON "InventoryItems" ("ItemName");
+        CREATE INDEX IF NOT EXISTS "idx_inventoryitems_barcode1" ON "InventoryItems" ("Unit1Barcode");
+        CREATE INDEX IF NOT EXISTS "idx_inventoryitems_itemgroups" ON "InventoryItems" ("ItemGroup1", "ItemGroup2", "ItemGroup3");
+        CREATE INDEX IF NOT EXISTS "idx_inventoryitems_brand" ON "InventoryItems" ("Brand");
+        CREATE INDEX IF NOT EXISTS "idx_inventoryitems_category" ON "InventoryItems" ("Category");
     """
-    
+
     try:
         with connections[db_alias].cursor() as cur:
             cur.execute(ddl)
-            # Ensure Item and ItemGroup1..5 columns exist for older DBs
+            # Ensure Item and ItemGroup1..5 columns exist for older DBs in a single statement
             try:
-                cur.execute('ALTER TABLE "InventoryItems" ADD COLUMN IF NOT EXISTS "Item" INT')
-                for i in range(1, 6):
-                    cur.execute(f'ALTER TABLE "InventoryItems" ADD COLUMN IF NOT EXISTS "ItemGroup{i}" INT')
-            except Exception as e:
+                cur.execute('''
+                    ALTER TABLE "InventoryItems"
+                    ADD COLUMN IF NOT EXISTS "Item" INT,
+                    ADD COLUMN IF NOT EXISTS "ItemGroup1" INT,
+                    ADD COLUMN IF NOT EXISTS "ItemGroup2" INT,
+                    ADD COLUMN IF NOT EXISTS "ItemGroup3" INT,
+                    ADD COLUMN IF NOT EXISTS "ItemGroup4" INT,
+                    ADD COLUMN IF NOT EXISTS "ItemGroup5" INT
+                ''')
+            except Exception:
                 pass
+        _ENSURED_ITEM_TABLES.add(db_alias)
         logger.debug('ensure_inventory_items_table: table ready in %s', db_alias)
         return True
     except (OperationalError, ProgrammingError) as exc:

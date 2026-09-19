@@ -184,8 +184,7 @@
             <div class="rpt-list-wrap">
                 <table class="rpt-tbl" id="rpt-list-tbl-{{ r.id }}">
                     <thead><tr>
-                        {% for col in r.cols %}{% if col.type != 'photo' %}<th>{{ col.label }}</th>{% endif %}{% endfor %}
-                        <th></th>
+                        {% for col in r.cols %}{% if col.type != 'photo' %}<th data-col="{{ col.key }}" style="{% if col.width %}width:{{ col.width }}px;min-width:{{ col.width }}px;max-width:{{ col.width }}px;{% endif %}{% if col.align %}text-align:{{ col.align }};{% elif col.type == 'number' %}text-align:right;{% endif %}">{{ col.label }}</th>{% endif %}{% endfor %}
                     </tr></thead>
                     <tbody id="rpt-list-body-{{ r.id }}"></tbody>
                 </table>
@@ -198,9 +197,8 @@
             <div class="rpt-list-wrap">
                 <table class="rpt-tbl rpt-tbl--grid" id="rpt-grid-tbl-{{ r.id }}">
                     <thead><tr>
-                        <th style="width:44px"></th>
-                        {% for col in r.cols %}{% if col.type != 'photo' %}<th>{{ col.label }}</th>{% endif %}{% endfor %}
-                        <th></th>
+                        <th style="width:44px;min-width:44px;max-width:44px"></th>
+                        {% for col in r.cols %}{% if col.type != 'photo' %}<th data-col="{{ col.key }}" style="{% if col.width %}width:{{ col.width }}px;min-width:{{ col.width }}px;max-width:{{ col.width }}px;{% endif %}{% if col.align %}text-align:{{ col.align }};{% elif col.type == 'number' %}text-align:right;{% endif %}">{{ col.label }}</th>{% endif %}{% endfor %}
                     </tr></thead>
                     <tbody id="rpt-grid-body-{{ r.id }}"></tbody>
                 </table>
@@ -242,7 +240,7 @@
         ],
         cols : [
             {% for col in r.cols %}
-            {key:'{{ col.key }}',label:'{{ col.label }}',type:'{{ col.type|default:"text" }}',bold:{{ col.bold|yesno:"true,false" }}}{% if not forloop.last %},{% endif %}
+            {key:'{{ col.key }}',label:'{{ col.label }}',type:'{{ col.type|default:"text" }}',bold:{{ col.bold|yesno:"true,false" }},width:{% if col.width %}{{ col.width }}{% else %}null{% endif %},align:'{{ col.align|default:"" }}',total:{{ col.total|yesno:"true,false" }}}{% if not forloop.last %},{% endif %}
             {% endfor %}
         ],
         tile : {% if r.tile %}{
@@ -405,6 +403,16 @@
     window.rptReportRefresh = function(rid) {
         rid = rid || RID;
         if (typeof window.rptOpenFilterModal === 'function') window.rptOpenFilterModal(rid);
+    };
+
+    /* 9. TOTAL */
+    window.rptReportTotal = function(rid) {
+        rid = rid || RID;
+        if (typeof window.rptOpenTotalModal === 'function') {
+            window.rptOpenTotalModal(rid);
+        } else {
+            _call('rptReportTotal', rid);
+        }
     };
 
     /* Excel helper */

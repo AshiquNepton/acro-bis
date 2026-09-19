@@ -139,10 +139,10 @@
         /* Modal */
         var modal = document.createElement('div');
         modal.className = 'utm-modal';
-        modal.style.width    = '50%';
-        modal.style.minWidth = '400px';
-        modal.style.height   = '50vh';
-        modal.style.minHeight = '320px';
+        modal.style.width    = cfg.width || '50%';
+        modal.style.minWidth = cfg.minWidth || '400px';
+        modal.style.height   = cfg.height || '50vh';
+        modal.style.minHeight = cfg.minHeight || '320px';
         modal.setAttribute('role', 'dialog');
         modal.setAttribute('aria-modal', 'true');
 
@@ -369,8 +369,11 @@
     /** Grid table */
     UtilityModal.grid = function (id, columns) {
         var heads = (columns || []).map(function (c) {
-            var w = c.width ? ' style="width:' + c.width + '"' : '';
-            return '<th' + w + '>' + c.label + '</th>';
+            var styles = [];
+            if (c.width) styles.push('width:' + c.width);
+            if (c.align) styles.push('text-align:' + c.align);
+            var styleAttr = styles.length ? ' style="' + styles.join(';') + '"' : '';
+            return '<th' + styleAttr + '>' + c.label + '</th>';
         }).join('');
         return '<div class="utm-grid-wrap">' +
                '<table class="utm-grid"><thead><tr>' + heads + '</tr></thead>' +

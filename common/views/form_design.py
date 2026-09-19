@@ -17,6 +17,7 @@ import logging
 
 from django.http       import JsonResponse
 from django.db         import connections
+from core.crud         import safe_atomic
 
 logger = logging.getLogger(__name__)
 
@@ -88,13 +89,19 @@ def _db(request):
     return 'customer_db'
 
 
-def _ensure_table(cursor):
+_ENSURED_FORM_DESIGN_TABLES = set()
+
+
+def _ensure_table(cursor, db_alias='customer_db', force=False):
+    if not force and db_alias in _ENSURED_FORM_DESIGN_TABLES:
+        return
     cursor.execute(CREATE_SQL)
     for sql in ALTER_SQLS:
         try:
             cursor.execute(sql)
         except Exception:
             pass
+    _ENSURED_FORM_DESIGN_TABLES.add(db_alias)
 
 
 def _int_or_none(v):
@@ -113,8 +120,9 @@ def load_form_design(request):
     if not form_name:
         return JsonResponse({'success': False, 'error': 'form param required'})
     try:
-        with connections[_db(request)].cursor() as cur:
-            _ensure_table(cur)
+        db_alias = _db(request)
+        with connections[db_alias].cursor() as cur:
+            _ensure_table(cur, db_alias)
             cur.execute(
                 'SELECT "ControlName","TypeCode","Left","Top","Width","Height","Row",'
                 '"TabIndex","TabStop","Visible","Caption","Design","Enabled",'
@@ -161,39 +169,41 @@ def save_form_design(request):
         if not form_name:
             return JsonResponse({'success': False, 'error': 'form required'})
 
-        with connections[_db(request)].cursor() as cur:
-            _ensure_table(cur)
-            saved = 0
-            for c in controls:
-                ctrl_name = str(c.get('controlName', ''))[:60]
-                if not ctrl_name:
-                    continue
+        db_alias = _db(request)
+        with safe_atomic(db_alias):
+            with connections[db_alias].cursor() as cur:
+                _ensure_table(cur, db_alias)
+                saved = 0
+                for c in controls:
+                    ctrl_name = str(c.get('controlName', ''))[:60]
+                    if not ctrl_name:
+                        continue
 
-                type_code  = int(c.get('typeCode', 0))
-                width_val  = _int_or_none(c.get('width'))
-                height_val = _int_or_none(c.get('height'))
-                row_val    = _int_or_none(c.get('row')) or 1
+                    type_code  = int(c.get('typeCode', 0))
+                    width_val  = _int_or_none(c.get('width'))
+                    height_val = _int_or_none(c.get('height'))
+                    row_val    = _int_or_none(c.get('row')) or 1
 
-                cur.execute(UPSERT_SQL, [
-                    form_name,
-                    type_code,
-                    ctrl_name,
-                    c.get('left'),
-                    c.get('top'),
-                    width_val,
-                    height_val,
-                    row_val,
-                    c.get('tabIndex'),
-                    int(c.get('tabStop', 1)),
-                    int(c.get('visible', 1)),
-                    str(c.get('caption', '') or '')[:100],
-                    int(c.get('design', 1)),
-                    int(c.get('enabled', 1)),
-                    str(c.get('arabicCaption', '') or '')[:60],
-                    str(c.get('font', '') or '')[:60],
-                    c.get('fontSize'),
-                ])
-                saved += 1
+                    cur.execute(UPSERT_SQL, [
+                        form_name,
+                        type_code,
+                        ctrl_name,
+                        c.get('left'),
+                        c.get('top'),
+                        width_val,
+                        height_val,
+                        row_val,
+                        c.get('tabIndex'),
+                        int(c.get('tabStop', 1)),
+                        int(c.get('visible', 1)),
+                        str(c.get('caption', '') or '')[:100],
+                        int(c.get('design', 1)),
+                        int(c.get('enabled', 1)),
+                        str(c.get('arabicCaption', '') or '')[:60],
+                        str(c.get('font', '') or '')[:60],
+                        c.get('fontSize'),
+                    ])
+                    saved += 1
 
         return JsonResponse({'success': True, 'message': f'Saved {saved} controls'})
     except Exception as e:

@@ -47,15 +47,27 @@ class DynamicDatabaseMiddleware:
             db_port     = request.session.get('db_port', '5432')
 
             if all([db_host, db_name, db_user, db_password]):
+                current_creds = (str(db_host), str(db_port), str(db_name), str(db_user), str(db_password))
+                prev_creds = getattr(_thread_locals, 'active_conn_creds', None)
+
                 set_db_credentials(db_host, db_port, db_name, db_user, db_password)
-                # Close any open connection so next query opens fresh with new creds
-                try:
-                    connections['customer_db'].close()
-                except Exception:
-                    pass
-                print(f"[MIDDLEWARE] customer_db -> {db_host}/{db_name}")
+
+                # Only close and reset connection if tenant credentials changed
+                if current_creds != prev_creds:
+                    try:
+                        connections['customer_db'].close()
+                    except Exception:
+                        pass
+                    _thread_locals.active_conn_creds = current_creds
+                    print(f"[MIDDLEWARE] customer_db -> {db_host}/{db_name} (connected)")
             else:
                 set_db_credentials('', '5432', '', '', '')
+                if getattr(_thread_locals, 'active_conn_creds', None) is not None:
+                    try:
+                        connections['customer_db'].close()
+                    except Exception:
+                        pass
+                    _thread_locals.active_conn_creds = None
                 print("[MIDDLEWARE] No session credentials")
 
         except (ProgrammingError, OperationalError) as e:

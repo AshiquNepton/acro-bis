@@ -128,16 +128,41 @@ var _COMPANY_FOLDER = (function () {
         dragStartW: 0,
     };
 
-    global.rptDesignReport = function (reportId) {
-        if (_designState.active) { _designExit(); return; }
-
-        var containerId = 'rpt-report-view-' + reportId;
-        var container = document.getElementById(containerId);
-        if (!container) {
-            containerId = 'rpt-main-' + reportId;
-            container = document.getElementById(containerId);
+    function _getActiveTblAndWrap(reportId) {
+        var st = global.rptGetState ? global.rptGetState(reportId) : null;
+        var currentView = (st && st.view) || 'list';
+        if (currentView === 'tiles') {
+            currentView = 'list';
         }
-        if (!container) {
+        var viewDiv = document.getElementById('rpt-' + currentView + '-' + reportId);
+        var tbl = document.getElementById('rpt-' + currentView + '-tbl-' + reportId);
+        var wrap = viewDiv ? viewDiv.querySelector('.rpt-list-wrap') : null;
+        if (!tbl) {
+            tbl = document.getElementById('rpt-report-tbl-' + reportId);
+            wrap = document.getElementById('rpt-report-body-' + reportId);
+            viewDiv = wrap ? wrap.parentNode : document.getElementById('rpt-main-' + reportId);
+        }
+        return {
+            view: currentView,
+            viewDiv: viewDiv,
+            tbl: tbl,
+            wrap: wrap,
+            isGrid: currentView === 'grid'
+        };
+    }
+
+    global.rptDesignReport = function (reportId) {
+        if (_designState.active) { _designExit(reportId); return; }
+
+        var st = global.rptGetState ? global.rptGetState(reportId) : null;
+        if (st && st.view === 'tiles') {
+            if (typeof global.rptSetView === 'function') {
+                global.rptSetView(reportId, 'list');
+            }
+        }
+
+        var activeEl = _getActiveTblAndWrap(reportId);
+        if (!activeEl.viewDiv || !activeEl.tbl) {
             _toast('Open the report view first', 'w');
             return;
         }
@@ -146,22 +171,29 @@ var _COMPANY_FOLDER = (function () {
         _designState.active = true;
 
         var cols = _getCols(reportId);
+        var savedMap = _lsJson('rpt_col_widths_' + reportId) || {};
         _designState.cols = cols.map(function (c) {
-            var saved = (_lsJson('rpt_col_widths_' + reportId) || {})[c.key];
+            var saved = savedMap[c.key];
+            var w = saved || c.width || 120;
             return {
                 key: c.key,
                 label: c.label,
-                width: saved || c.width || 120,
+                width: parseInt(w, 10) || 120,
                 minWidth: 40,
                 show: c.show !== false,
             };
-        }).filter(function (c) { return c.show; });
+        }).filter(function (c) { return c.show && c.type !== 'photo'; });
 
-        _designBuild(container, reportId);
+        _designBuild(activeEl, reportId);
         _designApplyWidths(reportId);
     };
 
-    function _designBuild(container, reportId) {
+    function _designBuild(activeEl, reportId) {
+        var oldBar = document.getElementById('rpt-design-bar-' + reportId);
+        if (oldBar) oldBar.remove();
+        var oldRuler = document.getElementById('rpt-design-ruler-wrap-' + reportId);
+        if (oldRuler) oldRuler.remove();
+
         var bar = document.createElement('div');
         bar.id = 'rpt-design-bar-' + reportId;
         bar.className = 'rpt-design-bar';
@@ -215,8 +247,6 @@ var _COMPANY_FOLDER = (function () {
         bar.appendChild(barL);
         bar.appendChild(barR);
 
-        container.insertBefore(bar, container.firstChild);
-
         var rulerWrap = document.createElement('div');
         rulerWrap.id = 'rpt-design-ruler-wrap-' + reportId;
         rulerWrap.className = 'rpt-design-ruler-wrap';
@@ -228,20 +258,33 @@ var _COMPANY_FOLDER = (function () {
         ruler.style.cssText = 'display:flex;align-items:stretch;';
         rulerWrap.appendChild(ruler);
 
-        bar.parentNode.insertBefore(rulerWrap, bar.nextSibling);
+        if (activeEl.wrap && activeEl.wrap.parentNode) {
+            activeEl.wrap.parentNode.insertBefore(bar, activeEl.wrap);
+            activeEl.wrap.parentNode.insertBefore(rulerWrap, activeEl.wrap);
+        } else if (activeEl.viewDiv) {
+            activeEl.viewDiv.insertBefore(bar, activeEl.viewDiv.firstChild);
+            activeEl.viewDiv.insertBefore(rulerWrap, bar.nextSibling);
+        }
 
         _designRenderRuler(reportId);
 
-        var tbl = document.getElementById('rpt-report-tbl-' + reportId);
-        if (tbl) tbl.classList.add('design-active');
+        if (activeEl.tbl) activeEl.tbl.classList.add('design-active');
 
-        var body = document.getElementById('rpt-report-body-' + reportId);
-        if (body) {
-            body.addEventListener('scroll', function () {
-                rulerWrap.scrollLeft = body.scrollLeft;
+        if (activeEl.wrap) {
+            var syncing = false;
+            activeEl.wrap.addEventListener('scroll', function () {
+                if (!syncing) {
+                    syncing = true;
+                    rulerWrap.scrollLeft = activeEl.wrap.scrollLeft;
+                    syncing = false;
+                }
             });
             rulerWrap.addEventListener('scroll', function () {
-                body.scrollLeft = rulerWrap.scrollLeft;
+                if (!syncing) {
+                    syncing = true;
+                    activeEl.wrap.scrollLeft = rulerWrap.scrollLeft;
+                    syncing = false;
+                }
             });
         }
     }
@@ -250,6 +293,18 @@ var _COMPANY_FOLDER = (function () {
         var ruler = document.getElementById('rpt-design-ruler-' + reportId);
         if (!ruler) return;
         ruler.innerHTML = '';
+
+        var activeEl = _getActiveTblAndWrap(reportId);
+        if (activeEl.isGrid) {
+            var avCol = document.createElement('div');
+            avCol.className = 'rpt-ruler-col rpt-ruler-col--avatar';
+            avCol.style.cssText = 'width:44px;min-width:44px;flex-shrink:0;box-sizing:border-box;background:rgba(0,0,0,0.03);border-right:1px solid #b0bec5;position:relative;';
+            var avLbl = document.createElement('div');
+            avLbl.className = 'rpt-ruler-col-lbl';
+            avLbl.textContent = 'IMG';
+            avCol.appendChild(avLbl);
+            ruler.appendChild(avCol);
+        }
 
         _designState.cols.forEach(function (col, idx) {
             var cell = document.createElement('div');
@@ -268,14 +323,12 @@ var _COMPANY_FOLDER = (function () {
             wlbl.textContent = col.width + 'px';
             cell.appendChild(wlbl);
 
-            if (idx < _designState.cols.length - 1) {
-                var handle = document.createElement('div');
-                handle.className = 'rpt-col-resize-handle';
-                handle.dataset.idx = idx;
-                handle.title = 'Drag to resize';
-                handle.addEventListener('mousedown', function (e) { _designDragStart(e, idx, reportId); });
-                cell.appendChild(handle);
-            }
+            var handle = document.createElement('div');
+            handle.className = 'rpt-col-resize-handle';
+            handle.dataset.idx = idx;
+            handle.title = 'Drag to resize';
+            handle.addEventListener('mousedown', function (e) { _designDragStart(e, idx, reportId); });
+            cell.appendChild(handle);
 
             ruler.appendChild(cell);
         });
@@ -305,7 +358,7 @@ var _COMPANY_FOLDER = (function () {
 
             var ruler = document.getElementById('rpt-design-ruler-' + reportId);
             if (ruler) {
-                var cells = ruler.querySelectorAll('.rpt-ruler-col');
+                var cells = ruler.querySelectorAll('.rpt-ruler-col:not(.rpt-ruler-col--avatar)');
                 if (cells[idx]) cells[idx].style.width = newW + 'px';
             }
             var wlbl = document.getElementById('rpt-ruler-w-' + reportId + '-' + idx);
@@ -337,21 +390,60 @@ var _COMPANY_FOLDER = (function () {
     }
 
     function _designApplyWidths(reportId) {
-        var tbl = document.getElementById('rpt-report-tbl-' + reportId);
+        var activeEl = _getActiveTblAndWrap(reportId);
+        var tbl = activeEl.tbl;
         if (!tbl) return;
+
+        var isGrid = activeEl.isGrid;
+        var totalW = isGrid ? 44 : 0;
+        _designState.cols.forEach(function (c) {
+            totalW += (parseInt(c.width, 10) || 120);
+        });
+
+        // Update ruler width
+        var ruler = document.getElementById('rpt-design-ruler-' + reportId);
+        if (ruler) {
+            ruler.style.width = totalW + 'px';
+            ruler.style.minWidth = totalW + 'px';
+        }
+
+        // Apply strictly to table
+        tbl.style.tableLayout = 'fixed';
+        tbl.style.width = totalW + 'px';
+        tbl.style.minWidth = totalW + 'px';
+
         var cg = tbl.querySelector('colgroup');
         if (!cg) {
             cg = document.createElement('colgroup');
             tbl.insertBefore(cg, tbl.firstChild);
         }
         cg.innerHTML = '';
-        var snCol = document.createElement('col');
-        snCol.style.width = '36px';
-        cg.appendChild(snCol);
+        if (isGrid) {
+            var avCol = document.createElement('col');
+            avCol.style.width = '44px';
+            cg.appendChild(avCol);
+        }
         _designState.cols.forEach(function (c) {
             var col = document.createElement('col');
             col.style.width = c.width + 'px';
             cg.appendChild(col);
+        });
+
+        var ths = tbl.querySelectorAll('thead th');
+        var offset = isGrid ? 1 : 0;
+        if (isGrid && ths[0]) {
+            ths[0].style.width = '44px';
+            ths[0].style.minWidth = '44px';
+            ths[0].style.maxWidth = '44px';
+        }
+        _designState.cols.forEach(function (c, i) {
+            var th = ths[i + offset];
+            if (th) {
+                th.style.width = c.width + 'px';
+                th.style.minWidth = c.width + 'px';
+                th.style.maxWidth = c.width + 'px';
+                th.style.boxSizing = 'border-box';
+            }
         });
     }
 
@@ -368,7 +460,10 @@ var _COMPANY_FOLDER = (function () {
             });
         }
 
-        /* Re-render the current page immediately — no refresh needed */
+        /* Apply directly to DOM tables as well */
+        _designApplyWidths(reportId);
+
+        /* Re-render the current page */
         if (typeof global.rptGoPage === 'function') {
             var st = global.rptGetState ? global.rptGetState(reportId) : null;
             global.rptGoPage(reportId, (st && st.currentPage) || 1);
@@ -379,10 +474,21 @@ var _COMPANY_FOLDER = (function () {
 
     global.rptDesignReset = function (reportId) {
         _ls('rpt_col_widths_' + reportId, null);
-        _designState.cols.forEach(function (dc) { dc.width = 120; });
+        var cfg = global.rptGetConfig ? global.rptGetConfig(reportId) : null;
+        var defaultCols = (cfg && cfg.cols) ? cfg.cols : [];
+        var defMap = {};
+        defaultCols.forEach(function (c) { defMap[c.key] = c.width; });
+
+        _designState.cols.forEach(function (dc) {
+            dc.width = parseInt(defMap[dc.key] || 120, 10);
+        });
         _designRenderRuler(reportId);
         _designApplyWidths(reportId);
-        _toast('Widths reset', 's');
+        if (typeof global.rptGoPage === 'function') {
+            var st = global.rptGetState ? global.rptGetState(reportId) : null;
+            global.rptGoPage(reportId, (st && st.currentPage) || 1);
+        }
+        _toast('Widths reset to default', 's');
     };
 
     global.rptDesignExit = function (reportId) { _designExit(reportId); };
@@ -393,8 +499,10 @@ var _COMPANY_FOLDER = (function () {
         if (bar) bar.remove();
         var ruler = document.getElementById('rpt-design-ruler-wrap-' + rid);
         if (ruler) ruler.remove();
-        var tbl = document.getElementById('rpt-report-tbl-' + rid);
-        if (tbl) tbl.classList.remove('design-active');
+        ['list', 'grid'].forEach(function (v) {
+            var tbl = document.getElementById('rpt-' + v + '-tbl-' + rid);
+            if (tbl) tbl.classList.remove('design-active');
+        });
         _designState.active = false;
         _designState.reportId = '';
     }
