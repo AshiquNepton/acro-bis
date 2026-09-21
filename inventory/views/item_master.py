@@ -539,26 +539,20 @@ def get_batch_category_options(category_ids: list, db_alias: str = None) -> dict
         return {cat: [] for cat in category_ids}
 
 
+from common.utils.code_generator import generate_next_code
+
 def generate_next_item_code(db_alias: str = None) -> str:
-    try:
-        from common.middleware.database_middleware import get_customer_db
-        from django.db import connections
-        db = db_alias or get_customer_db()
-        with connections[db].cursor() as cur:
-            cur.execute('SELECT "ItemCode" FROM "InventoryItems" ORDER BY "ItemID" DESC LIMIT 1')
-            row = cur.fetchone()
-            if not row or not row[0]: return 'ITM-0001'
-            code_str = str(row[0])
-            import re as _re
-            match = _re.search(r'(\d+)$', code_str)
-            if match:
-                prefix = code_str[:match.start()]
-                num_str = match.group(1)
-                return f"{prefix}{int(num_str) + 1:0{len(num_str)}d}"
-            return f"{code_str}-0001"
-    except Exception as e:
-        logger.error('[generate_next_item_code] %s', e)
-        return 'ITM-0001' 
+    """Generate the next available ItemCode using the generic generator."""
+    from common.middleware.database_middleware import get_customer_db
+    db = db_alias or get_customer_db()
+    
+    return generate_next_code(
+        table='InventoryItems',
+        code_column='ItemCode',
+        order_column='ItemID',
+        prefix='ITM',
+        db_alias=db
+    )
 
 
 def get_uom_options(request=None):

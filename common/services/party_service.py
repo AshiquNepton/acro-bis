@@ -67,6 +67,43 @@ def ensure_party_tables(db_alias: str) -> None:
         logger.error('ensure_party_tables(%s): %s', db_alias, e)
 
 
+from common.utils.code_generator import generate_next_code
+
+def generate_next_party_code(mgroup: int, db_alias: str = None) -> str:
+    """Generate the next available AcCode for a given mgroup."""
+    db = db_alias or _get_db(None)
+    prefix = 'CUST' if mgroup == 36 else 'VEND'
+    ensure_party_tables(db)
+    
+    return generate_next_code(
+        table='ChartOfAccounts',
+        code_column='AcCode',
+        order_column='AccountID',
+        prefix=prefix,
+        db_alias=db,
+        where_clause='"MGroup" = %s',
+        where_params=[mgroup]
+    )
+
+def get_party_code_options(mgroup: int, db_alias: str = None) -> list:
+    """Fetch the latest party codes for the lookup dropdown."""
+    options = []
+    try:
+        db = db_alias or _get_db(None)
+        ensure_party_tables(db)
+        
+        with connections[db].cursor() as cur:
+            cur.execute(
+                'SELECT "AcCode", "Description" FROM "ChartOfAccounts" WHERE "MGroup" = %s ORDER BY "AccountID" DESC LIMIT 50',
+                [mgroup]
+            )
+            for row in cur.fetchall():
+                options.append({'value': row[0], 'label': f"{row[0]} - {row[1]}"})
+    except Exception as e:
+        logger.error('[get_party_code_options] %s', e)
+    return options
+
+
 # ── CRUD operations ──────────────────────────────────────────────────────────
 
 def save_party(request, mgroup: int) -> JsonResponse:

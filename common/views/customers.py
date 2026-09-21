@@ -2,7 +2,10 @@ import logging
 from django.shortcuts import render
 from django.http import JsonResponse
 from common.views.decorators import login_required
-from common.views.party_master import build_party_form_config, save_party, load_party, delete_party, lookup_party
+from common.views.party_master import (
+    build_party_form_config, save_party, load_party, 
+    delete_party, lookup_party, generate_next_party_code, get_party_code_options
+)
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +18,19 @@ def _base_ctx(request, title):
 @login_required
 def customer_form(request):
     ctx = _base_ctx(request, 'Customer Management')
-    ctx['form_config'] = build_party_form_config('customer')
+    
+    # Generate next code or use existing one from request
+    ac_code = request.GET.get('AcCode', '').strip()
+    next_code = generate_next_party_code(36) if not ac_code else None
+    
+    # Get options for the dropdown
+    ac_code_options = get_party_code_options(36)
+    
+    ctx['form_config'] = build_party_form_config(
+        party_type='customer',
+        ac_code=ac_code or next_code,
+        ac_code_options=ac_code_options
+    )
     return render(request, 'common/masters/customer_form.html', ctx)
 
 def save_customer(request):

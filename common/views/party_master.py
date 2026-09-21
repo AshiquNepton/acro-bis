@@ -24,12 +24,14 @@ from common.services.party_service import (   # noqa: F401
     delete_party,
     lookup_party,
     ensure_party_tables,
+    generate_next_party_code,
+    get_party_code_options,
 )
 
 
 # ── UI configuration ─────────────────────────────────────────────────────────
 
-def build_party_form_config(party_type: str) -> dict:
+def build_party_form_config(party_type: str, ac_code: str = None, ac_code_options: list = None) -> dict:
     """
     Return the profile-form configuration dict for a customer or vendor form.
 
@@ -37,6 +39,10 @@ def build_party_form_config(party_type: str) -> dict:
     """
     is_cust = (party_type == 'customer')
     title = 'Customer Master' if is_cust else 'Vendor Master'
+    
+    ac_code_options = ac_code_options or []
+    if ac_code and not any(opt.get('value') == ac_code for opt in ac_code_options):
+        ac_code_options.append({'value': ac_code, 'label': f"{ac_code} (New)"})
 
     return {
         'form_id': f'{party_type}-form',
@@ -59,8 +65,15 @@ def build_party_form_config(party_type: str) -> dict:
         ],
         'header_fields': [
             {
-                'name': 'AcCode', 'label': f'{title.split()[0]} Code',
-                'type': '1', 'required': True, 'width': '160px', 'lookup_btn': True,
+                'name': 'AcCode', 
+                'label': f'{title.split()[0]} Code',
+                'type': '19', 
+                'required': True, 
+                'width': '160px', 
+                'lookup_btn': True,
+                'value': ac_code,
+                'options': ac_code_options,
+                'onchange': 'pfLookupNow(this.form.id)'
             },
             {
                 'name': 'Description', 'label': f'{title.split()[0]} Name',
