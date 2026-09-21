@@ -15,7 +15,7 @@ def dashboard_view(request):
     Returns:
         HttpResponse: Rendered inventory dashboard template.
     """
-    return render(request, 'inventory/dashboard.html', {
+    return render(request, 'inventory/dashboard/dashboard.html', {
         'title': 'Inventory Dashboard',
         'username': request.session.get('username', 'User'),
         'company_name': request.session.get('company_name', 'Company'),

@@ -361,9 +361,21 @@
 
     ListModal.prototype._onEnterKey = function (idx) {
         var currentVal = this.rows[idx] ? (this.rows[idx].value || '').trim() : '';
-        // If current row is empty (or user finished entering barcodes), Enter completes and saves
         if (!currentVal) {
             this._doSave();
+            return;
+        }
+        
+        var lowerVal = currentVal.toLowerCase();
+        var dupIdx = this.rows.findIndex(function(r, i) {
+            return i !== idx && (r.value || '').trim().toLowerCase() === lowerVal;
+        });
+        
+        if (dupIdx !== -1) {
+            this.rows[idx].value = '';
+            this.renderRows();
+            this._focusRow(dupIdx);
+            if (window.showToast) window.showToast('Duplicate entry. Jumped to existing row.', 'warning');
             return;
         }
 

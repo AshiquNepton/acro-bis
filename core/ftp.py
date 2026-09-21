@@ -487,70 +487,30 @@ class FTPManager:
 # ─── Module-scoped subclasses ─────────────────────────────────────────────────
 # Each sets MODULE so you don't have to pass module= every time.
 
-class LaundryFTP(FTPManager):
-    MODULE = 'laundry'
 
     def upload(self, local_path, company_code, remote_filename=None, employee_code=None):
-        return self.upload_file(local_path, self.MODULE, company_code,
+        return self.upload_file(local_path, getattr(self, 'MODULE', 'core'), company_code,
                                 remote_filename=remote_filename, employee_code=employee_code)
 
     def upload_raw(self, data, filename, company_code, employee_code=None):
-        return self.upload_bytes(data, filename, self.MODULE, company_code, employee_code)
+        return self.upload_bytes(data, filename, getattr(self, 'MODULE', 'core'), company_code, employee_code)
 
     def upload_request(self, request, company_code, fields, employee_code=None):
-        return self.upload_from_request(request, self.MODULE, company_code,
+        return self.upload_from_request(request, getattr(self, 'MODULE', 'core'), company_code,
                                         fields, employee_code)
 
     def download(self, filename, company_code, employee_code=None):
-        return self.download_file(filename, self.MODULE, company_code, employee_code)
+        return self.download_file(filename, getattr(self, 'MODULE', 'core'), company_code, employee_code)
 
+
+class LaundryFTP(FTPManager):
+    MODULE = 'laundry'
 
 class RestaurantFTP(FTPManager):
     MODULE = 'restaurant'
 
-    def upload(self, local_path, company_code, remote_filename=None, employee_code=None):
-        return self.upload_file(local_path, self.MODULE, company_code,
-                                remote_filename=remote_filename, employee_code=employee_code)
-
-    def upload_raw(self, data, filename, company_code, employee_code=None):
-        return self.upload_bytes(data, filename, self.MODULE, company_code, employee_code)
-
-    def upload_request(self, request, company_code, fields, employee_code=None):
-        return self.upload_from_request(request, self.MODULE, company_code,
-                                        fields, employee_code)
-
-    def download(self, filename, company_code, employee_code=None):
-        return self.download_file(filename, self.MODULE, company_code, employee_code)
-
-
-
-
-
 class InventoryFTP(FTPManager):
     MODULE = 'inventory'
 
-    def upload(self, local_path, company_code, remote_filename=None, employee_code=None):
-        return self.upload_file(local_path, self.MODULE, company_code,
-                                remote_filename=remote_filename, employee_code=employee_code)
-
-    def upload_raw(self, data, filename, company_code, employee_code=None):
-        return self.upload_bytes(data, filename, self.MODULE, company_code, employee_code)
-
-    def upload_request(self, request, company_code, fields, employee_code=None):
-        return self.upload_from_request(request, self.MODULE, company_code,
-                                        fields, employee_code)
-
-
 class FinancialFTP(FTPManager):
     MODULE = 'financial'
-
-    def upload(self, local_path, company_code, remote_filename=None, employee_code=None):
-        return self.upload_file(local_path, self.MODULE, company_code,
-                                remote_filename=remote_filename, employee_code=employee_code)
-
-    def upload_raw(self, data, filename, company_code, employee_code=None):
-        return self.upload_bytes(data, filename, self.MODULE, company_code, employee_code)
-
-    def upload_request(self, request, company_code, fields, employee_code=None):
-        return self.upload_from_request(request, self.MODULE, company_code,
-                                        fields, employee_code)

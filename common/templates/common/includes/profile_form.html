@@ -509,7 +509,7 @@
 
                         {# ── photo ── #}
                         {% elif field.type == 'photo' %}
-                        <div class="pf-field">
+                        <div class="pf-field" {% if field.container_style %}style="{{ field.container_style }}"{% endif %}>
                             <label class="pf-field-lbl">{{ field.label }}</label>
                             <div class="pf-field-ctl">
                                 <div class="pf-photo-wrap">
@@ -534,7 +534,7 @@
 
                         {# ── checkbox ── #}
                         {% elif field.type == '10' or field.type == 'checkbox' %}
-                        <div class="pf-field">
+                        <div class="pf-field" {% if field.container_style %}style="{{ field.container_style }}"{% endif %}>
                             <label class="pf-field-lbl">
                                 {{ field.label }}{% if field.required %}<span class="req">*</span>{% endif %}
                             </label>
@@ -552,7 +552,7 @@
 
                         {# ── radio ── #}
                         {% elif field.type == '11' or field.type == 'radio' %}
-                        <div class="pf-field">
+                        <div class="pf-field" {% if field.container_style %}style="{{ field.container_style }}"{% endif %}>
                             <label class="pf-field-lbl">
                                 {{ field.label }}{% if field.required %}<span class="req">*</span>{% endif %}
                             </label>
@@ -572,7 +572,7 @@
 
                         {# ── textarea ── #}
                         {% elif field.type == '5' or field.type == 'textarea' %}
-                        <div class="pf-field">
+                        <div class="pf-field" {% if field.container_style %}style="{{ field.container_style }}"{% endif %}>
                             <label class="pf-field-lbl">
                                 {{ field.label }}{% if field.required %}<span class="req">*</span>{% endif %}
                             </label>
@@ -587,7 +587,7 @@
 
                         {# ── all other input types ── #}
                         {% else %}
-                        <div class="pf-field">
+                        <div class="pf-field" {% if field.container_style %}style="{{ field.container_style }}"{% endif %}>
                             <label class="pf-field-lbl" for="id_{{ field.name }}">
                                 {{ field.label }}{% if field.required %}<span class="req">*</span>{% endif %}
                             </label>

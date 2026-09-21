@@ -29,4 +29,4 @@ def dashboard_view(request):
         'business_type': 'Restaurant',
     }
 
-    return render(request, 'restaurant/dashboard.html', context)
+    return render(request, 'restaurant/dashboard/dashboard.html', context)

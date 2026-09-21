@@ -121,6 +121,19 @@ def build_import_form_config(import_types: list) -> dict:
 # ── Import page view ──────────────────────────────────────────────────────────
 
 def import_excel_view(request):
+    try:
+        from inventory.views.import_config import register_inventory_imports
+        register_inventory_imports()
+    except ImportError: pass
+    try:
+        from common.views.employee_import_config import register_employee_imports
+        register_employee_imports()
+    except ImportError: pass
+    try:
+        from common.views.party_import_config import register_party_imports
+        register_party_imports()
+    except ImportError: pass
+
     """
     Renders the generic import-from-Excel page.
     App wrappers (hrms/views/import_view.py, etc.) call this logic themselves
@@ -149,6 +162,19 @@ def import_excel_view(request):
 # ── Template download ─────────────────────────────────────────────────────────
 
 def import_template_download(request):
+    try:
+        from inventory.views.import_config import register_inventory_imports
+        register_inventory_imports()
+    except ImportError: pass
+    try:
+        from common.views.employee_import_config import register_employee_imports
+        register_employee_imports()
+    except ImportError: pass
+    try:
+        from common.views.party_import_config import register_party_imports
+        register_party_imports()
+    except ImportError: pass
+
     """
     GET  /import/template/?type=<key>        (common URL)
     GET  /hrms/import/template/?type=<key>   (app-level URL, same view)
@@ -191,9 +217,21 @@ def import_template_download(request):
     ws.title = label
 
     # ── Styles ────────────────────────────────────────────────────────────────
+    theme = request.session.get('theme', 'red-white')
+    if theme == 'purple-white':
+        bg, bg_req = '7C3AED', '6D28D9'
+    elif theme == 'blue-white':
+        bg, bg_req = '2563EB', '1D4ED8'
+    elif theme == 'green-white':
+        bg, bg_req = '16A34A', '15803D'
+    elif theme == 'teal-white':
+        bg, bg_req = '0F766E', '0D6B63'
+    else:
+        bg, bg_req = 'C0123C', '960E2F'
+
     header_font    = Font(name='Arial', bold=True, color='FFFFFF', size=10)
-    header_fill    = PatternFill('solid', start_color='2563EB', end_color='2563EB')  # blue
-    req_fill       = PatternFill('solid', start_color='1D4ED8', end_color='1D4ED8')  # darker blue for required
+    header_fill    = PatternFill('solid', start_color=bg, end_color=bg)
+    req_fill       = PatternFill('solid', start_color=bg_req, end_color=bg_req)
     hint_font      = Font(name='Arial', italic=True, color='6B7280', size=9)
     hint_fill      = PatternFill('solid', start_color='F3F4F6', end_color='F3F4F6')
     center_align   = Alignment(horizontal='center', vertical='center', wrap_text=True)
@@ -341,6 +379,19 @@ def _resolve_itemgroup_id(db_alias: str, category_id: int, description: str,
 
 @require_http_methods(['POST'])
 def import_excel_process(request):
+    try:
+        from inventory.views.import_config import register_inventory_imports
+        register_inventory_imports()
+    except ImportError: pass
+    try:
+        from common.views.employee_import_config import register_employee_imports
+        register_employee_imports()
+    except ImportError: pass
+    try:
+        from common.views.party_import_config import register_party_imports
+        register_party_imports()
+    except ImportError: pass
+
     """
     POST body (JSON):
     {
@@ -419,8 +470,13 @@ def import_excel_process(request):
                 resolved_row[excel_key] = str(group_id)
 
             db_row = _coerce_row(resolved_row, columns)
-            _upsert_row(db_alias, table, pk_col, db_row)
+            upsert_fn = config.get('upsert_fn')
+            if upsert_fn:
+                upsert_fn(db_alias, db_row)
+            else:
+                _upsert_row(db_alias, table, pk_col, db_row)
             imported += 1
+
         except Exception as exc:
             errors.append({'row': excel_row_num, 'error': str(exc)})
             logger.warning('import row %d error: %s', excel_row_num, exc)

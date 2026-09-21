@@ -1,12 +1,4 @@
 {% extends layout_base|default:'common/layout.html' %}
-{% comment %}
-════════════════════════════════════════════════════════════════════
-  <your_app>/templates/<your_app>/customer/customer_form.html
-
-  Thin form template for Customer Registration.
-  See company_form.html for setup instructions.
-════════════════════════════════════════════════════════════════════
-{% endcomment %}
 {% load static %}
 
 {% block title %}{{ form_config.title }}{% endblock %}
@@ -26,38 +18,36 @@
 window._pfConfig = {
     '{{ form_config.form_id }}': {
         lookupUrl        : "{% url 'common:lookup_customer' %}",
-        lookupField      : 'customer_code',
-        lookupDbField    : 'CustomerCode',
+        loadUrl          : "{% url 'common:load_customer' %}",
+        lookupField      : 'AcCode',
+        lookupDbField    : 'AcCode',
         debounce         : 500,
 
         saveUrl          : "{% url 'common:save_customer' %}",
-
-        {% comment %} deleteUrl        : "{% url 'common:delete_customer' customer_id=0 %}".replace('/0/', '/{id}/'), {% endcomment %}
-        deleteIdField    : 'customer_code',
-        deleteLabelField : 'customer_name',
+        deleteUrl        : "{% url 'common:delete_customer' %}?pk={id}",
+        deleteIdField    : 'AcCode',
+        deleteLabelField : 'Description',
 
         /* Hero card */
-        heroNameField    : 'customer_name',
-        heroRow1Field    : 'contact_person',
-        heroRow2Field    : 'email',
-        heroSubField     : 'customer_type',
+        heroNameField    : 'Description',
+        heroRow1Field    : 'Contact',
+        heroRow2Field    : 'Email',
+        heroSubField     : 'Mobile',
         heroDefaultName  : 'New Customer',
     }
 };
 
-/* ── Toolbar handlers ── */
-function cuClose()      { history.back(); }
-function cuNew()        { if (confirm('Clear form for a new customer?')) pfClear(); }
-function cuSave()       { pfSave(); }
-function cuDelete()     { pfDelete(); }
-function cuPrint()      { window.print(); }
-function pfNew()        { cuNew(); }
+/* Toolbar handlers */
+function pfClose()      { history.back(); }
+function pfNew()        { if (confirm('Clear form?')) pfClear(); }
+function pfSave()       { _pfSave(); }
+function pfDelete()     { _pfDelete(); }
 
-function cuMenu(btnEl) {
+function pfMenu(btnEl) {
     pfOpenMenu(btnEl, [
-        { icon: '🖨️', label: 'Print',   fn: cuPrint },
+        { icon: 'dY-",?', label: 'Print',   fn: () => window.print() },
         { sep: true },
-        { icon: '✕',  label: 'Close',   fn: cuClose, danger: true },
+        { icon: 'o ',  label: 'Close',   fn: pfClose, danger: true },
     ]);
 }
 </script>

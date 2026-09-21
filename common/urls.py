@@ -1,6 +1,6 @@
 # common/urls.py
 from django.urls import path
-from common.views import auth, dashboard, customers, masters, settings, company_info
+from common.views import auth, dashboard, customers, vendors, settings, company_info
 from common.views import filter_views
 from common.views.form_design import form_design_delete, load_form_design, reset_form_design, save_form_design
 from common.views.ftp_browse import ftp_browse
@@ -43,8 +43,18 @@ urlpatterns = [
 
     # ── Customer ──────────────────────────────────────────────────────────────
     path('customer/',               customers.customer_form,   name='customer'),
+    path('customer/save/',          customers.save_customer,   name='save_customer'),
+    path('customer/load/',          customers.load_customer,   name='load_customer'),
+    path('customer/delete/',        customers.delete_customer, name='delete_customer'),
     path('customer/lookup/',        customers.lookup_customer, name='lookup_customer'),
-    path('customer/save_customer/', customers.save_customer,   name='save_customer'),
+
+    # Vendor
+    path('vendor/',               vendors.vendor_form,   name='vendor'),
+    path('vendor/save/',          vendors.save_vendor,   name='save_vendor'),
+    path('vendor/load/',          vendors.load_vendor,   name='load_vendor'),
+    path('vendor/delete/',        vendors.delete_vendor, name='delete_vendor'),
+    path('vendor/lookup/',        vendors.lookup_vendor, name='lookup_vendor'),
+
 
     # ── Company ───────────────────────────────────────────────────────────────
     path('company/',                         company_info.company_form,           name='company_form'),

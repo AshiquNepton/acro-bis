@@ -66,6 +66,15 @@ def sidebar_context(request):
                     ]
                 },
                 {
+                    'id': 'registration', 'label': 'Registration', 'icon': I['Note'],
+                    'items': [
+                        {'label': 'Item Master', 'url': 'inventory:item_master'},
+                        {'label': 'Customer',    'url': 'common:customer'},
+                        {'label': 'Vendor',      'url': 'common:vendor'},
+                        {'label': 'Department',  'url': 'common:department_form'},
+                    ]
+                },
+                {
                     'id': 'settings', 'label': 'Settings', 'icon': I['Settings'],
                     'items': [
                         {'label': 'Company Info',    'url': 'common:company_form'},
@@ -104,6 +113,15 @@ def sidebar_context(request):
                     ]
                 },
                 {
+                    'id': 'registration', 'label': 'Registration', 'icon': I['Note'],
+                    'items': [
+                        {'label': 'Item Master', 'url': 'inventory:item_master'},
+                        {'label': 'Customer',    'url': 'common:customer'},
+                        {'label': 'Vendor',      'url': 'common:vendor'},
+                        {'label': 'Department',  'url': 'common:department_form'},
+                    ]
+                },
+                {
                     'id': 'settings', 'label': 'Settings', 'icon': I['Settings'],
                     'items': [
                         {'label': 'Company Info',    'url': 'common:company_form'},
@@ -127,8 +145,7 @@ def sidebar_context(request):
                 {
                     'id': 'inventory', 'label': 'Inventory', 'icon': I['Note'],
                     'items': [
-                        {'label': 'Item Master', 'url': 'inventory:item_master'},
-                        {'label': 'Stock Entry', 'url': '#'},
+                                                {'label': 'Stock Entry', 'url': '#'},
                         {'label': 'Purchase Order', 'url': '#'},
                     ]
                 },
@@ -136,16 +153,25 @@ def sidebar_context(request):
                     'id': 'masters', 'label': 'Masters', 'icon': I['Customer'],
                     'items': [
                         {'label': 'Company Info', 'url': 'common:company_form'},
-                        {'label': 'Customers',    'url': 'common:customer'},
-                        {'label': 'Group Setup',  'url': 'common:group_setup'},
-                        {'label': 'Employee / Dept', 'url': 'common:department_form'},
-                        {'label': 'Import from Excel', 'url': 'common:import_excel_view'},
+                                                {'label': 'Group Setup',  'url': 'common:group_setup'},
+                                                {'label': 'Import from Excel', 'url': 'common:import_excel_view'},
                     ]
                 },
                 {
                     'id': 'reports', 'label': 'Reports', 'icon': I['Note'],
                     'items': [
                         {'label': 'Stock Report', 'url': 'reports:stock_report'},
+                        {'label': 'Customer List', 'url': 'reports:customer_list'},
+                        {'label': 'Vendor List', 'url': 'reports:vendor_list'},
+                    ]
+                },
+                {
+                    'id': 'registration', 'label': 'Registration', 'icon': I['Note'],
+                    'items': [
+                        {'label': 'Item Master', 'url': 'inventory:item_master'},
+                        {'label': 'Customer',    'url': 'common:customer'},
+                        {'label': 'Vendor',      'url': 'common:vendor'},
+                        {'label': 'Department',  'url': 'common:department_form'},
                     ]
                 },
                 {
@@ -181,10 +207,17 @@ def sidebar_context(request):
                     'id': 'masters', 'label': 'Masters', 'icon': I['Customer'],
                     'items': [
                         {'label': 'Company Info', 'url': 'common:company_form'},
-                        {'label': 'Customers',    'url': 'common:customer'},
-                        {'label': 'Group Setup',  'url': 'common:group_setup'},
-                        {'label': 'Employee / Dept', 'url': 'common:department_form'},
-                        {'label': 'Import from Excel', 'url': 'common:import_excel_view'},
+                                                {'label': 'Group Setup',  'url': 'common:group_setup'},
+                                                {'label': 'Import from Excel', 'url': 'common:import_excel_view'},
+                    ]
+                },
+                {
+                    'id': 'registration', 'label': 'Registration', 'icon': I['Note'],
+                    'items': [
+                        {'label': 'Item Master', 'url': 'inventory:item_master'},
+                        {'label': 'Customer',    'url': 'common:customer'},
+                        {'label': 'Vendor',      'url': 'common:vendor'},
+                        {'label': 'Department',  'url': 'common:department_form'},
                     ]
                 },
                 {
@@ -204,10 +237,17 @@ def sidebar_context(request):
                     'id': 'masters', 'label': 'Masters', 'icon': I['Dashboard'], 'active': True,
                     'items': [
                         {'label': 'Company Info', 'url': 'common:company_form'},
-                        {'label': 'Customers',    'url': 'common:customer'},
-                        {'label': 'Group Setup',  'url': 'common:group_setup'},
-                        {'label': 'Employee / Dept', 'url': 'common:department_form'},
-                        {'label': 'Import from Excel', 'url': 'common:import_excel_view'},
+                                                {'label': 'Group Setup',  'url': 'common:group_setup'},
+                                                {'label': 'Import from Excel', 'url': 'common:import_excel_view'},
+                    ]
+                },
+                {
+                    'id': 'registration', 'label': 'Registration', 'icon': I['Note'],
+                    'items': [
+                        {'label': 'Item Master', 'url': 'inventory:item_master'},
+                        {'label': 'Customer',    'url': 'common:customer'},
+                        {'label': 'Vendor',      'url': 'common:vendor'},
+                        {'label': 'Department',  'url': 'common:department_form'},
                     ]
                 },
                 {

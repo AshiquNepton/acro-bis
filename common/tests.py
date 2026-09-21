@@ -280,6 +280,7 @@ class BaseCRUDSQLGenerationTests(SimpleTestCase):
 
     @patch('core.crud.connections')
     def test_check_duplicate_sql(self, mock_connections):
+        self.crud._ensure_table = lambda force=False: None
         mock_cursor = self._setup_mock_cursor(mock_connections)
         mock_cursor.fetchone.return_value = ('E101',)
 

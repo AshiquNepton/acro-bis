@@ -84,3 +84,9 @@ class InvalidUomConversionError(InventoryError):
     """Raised when unit of measurement conversion factor is invalid or zero."""
     default_message = "Invalid unit of measurement conversion factor specified."
     status_code = 400
+
+class SchemaError(TenantDatabaseError):
+    """Raised when a required database table or schema object is missing."""
+    default_message = 'Required database schema is missing. Please run pending migrations.'
+    status_code = 500
+

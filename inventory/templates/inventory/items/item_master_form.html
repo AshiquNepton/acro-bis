@@ -15,9 +15,88 @@
 <div class="pf-page-wrapper" style="width:100%; min-height:100%; overflow-x:hidden;">
     {% include 'common/includes/profile_form.html' with fc=form_config %}
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var nameInp = document.getElementById('id_ItemName');
+    var shortInp = document.getElementById('id_ShortName');
+    var localInp = document.getElementById('id_LocalName');
+
+    if (nameInp) {
+        nameInp.addEventListener('input', function() {
+            var val = this.value || '';
+            if (!val) return;
+            if (shortInp && !shortInp.value) shortInp.value = val;
+            if (localInp && !localInp.value) {
+                fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(val) + '&langpair=en|ar')
+                    .then(function(r) { return r.json(); })
+                    .then(function(d) {
+                        if (d && d.responseData && d.responseData.translatedText) {
+                            localInp.value = d.responseData.translatedText;
+                        }
+                    })
+                    .catch(function(e) { console.error('Translation error:', e); });
+            }
+        });
+    }
+});
+</script>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var nameInp = document.getElementById('id_ItemName');
+    var shortInp = document.getElementById('id_ShortName');
+    var localInp = document.getElementById('id_LocalName');
+
+    if (nameInp) {
+        nameInp.addEventListener('input', function() {
+            var val = this.value || '';
+            if (!val) return;
+            if (shortInp && !shortInp.value) shortInp.value = val;
+            if (localInp && !localInp.value) {
+                fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(val) + '&langpair=en|ar')
+                    .then(function(r) { return r.json(); })
+                    .then(function(d) {
+                        if (d && d.responseData && d.responseData.translatedText) {
+                            localInp.value = d.responseData.translatedText;
+                        }
+                    })
+                    .catch(function(e) { console.error('Translation error:', e); });
+            }
+        });
+    }
+});
+</script>
 {% endblock %}
 
 {% block app_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var nameInp = document.getElementById('id_ItemName');
+    var shortInp = document.getElementById('id_ShortName');
+    var localInp = document.getElementById('id_LocalName');
+
+    if (nameInp) {
+        nameInp.addEventListener('input', function() {
+            var val = this.value || '';
+            if (!val) return;
+            if (shortInp && !shortInp.value) shortInp.value = val;
+            if (localInp && !localInp.value) {
+                fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(val) + '&langpair=en|ar')
+                    .then(function(r) { return r.json(); })
+                    .then(function(d) {
+                        if (d && d.responseData && d.responseData.translatedText) {
+                            localInp.value = d.responseData.translatedText;
+                        }
+                    })
+                    .catch(function(e) { console.error('Translation error:', e); });
+            }
+        });
+    }
+});
+</script>
+
 <link rel="stylesheet" href="{% static 'common/css/form_design.css' %}">
 <script src="{% static 'common/js/form_design.js' %}"></script>
 <script>
@@ -41,12 +120,14 @@ window._pfConfig = {
     '{{ form_config.form_id }}': {
         formId           : '{{ form_config.form_id }}',
         lookupField      : 'ItemCode',
+        disableAutoLookup: true,
+        disableAutoLookup: true,
         heroNameField    : 'ItemName',
         heroDefaultName  : 'New Item',
         saveUrl          : "{% url 'inventory:item_master_save' %}",
         loadUrl          : "{% url 'inventory:item_master_load' %}",
         deleteUrl        : "{% url 'inventory:item_master_delete' %}",
-        lookupUrl        : "{% url 'inventory:item_master_lookup' %}",
+        lookupUrl        : "{% url 'inventory:item_master_load' %}",
         deleteIdField    : 'ItemID',
         deleteLabelField : 'ItemName',
     }
@@ -54,7 +135,16 @@ window._pfConfig = {
 
 /* ── Global Form Actions ── */
 function imClose()  { history.back(); }
-function imNew()    { showConfirm('Clear form for a new item?', function(confirmed) { if (confirmed) pfClear('{{ form_config.form_id }}'); }, 'warning', 'New Item'); }
+function imNew() {
+    var itemName = document.querySelector('[name="ItemName"]');
+    if (itemName && itemName.value.trim() !== '') {
+        showConfirm('Clear form for a new item?', function(confirmed) { 
+            if (confirmed) window.location.href = window.location.pathname; 
+        }, 'warning', 'New Item');
+    } else {
+        window.location.href = window.location.pathname;
+    }
+}
 function imSave()   { pfActSave('{{ form_config.form_id }}'); }
 function imDelete() { pfActDelete('{{ form_config.form_id }}'); }
 
@@ -239,22 +329,29 @@ function initSelectItemModal() {
 
 function imResetSelectItemFields() {
     var itemInp = document.getElementById('im-si-item-inp');
+    var g1Inp = document.getElementById('im-si-g1-inp');
+    var g2Inp = document.getElementById('im-si-g2-inp');
+    var g3Inp = document.getElementById('im-si-g3-inp');
+    var g4Inp = document.getElementById('im-si-g4-inp');
+    var g5Inp = document.getElementById('im-si-g5-inp');
     var catInp = document.getElementById('im-si-cat-inp');
     var valInp = document.getElementById('im-si-val-inp');
     var valChk = document.getElementById('im-si-val-chk');
 
-    var currentItemName = (document.getElementById('id_ItemName') || {}).value || '';
+    if (itemInp) {
+        itemInp.value = (document.getElementById('id_ItemText') || {}).value || '';
+        itemInp.style.background = '#d4e6ff';
+        setTimeout(function() { itemInp.focus(); }, 50);
+    }
+    if (g1Inp) g1Inp.value = (document.getElementById('id_ItemGroup1Text') || {}).value || '';
+    if (g2Inp) g2Inp.value = (document.getElementById('id_ItemGroup2Text') || {}).value || '';
+    if (g3Inp) g3Inp.value = (document.getElementById('id_ItemGroup3Text') || {}).value || '';
+    if (g4Inp) g4Inp.value = (document.getElementById('id_ItemGroup4Text') || {}).value || '';
+    if (g5Inp) g5Inp.value = (document.getElementById('id_ItemGroup5Text') || {}).value || '';
+
+    // Original catInp / valInp logic
     var currentBrand = (document.getElementById('id_Brand') || {}).value || '';
     var currentCat = (document.getElementById('id_Category') || {}).value || '';
-
-    if (itemInp) {
-        itemInp.value = currentItemName;
-        itemInp.style.background = '#d4e6ff';
-        setTimeout(function() {
-            itemInp.focus();
-            if (itemInp.select) itemInp.select();
-        }, 50);
-    }
     if (catInp) {
         catInp.value = currentBrand && currentCat ? (currentBrand + ' / ' + currentCat) : (currentBrand || currentCat || '');
         catInp.style.background = '#ffffff';
@@ -267,6 +364,7 @@ function imResetSelectItemFields() {
         valChk.checked = true;
         if (valInp) valInp.disabled = false;
     }
+
     imCloseAllSelectItemDropdowns();
 }
 

@@ -1087,9 +1087,15 @@ function _closePopup(wrap, popup, trigger) {
             item.setAttribute('aria-selected', 'true');
             if (wrap._pfValSpan) wrap._pfValSpan.textContent = item.textContent;
             if (wrap._pfNative) {
-                wrap._pfNative.value = strVal;
-                wrap._pfNative.dispatchEvent(new Event('change', { bubbles: true }));
-            }
+                    var oldVal = wrap._pfNative.value; // Get the current value
+                    wrap._pfNative.value = strVal;     // Set the new value
+                    
+                    // Only fire the change event if it's actually a new value!
+                    if (oldVal !== strVal) {
+                        wrap._pfNative.dispatchEvent(new Event('change', { bubbles:
+  true }));
+                    }
+                }
         }
     };
 

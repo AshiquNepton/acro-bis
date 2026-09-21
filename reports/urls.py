@@ -1,7 +1,7 @@
 # reports/urls.py
 
 from django.urls import path
-from reports.views import dashboard, financial_reports, inventory_reports, sales_reports, custom_reports
+from reports.views import dashboard, financial_reports, inventory_reports, sales_reports, custom_reports, party_reports
 
 app_name = 'reports'
 
@@ -21,4 +21,9 @@ urlpatterns = [
     
     # Custom Reports
     # path('custom/', custom_reports.custom_report, name='custom_report'),
+
+    # Party Reports
+    path('customer-list/', party_reports.customer_list, name='customer_list'),
+    path('vendor-list/', party_reports.vendor_list, name='vendor_list'),
+
 ]

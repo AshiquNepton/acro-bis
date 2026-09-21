@@ -40,6 +40,7 @@ import json as _json
 import logging
 import mimetypes
 
+from core.utils import _fmt_size
 from django.http import JsonResponse, HttpResponse, Http404
 from django.views.decorators.http import require_http_methods
 
@@ -113,10 +114,6 @@ def _mime_for(filename):
     return _MIME_MAP.get(ext) or mimetypes.guess_type(filename)[0] or 'application/octet-stream', ext
 
 
-def _fmt_size(b):
-    if b < 1024:    return f'{b} B'
-    if b < 1048576: return f'{b / 1024:.1f} KB'
-    return f'{b / 1048576:.2f} MB'
 
 
 def _is_safe_image_path(path):

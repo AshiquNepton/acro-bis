@@ -332,7 +332,7 @@
                 } else {
                     keyEl.classList.add('pf-notfound');
                     keyEl.classList.remove('pf-found');
-                    _toast(d.error || 'Record not found', 'w');
+                    /* _toast(d.error || 'Record not found', 'w'); // Suppressed for new entries */
                     /* No sub-load will run â€” consume the extra slot if opened */
                     if (hasOnPopulate) _batchTick();
                 }
@@ -362,6 +362,7 @@
         if (!keyEl) return;
         var timer;
         keyEl.addEventListener('input', function () {
+            if (cfg.disableAutoLookup) return;
             clearTimeout(timer);
             if (!keyEl.value.trim()) return;
             var delay = (_cfg(formId) || {}).debounce;

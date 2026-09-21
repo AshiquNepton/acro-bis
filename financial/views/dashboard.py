@@ -15,7 +15,7 @@ def dashboard_view(request):
     Returns:
         HttpResponse: Rendered financial dashboard template.
     """
-    return render(request, 'financial/dashboard.html', {
+    return render(request, 'financial/dashboard/dashboard.html', {
         'title': 'Financial Dashboard',
         'username': request.session.get('username', 'User'),
         'company_name': request.session.get('company_name', 'Company'),

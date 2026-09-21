@@ -336,20 +336,68 @@ class BaseCRUD:
         return f'"{self.table}"'
 
     def _ensure_table(self, force: bool = False):
-        if not self.table_creator:
-            return
         key = (self.db_alias, self.table)
         if not force and key in _ENSURED_TABLES:
             return
+            
         try:
-            created = self.table_creator(self.db_alias)
+            with self._conn().cursor() as cur:
+                cur.execute(f"SELECT * FROM {self._tbl()} LIMIT 0")
+                existing_cols = {desc[0] for desc in cur.description}
+                
+                missing_cols = []
+                for db_col, ctype in self.col_types.items():
+                    if db_col != self.pk_col and db_col not in existing_cols:
+                        missing_cols.append(db_col)
+                
+                if missing_cols:
+                    for col in missing_cols:
+                        ctype = self.col_types.get(col, 'str')
+                        sql_type = 'VARCHAR(255)'
+                        if ctype == 'int': sql_type = 'INTEGER'
+                        elif ctype == 'float': sql_type = 'NUMERIC(14, 4)'
+                        elif ctype == 'date': sql_type = 'DATE'
+                        elif ctype == 'time': sql_type = 'TIME'
+                        elif ctype == 'bool': sql_type = 'INTEGER'
+                        
+                        cur.execute(f'ALTER TABLE {self._tbl()} ADD COLUMN "{col}" {sql_type}')
+                    logger.info('[BaseCRUD] Auto-altered table "%s", added columns: %s', self.table, missing_cols)
+                    
             _ENSURED_TABLES.add(key)
-            if created:
-                logger.info('[BaseCRUD] Auto-created table "%s" on "%s"',
-                            self.table, self.db_alias)
+        except ProgrammingError as e:
+            if 'does not exist' in str(e).lower():
+                if self.table_creator:
+                    try:
+                        created = self.table_creator(self.db_alias)
+                        _ENSURED_TABLES.add(key)
+                        if created:
+                            logger.info('[BaseCRUD] Auto-created table "%s" via creator', self.table)
+                    except Exception as ex:
+                        logger.warning('Table creator failed: %s', ex)
+                else:
+                    cols_def = [f'"{self.pk_col}" SERIAL PRIMARY KEY']
+                    for col, ctype in self.col_types.items():
+                        if col == self.pk_col: continue
+                        sql_type = 'VARCHAR(255)'
+                        if ctype == 'int': sql_type = 'INTEGER'
+                        elif ctype == 'float': sql_type = 'NUMERIC(14, 4)'
+                        elif ctype == 'date': sql_type = 'DATE'
+                        elif ctype == 'time': sql_type = 'TIME'
+                        elif ctype == 'bool': sql_type = 'INTEGER'
+                        cols_def.append(f'"{col}" {sql_type}')
+                    
+                    create_sql = f'CREATE TABLE {self._tbl()} (\n    ' + ',\n    '.join(cols_def) + '\n)'
+                    try:
+                        with self._conn().cursor() as cur:
+                            cur.execute(create_sql)
+                        _ENSURED_TABLES.add(key)
+                        logger.info('[BaseCRUD] Auto-created table "%s" dynamically', self.table)
+                    except Exception as ex:
+                        logger.warning('Dynamic table creation failed: %s', ex)
+            else:
+                logger.warning('[BaseCRUD._ensure_table] %s on %s: %s', self.table, self.db_alias, e)
         except Exception as e:
-            logger.warning('[BaseCRUD._ensure_table] %s on %s: %s',
-                           self.table, self.db_alias, e)
+            logger.warning('[BaseCRUD._ensure_table] %s on %s: %s', self.table, self.db_alias, e)
 
     def _row_to_dict(self, cols, row):
         result = {}
@@ -707,14 +755,14 @@ class BaseCRUD:
             })
 
         except ProgrammingError as e:
-            if 'does not exist' in str(e).lower():
+            if 'does not exist' in str(e).lower() or 'column' in str(e).lower():
                 _ENSURED_TABLES.discard((self.db_alias, self.table))
                 self._ensure_table(force=True)
-                print(f'|  [WARN] Table missing — auto-created, please retry')
+                print(f'|  [WARN] Schema missing - auto-synced, please retry')
                 print(f'+-- RETRYABLE  [{form_name}]  total: {_elapsed(save_start)} -----\n')
                 return JsonResponse({
                     'success': False,
-                    'error'  : 'Table was just created — please retry the save.'
+                    'error'  : 'Schema was just synced - please retry the save.'
                 })
             print(f'|  [ERROR] ProgrammingError: {e}')
             print(f'+-- FAILED  [{form_name}]  total: {_elapsed(save_start)} -----------\n')

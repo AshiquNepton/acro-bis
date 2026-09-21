@@ -1,7 +1,7 @@
 # inventory/urls.py
 
 from django.urls import path
-from inventory.views import dashboard, items, stock, purchase, reports, item_master
+from inventory.views import dashboard, items, stock, purchase, reports, item_master, import_view
 
 app_name = 'inventory'
 
@@ -32,4 +32,11 @@ urlpatterns = [
 
     # Reports
     # path('reports/', reports.inventory_reports, name='inventory_reports'),
-]
+
+
+    # Import from Excel
+    path('import/', import_view.import_excel_page, name='import_excel'),
+    path('import/process/', import_view.import_excel_process, name='import_process'),
+    path('import/template/', import_view.import_template_download, name='import_template'),
+
+]

@@ -29,6 +29,7 @@ import logging
 import mimetypes
 import os
 
+from core.utils import _fmt_size
 from django.http import JsonResponse, HttpResponse, Http404
 from django.views.decorators.http import require_http_methods
 
@@ -218,10 +219,6 @@ def _list_subfolders(ftp_mgr, remote_dir):
         return []
 
 
-def _fmt_size(b):
-    if b < 1024:      return f'{b} B'
-    if b < 1048576:   return f'{b/1024:.1f} KB'
-    return f'{b/1048576:.2f} MB'
 
 
 @require_http_methods(['POST'])

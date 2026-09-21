@@ -24,4 +24,7 @@ urlpatterns = [
     
     # Reports
     # path('reports/', reports.financial_reports, name='financial_reports'),
+
+
+    
 ]
