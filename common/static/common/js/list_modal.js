@@ -360,6 +360,7 @@
     };
 
     ListModal.prototype._onEnterKey = function (idx) {
+        var self = this;
         var currentVal = this.rows[idx] ? (this.rows[idx].value || '').trim() : '';
         if (!currentVal) {
             this._doSave();
@@ -380,10 +381,33 @@
         }
 
         var nextIdx = idx + 1;
+
+        // Async validation hook
+        if (typeof this.cfg.onValidateRow === 'function') {
+            var inp = document.getElementById(this.id + '-inp-' + idx);
+            if (inp) inp.disabled = true; // prevent double enter
+            this.cfg.onValidateRow(currentVal, function(isValid, errorMsg) {
+                if (inp) inp.disabled = false;
+                if (isValid) {
+                    if (nextIdx >= self.rows.length) {
+                        self.rows.push({ value: '', isDefault: false });
+                        self.renderRows();
+                    }
+                    self._focusRow(nextIdx);
+                } else {
+                    if (window.showToast && errorMsg) {
+                        window.showToast(errorMsg, 'error');
+                    }
+                    self._focusRow(idx);
+                }
+            });
+            return;
+        }
+
         if (nextIdx >= this.rows.length) {
             this.rows.push({ value: '', isDefault: false });
+            this.renderRows();
         }
-        this.renderRows();
         this._focusRow(nextIdx);
     };
 

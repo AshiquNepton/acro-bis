@@ -4,6 +4,25 @@ All notable features, architecture consolidations, and module additions for **AC
 
 ---
 
+## [2026-09-22] - Selling Rates widget and Database Architecture Consolidation
+
+### 1. Unified Selling Rates & Pricing
+- **Stocks Table DDL Fixes** (`inventory/models/stock.py`):
+  - Removed outdated `PurchasePrice` column as a distinct field; integrated as `Rate0` as the single source of truth for base cost, simplifying composite primary keys (`ItemID` only).
+  - Added safe `ALTER` table migrations ensuring older deployed databases are upgraded automatically.
+- **InventoryItems Table Fixes** (`inventory/models/item.py`):
+  - Stripped `PurchasePrice`, `MRP`, `DRP`, `FDP` from table DDL. Pricing is exclusively managed via the Stocks module.
+  - Added support for `PackingDetails` group hierarchy link.
+- **Selling Rates Form Widget** (`inventory/views/item_master.py` & `item_master_form.html`):
+  - Replaced flat inputs with a dynamic **Two-Way Rates Calculator** layout embedded directly in the profile form using existing project CSS classes (`pf-field-row`, `pf-field-ctl`, `pf-select`).
+  - Added dropdowns for selecting the base calculation value (Landing Cost vs Purchase Price).
+  - Dynamic javascript calculations: Users can enter either a `% markup` to calculate the final amount, or a `final amount` to back-calculate the `% markup`.
+
+### 2. Form Rendering Compliance
+- Strictly enforced adherence to native `profile_form.css` structure for inline layouts without introducing custom inline styles or new `.css` files, keeping the design robust across themes.
+
+---
+
 ## [2026-09-12] - Inventory Master & Multi-Module Infrastructure Architecture
 
 ### 1. Inventory Module Implementation
@@ -44,5 +63,3 @@ All notable features, architecture consolidations, and module additions for **AC
 - Session-based multi-tenant database routing via `DynamicDatabaseMiddleware` and `CustomerDatabaseRouter`.
 - Central CRUD operations via `core/crud.py` (`BaseCRUD`).
 - Common Masters: Company Information, Department/Job Master, Customers, Suppliers, Form Design customizer.
-
-

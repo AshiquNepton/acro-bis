@@ -1,9 +1,9 @@
 import logging
+import json
 from django.db import connections, OperationalError, ProgrammingError
 from django.db import models
 
 logger = logging.getLogger(__name__)
-
 
 _ENSURED_STOCK_TABLES = set()
 
@@ -13,14 +13,14 @@ def ensure_stocks_table(db_alias: str, force: bool = False) -> bool:
     Create the Stocks table in the given database alias if it does not
     already exist. Cached in memory so it executes at most once per process.
 
-    Schema mirrors the SQL Server DDL specified in the business requirements:
-      - Composite PK: ItemID + PurchasePrice + Rate1
-      - Unique constraint: StockID
+    Schema (current):
+      PK  : ItemID  (one price row per item for Item Master)
+      Rate0–Rate5 : six configurable selling rates (Rate0 = Purchase Price)
+      PurchasePrice column DROPPED — Rate0 is the single source of truth.
 
     Multi-unit pricing is stored in two complementary ways:
       1. MultiUnitData TEXT  — full JSON blob from the MultiUnitManager widget
-      2. Unit{n}_{field} NUMERIC columns — flattened per-unit rates for
-         fast SQL queries (up to 6 units x 5 price levels)
+      2. Unit{n}_{field} NUMERIC — flattened per-unit rates for fast SQL queries
     """
     if not force and db_alias in _ENSURED_STOCK_TABLES:
         return True
@@ -31,10 +31,9 @@ def ensure_stocks_table(db_alias: str, force: bool = False) -> bool:
             "StockID"          SERIAL          NOT NULL,
             "ItemID"           INT             NOT NULL,
 
-            -- Purchase & Price Rates
-            "PurchasePrice"    NUMERIC(19,4)   NOT NULL  DEFAULT 0,
-            "Rate0"            NUMERIC(19,4)   NULL,
-            "Rate1"            NUMERIC(19,4)   NOT NULL  DEFAULT 0,
+            -- Selling Rates (Rate0 = Purchase Price — 6 configurable price levels)
+            "Rate0"            NUMERIC(19,4)   NULL  DEFAULT 0,
+            "Rate1"            NUMERIC(19,4)   NULL  DEFAULT 0,
             "Rate2"            NUMERIC(19,4)   NULL,
             "Rate3"            NUMERIC(19,4)   NULL,
             "Rate4"            NUMERIC(19,4)   NULL,
@@ -52,10 +51,10 @@ def ensure_stocks_table(db_alias: str, force: bool = False) -> bool:
 
             -- Date / Reference
             "PurchaseDate"     TIMESTAMP       NULL,
-            "BillNo"           CHAR(20)        NULL,
+            "BillNo"           VARCHAR(20)     NULL,
             "StockDate"        TIMESTAMP       NULL,
 
-            -- Multi-Unit Pricing (JSON blob - full MultiUnitManager output)
+            -- Multi-Unit Pricing (JSON blob — full MultiUnitManager output)
             "MultiUnitData"    TEXT            NULL,
 
             -- Multi-Unit Pricing (flattened columns for fast queries, up to 6 units)
@@ -96,34 +95,56 @@ def ensure_stocks_table(db_alias: str, force: bool = False) -> bool:
             "Unit6BranchRate" NUMERIC(19,4)   NULL,
 
             -- Constraints
-            CONSTRAINT "PK_STKID"  UNIQUE ("StockID"),
-            CONSTRAINT "PK_Stock"  PRIMARY KEY ("ItemID", "PurchasePrice", "Rate1"),
+            CONSTRAINT "PK_STKID"  UNIQUE  ("StockID"),
+            CONSTRAINT "PK_Stock"  PRIMARY KEY ("ItemID"),
             CONSTRAINT "FK_Stocks_Item" FOREIGN KEY ("ItemID")
                 REFERENCES "InventoryItems" ("ItemID") ON DELETE CASCADE
         );
         CREATE INDEX IF NOT EXISTS "idx_stocks_itemid" ON "Stocks" ("ItemID");
     """
+
+    # Incremental ALTER — adds missing columns on existing DBs without touching the PK
+    _migrate_sql = [
+        # Add any missing rate columns
+        'ALTER TABLE "Stocks" ADD COLUMN IF NOT EXISTS "Rate0"  NUMERIC(19,4) NULL DEFAULT 0',
+        'ALTER TABLE "Stocks" ADD COLUMN IF NOT EXISTS "Rate1"  NUMERIC(19,4) NULL DEFAULT 0',
+        'ALTER TABLE "Stocks" ADD COLUMN IF NOT EXISTS "Rate2"  NUMERIC(19,4) NULL',
+        'ALTER TABLE "Stocks" ADD COLUMN IF NOT EXISTS "Rate3"  NUMERIC(19,4) NULL',
+        'ALTER TABLE "Stocks" ADD COLUMN IF NOT EXISTS "Rate4"  NUMERIC(19,4) NULL',
+        'ALTER TABLE "Stocks" ADD COLUMN IF NOT EXISTS "Rate5"  NUMERIC(19,4) NULL',
+        'ALTER TABLE "Stocks" ADD COLUMN IF NOT EXISTS "LUCost" NUMERIC(19,4) NULL',
+        # Multi-unit columns
+        'ALTER TABLE "Stocks" ADD COLUMN IF NOT EXISTS "MultiUnitData" TEXT NULL',
+        *[
+            f'ALTER TABLE "Stocks" ADD COLUMN IF NOT EXISTS "Unit{i}{r}" NUMERIC(19,4) NULL'
+            for i in range(1, 7)
+            for r in ('BaseRate', 'MRPRate', 'DRPRate', 'FDPRate', 'BranchRate')
+        ],
+        # BillNo: widen from CHAR(20) to VARCHAR(20) if needed
+        """DO $$ BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name='Stocks' AND column_name='BillNo'
+                AND data_type='character'
+            ) THEN
+                ALTER TABLE "Stocks" ALTER COLUMN "BillNo" TYPE VARCHAR(20);
+            END IF;
+        END $$""",
+    ]
+
     try:
         with connections[db_alias].cursor() as cur:
             cur.execute(ddl)
-            # Ensure multiunit columns exist in one combined batch if missing
-            try:
-                alter_cols = []
-                for i in range(1, 7):
-                    for rate_col in ['BaseRate', 'MRPRate', 'DRPRate', 'FDPRate', 'BranchRate']:
-                        alter_cols.append(f'ADD COLUMN IF NOT EXISTS "Unit{i}{rate_col}" NUMERIC(19,4) NULL')
-                alter_cols.append('ADD COLUMN IF NOT EXISTS "MultiUnitData" TEXT NULL')
-                cur.execute(f'ALTER TABLE "Stocks" {", ".join(alter_cols)}')
-            except Exception:
-                pass
+            for sql in _migrate_sql:
+                try:
+                    cur.execute(sql)
+                except Exception:
+                    pass  # column may already exist with right type
         _ENSURED_STOCK_TABLES.add(db_alias)
         logger.debug('ensure_stocks_table: table ready in %s', db_alias)
         return True
     except (OperationalError, ProgrammingError) as exc:
-        logger.error(
-            'ensure_stocks_table: could not create table in %s: %s',
-            db_alias, exc
-        )
+        logger.error('ensure_stocks_table: could not create/migrate table in %s: %s', db_alias, exc)
         return False
 
 
@@ -145,8 +166,6 @@ def flatten_multiunit_data(multiunit_json: str) -> dict:
         }, ...
     ]
     """
-    import json
-
     result = {}
     if not multiunit_json:
         return result
@@ -179,14 +198,15 @@ class Stock(models.Model):
     """
     ORM representation of the Stocks table.
     managed=False — table is created via ensure_stocks_table().
-    Composite PK (ItemID + PurchasePrice + Rate1) is enforced at DB level.
+    PK: ItemID (one row per item for Item Master use).
+    Rate0 = Purchase Price (the six rates are configured via ChartOfCode captions).
     """
     StockID          = models.IntegerField(db_column='StockID')
     ItemID           = models.IntegerField(primary_key=True, db_column='ItemID')
 
-    PurchasePrice    = models.DecimalField(max_digits=19, decimal_places=4, default=0, db_column='PurchasePrice')
-    Rate0            = models.DecimalField(max_digits=19, decimal_places=4, null=True, blank=True, db_column='Rate0')
-    Rate1            = models.DecimalField(max_digits=19, decimal_places=4, default=0, db_column='Rate1')
+    # Selling Rates — Rate0 is the purchase/base price
+    Rate0            = models.DecimalField(max_digits=19, decimal_places=4, null=True, blank=True, default=0, db_column='Rate0')
+    Rate1            = models.DecimalField(max_digits=19, decimal_places=4, null=True, blank=True, default=0, db_column='Rate1')
     Rate2            = models.DecimalField(max_digits=19, decimal_places=4, null=True, blank=True, db_column='Rate2')
     Rate3            = models.DecimalField(max_digits=19, decimal_places=4, null=True, blank=True, db_column='Rate3')
     Rate4            = models.DecimalField(max_digits=19, decimal_places=4, null=True, blank=True, db_column='Rate4')

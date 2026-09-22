@@ -318,7 +318,7 @@
                 {# ── checkbox ── #}
                 {% elif f.type == '10' or f.type == 'checkbox' %}
                 <div class="pf-hf-check">
-                    <input type="checkbox" name="{{ f.name }}" id="id_{{ f.name }}"
+                    <input type="checkbox" name="{{ f.name }}" id="id_{{ f.name }}" tabindex="-1"
                            {% if f.value %}checked{% endif %}
                            {% if f.required %}required{% endif %}>
                     {% if f.checkbox_label %}<label for="id_{{ f.name }}">{{ f.checkbox_label }}</label>{% endif %}
@@ -540,7 +540,7 @@
                             </label>
                             <div class="pf-field-ctl">
                                 <div class="pf-check-wrap">
-                                    <input type="checkbox" name="{{ field.name }}" id="id_{{ field.name }}"
+                                    <input type="checkbox" name="{{ field.name }}" id="id_{{ field.name }}" tabindex="-1"
                                            {% if field.value %}checked{% endif %}
                                            {% if field.required %}required{% endif %}>
                                     {% if field.checkbox_label %}

@@ -20,7 +20,18 @@
 
 ---
 
-## 3. Standard Form Architecture (CRUD/Master Screens)
+## 3. JavaScript UI Conventions
+
+1. **No Native Browser Prompts**: Never use the default browser `alert()`, `confirm()`, or `prompt()`.
+2. **Use Project Alerts**: Always use the custom UI functions for all notifications and warnings:
+   - `showToast(message, type)` for non-blocking notifications.
+   - `showConfirm(message, callback, type, title, confirmText, cancelText)` for dangerous actions (deletes, resets, data loss).
+   - `showAlert(message, type, title)` for blocking informational alerts.
+3. **Dirty State Protection**: Critical data entry screens must use a `window._isFormDirty` watcher to warn users of unsaved changes before exiting, using custom `showConfirm` logic for internal links and standard `beforeunload` for tab closures.
+
+---
+
+## 4. Standard Form Architecture (CRUD/Master Screens)
 
 Every CRUD/master-form screen in every vertical adheres to the 3-tier profile-form contract. *(Specialized interactive screens like POS, KDS, dashboards, and reports are exempt).*
 

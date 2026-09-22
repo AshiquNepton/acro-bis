@@ -76,15 +76,12 @@ ITEM_FIELD_MAP = {
     'Unit6'               : ('Unit6',                'int'),
     'Unit6Conversion'     : ('Unit6Conversion',      'float'),
     'Unit6Barcode'        : ('Unit6Barcode',          'str'),
-    # Rate & Discounts (renamed fields)
+    # Discounts (saved to InventoryItems)
     'PurDiscount'         : ('PurDiscount',          'float'),
     'Discount'            : ('Discount',             'float'),
     'SPDiscount'          : ('SPDiscount',           'float'),
     'LastUnitCost'        : ('LastUnitCost',         'float'),
-    'PurchasePrice'       : ('PurchasePrice',        'float'),
-    'MRP'                 : ('MRP',                  'float'),
-    'DRP'                 : ('DRP',                  'float'),
-    'FDP'                 : ('FDP',                  'float'),
+    # NOTE: PurchasePrice / Rate0–Rate5 / MRP / DRP / FDP are stored in Stocks, not InventoryItems
     # Groups
     'SubGroup'            : ('SubGroup',             'int'),
     'Category'            : ('Category',             'int'),
@@ -110,7 +107,6 @@ ITEM_FIELD_MAP = {
 # ── Stocks FIELD_MAP ──────────────────────────────────────────────────────────
 STOCK_FIELD_MAP = {
     'ItemID'          : ('ItemID',           'int'),
-    'PurchasePrice'   : ('PurchasePrice',    'float'),
     'Rate0'           : ('Rate0',            'float'),
     'Rate1'           : ('Rate1',            'float'),
     'Rate2'           : ('Rate2',            'float'),
@@ -165,7 +161,82 @@ BASE_UOM_OPTIONS = [
 ]
 
 
-def build_item_master_form_config(item_data=None, next_item_code='ITM-0001', options_map=None, item_code_options=None):
+def _build_selling_rates_html(rc: dict, d: dict) -> str:
+    """
+    Build the HTML for the Selling Rates two-way calculator widget.
+
+    Uses ONLY existing project CSS classes from profile_form.css / components.css:
+      pf-field-ctl   — wraps every input / select (same as profile_form renders)
+      pf-field-row   — flex row (label | base | % | amount)
+      pf-section-hdr — section divider style (reused for the column headers)
+
+    Two-way JS (in item_master_form.html):
+      % → Amount : Amount = base × (1 + % / 100)
+      Amount → % : %      = ((Amount / base) − 1) × 100
+
+    Rate0 base: Landing Cost only.
+    Rate1–Rate5 base: Landing Cost  OR  Purchase Price (Rate0).
+    """
+    lc_val = d.get('LUCost') or d.get('LastUnitCost') or ''
+
+    def _val(key):
+        v = d.get(key, '')
+        return '' if v in (None, 'None') else v
+
+    # ── Landing Cost & Global Base row ──
+    lc_row = f"""<div class="pf-field-row" style="margin-bottom:6px;">
+  <label class="pf-label" style="min-width:90px;font-size:11px;">Landing Cost</label>
+  <div class="pf-field-ctl">
+    <input type="number" id="im-rm-lc" name="LastUnitCost"
+           value="{lc_val}" step="0.0001" placeholder="0.0000" tabindex="0"
+           oninput="imRmLcChanged()">
+  </div>
+  <label class="pf-label" style="margin-left:16px;min-width:40px;font-size:11px;">Base</label>
+  <div class="pf-field-ctl">
+    <select id="im-rm-global-base" tabindex="0" onchange="imRmGlobalBaseChange()" style="width:140px;height:28px;border:1px solid var(--color-border-medium);border-radius:4px;font-size:12px;">
+      <option value="lc">Landing Cost</option>
+      <option value="rate0" selected>Purchase Price</option>
+    </select>
+  </div>
+</div>"""
+
+    # ── Column header row ─────────────────────────────────────────────────────
+    header_row = """<div class="pf-field-row" style="margin-bottom:2px;padding-bottom:4px;border-bottom:1px solid var(--color-border-light);">
+  <span style="flex:1;font-size:10px;font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.6px;">Rate</span>
+  <span style="width:80px;font-size:10px;font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.6px;text-align:right;">%</span>
+  <span style="width:110px;font-size:10px;font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.6px;text-align:right;">Amount</span>
+</div>"""
+
+    # ── Rate rows ─────────────────────────────────────────────────────────────
+    rate_rows = ''
+    for i in range(6):
+        key   = f'Rate{i}'
+        label = rc.get(key, f'Rate {i}')
+        val   = _val(key)
+
+        rate_rows += f"""<div class="pf-field-row" style="margin-bottom:3px;">
+  <span style="flex:1;font-size:12px;color:var(--color-text-secondary);">{label}</span>
+  <div class="pf-field-ctl" style="width:80px;flex:none;">
+    <input type="number" class="im-rm-pct" step="0.01" min="-999" max="9999"
+           placeholder="0.00" style="text-align:right;" tabindex="0"
+           oninput="imRmCalcFromPct({i})">
+  </div>
+  <div class="pf-field-ctl" style="width:110px;flex:none;">
+    <input type="number" name="{key}" id="id_{key}" class="im-rm-amt"
+           step="0.0001" placeholder="0.0000" value="{val}" tabindex="0"
+           style="text-align:right;"
+           oninput="imRmCalcFromAmt({i})">
+  </div>
+</div>"""
+
+    return f"""<div class="im-rates-matrix">
+{lc_row}
+{header_row}
+{rate_rows}
+</div>"""
+
+
+def build_item_master_form_config(item_data=None, next_item_code='ITM-0001', options_map=None, item_code_options=None, rate_captions=None):
     item_code_options = item_code_options or []
     """
     Builds the form_config dictionary for Item Master screen.
@@ -173,6 +244,7 @@ def build_item_master_form_config(item_data=None, next_item_code='ITM-0001', opt
     """
     d = item_data or {}
     options_map = options_map or {}
+    rc = rate_captions or _DEFAULT_RATE_CAPTIONS
     
     uom_options = [{'value': '', 'label': 'Select Unit...'}] + options_map.get('uom', [])
     group1_options = [{'value': '', 'label': 'Select...'}] + options_map.get('group1', [])
@@ -228,7 +300,7 @@ def build_item_master_form_config(item_data=None, next_item_code='ITM-0001', opt
             'name': 'ItemCode',
             'label': 'Item Code',
             'type': '19',
-            'width': '140px',
+            'width': '120px',
             'required': True,
             'lookup_btn': True,
             'value': item_code,
@@ -241,18 +313,17 @@ def build_item_master_form_config(item_data=None, next_item_code='ITM-0001', opt
             'type': '1',
             'width': '380px',
             'required': True,
-            'placeholder': 'Click or press Enter for Split Modal...',
+            'placeholder': 'Click lens for Split Modal...',
             'value': item_name,
             'readonly': True,
             'lookup_btn': True,
             'lookup_onclick': 'imOpenItemModalDirect()',
-            'onclick': 'imOpenItemModalDirect()',
             'onkeydown': 'imOnItemNameKeyDown(event, this)',
         },
         {
             'name': 'ItemGroup1',
             'label': 'Item Group',
-            'type': '3',
+            'type': '19',
             'width': '180px',
             'options': group1_options,
             'value': d.get('ItemGroup1', ''),
@@ -319,7 +390,7 @@ def build_item_master_form_config(item_data=None, next_item_code='ITM-0001', opt
                 # Column 3: Tax & Pricing Parameters
                 [
                     {'name': 'hdr_tax', 'label': 'Tax Parameters', 'type': 'section_hdr'},
-                    field('Tax', 'Tax Amount', '2', value='0.0000', step='0.0001'),
+                    field('Tax', 'Tax %', '2', value='0.0000', step='0.0001'),
                     field('TaxGroup', 'Tax Group', '3', options=tax_group_options, value=d.get('TaxGroup', '')),
                     field('TaxCode', 'Tax Code', '1', value=''),
 
@@ -344,7 +415,7 @@ def build_item_master_form_config(item_data=None, next_item_code='ITM-0001', opt
                     field('BaseUnit', 'Base Unit', '19', options=uom_options, required=True, value=d.get('BaseUnit', '')),
                     field('PurchaseUnit', 'Purchase Unit', '19', options=uom_options, value=d.get('PurchaseUnit', '')),
                     field('SalesUnit', 'Sales Unit', '19', options=uom_options, value=d.get('SalesUnit', '')),
-                    field('PackingDetails', 'Packing Details', '3', options=packing_options, value=d.get('PackingDetails', '')),
+                    field('PackingDetails', 'Packing Details', '19', options=packing_options, value=d.get('PackingDetails', '')),
 
                     # Persistence fields for full backend compatibility
                     {'name': 'multiunit_data', 'type': 'hidden', 'value': ''},
@@ -393,7 +464,7 @@ def build_item_master_form_config(item_data=None, next_item_code='ITM-0001', opt
             ],
         },
 
-        # ── TAB 3: Rate (Discounts & Benchmarks) ──
+        # ── TAB 3: Rate & Discounts ──
         {
             'id': 'rate',
             'label': 'Rate & Discounts',
@@ -401,18 +472,20 @@ def build_item_master_form_config(item_data=None, next_item_code='ITM-0001', opt
                 # Column 1: Discounts
                 [
                     {'name': 'hdr_discounts', 'label': 'Discounts', 'type': 'section_hdr'},
-                    field('PurDiscount',  'Pur Discount',   '2', step='0.0001', placeholder='0.0000', value=d.get('PurDiscount', '')),
-                    field('Discount',     'Discount',       '2', step='0.0001', placeholder='0.0000', value=d.get('Discount', '')),
-                    field('SPDiscount',   'SP Discount',    '2', step='0.0001', placeholder='0.0000', value=d.get('SPDiscount', '')),
-                    field('LastUnitCost', 'Last Unit Cost', '2', step='0.0001', placeholder='0.0000', value=d.get('LastUnitCost', '')),
+                    field('PurDiscount', 'Pur Discount', '2', step='0.0001', placeholder='0.0000', value=d.get('PurDiscount', '')),
+                    field('Discount',    'Discount',     '2', step='0.0001', placeholder='0.0000', value=d.get('Discount', '')),
+                    field('SPDiscount',  'SP Discount',  '2', step='0.0001', placeholder='0.0000', value=d.get('SPDiscount', '')),
                 ],
-                # Column 2: Benchmark Prices
+                # Column 2: Selling Rates widget (two-way calculator)
+                #   Landing Cost (LUCost) + Rate0–Rate5
+                #   Captions from ChartOfCode (Category LIKE 'Captions%', Code LIKE 'RATE%')
                 [
-                    {'name': 'hdr_benchmark_prices', 'label': 'Benchmark Prices', 'type': 'section_hdr'},
-                    field('PurchasePrice', 'Purchase Price', '2', step='0.0001', placeholder='0.0000', value=d.get('PurchasePrice', '')),
-                    field('MRP',           'MRP',            '2', step='0.0001', placeholder='0.0000', value=d.get('MRP', '')),
-                    field('DRP',           'DRP',            '2', step='0.0001', placeholder='0.0000', value=d.get('DRP', '')),
-                    field('FDP',           'FDP',            '2', step='0.0001', placeholder='0.0000', value=d.get('FDP', '')),
+                    {'name': 'hdr_rates', 'label': 'Selling Rates', 'type': 'section_hdr'},
+                    {
+                        'name': 'selling_rates_widget',
+                        'type': 'custom_html',
+                        'html': _build_selling_rates_html(rc, d),
+                    },
                 ],
             ],
         },
@@ -459,13 +532,14 @@ def build_item_master_form_config(item_data=None, next_item_code='ITM-0001', opt
                 # Column 1: AI Assistant & Product Description
                 [
                     {'name': 'hdr_ai_fetch', 'label': 'AI Smart Fetch & Description', 'type': 'section_hdr'},
-                    field('ai_search_query', 'AI Search / Barcode Prompt', '1', placeholder='e.g. Nestlé KitKat 4 finger or scan barcode…', value=d.get('ai_search_query', '')),
+                    field('ai_search_query', 'AI Search / Barcode Prompt', '1', placeholder='e.g. Nestlé KitKat 4 finger or scan barcode…', value=d.get('ai_search_query', item_name)),
                     {
                         'name': 'ProductDescription',
                         'label': 'Product Description (AI Generated / Editable)',
                         'type': '5',
                         'rows': 4,
                         'placeholder': 'Click "Fetch Details via AI" to auto-populate specifications, description, and photo…',
+                        'value': d.get('ProductDescription', '')
                     },
                     field('photo', 'Product Photo', 'photo'),
                 ],
@@ -567,6 +641,50 @@ def get_options_by_category(category_id):
     return batch.get(category_id, [])
 
 
+# ── Default captions for Rate0–Rate5 (used when ChartOfCode has no entry) ────
+_DEFAULT_RATE_CAPTIONS = {
+    'Rate0': 'Purchase Price',
+    'Rate1': 'MRP',
+    'Rate2': 'DRP',
+    'Rate3': 'FDP',
+    'Rate4': 'Rate 4',
+    'Rate5': 'Rate 5',
+}
+
+def get_rate_captions(db_alias=None) -> dict:
+    """
+    Fetch display captions for Rate0–Rate5 from ChartOfCode.
+
+    Query: SELECT Code, Description FROM ChartOfCode
+           WHERE Category LIKE 'Captions%' AND Code LIKE 'RATE%'
+
+    Returns a dict like:
+        {'Rate0': 'Purchase Price', 'Rate1': 'MRP', 'Rate2': 'DRP',
+         'Rate3': 'FDP', 'Rate4': 'Rate 4', 'Rate5': 'Rate 5'}
+
+    Falls back to _DEFAULT_RATE_CAPTIONS for any missing entry.
+    """
+    captions = dict(_DEFAULT_RATE_CAPTIONS)  # start with defaults
+    try:
+        from common.middleware.database_middleware import get_customer_db
+        db = db_alias or get_customer_db()
+        with connections[db].cursor() as cur:
+            cur.execute(
+                """SELECT "Code", "Description" FROM "ChartOfCode"
+                   WHERE "Category" LIKE 'Captions%%' AND "Code" LIKE 'RATE%%'""",
+            )
+            for code, description in cur.fetchall():
+                # Map e.g. 'RATE0', 'RATE0X' → 'Rate0'
+                for i in range(6):
+                    if code and code.upper().startswith(f'RATE{i}'):
+                        if description:
+                            captions[f'Rate{i}'] = description
+                        break
+    except Exception as e:
+        logger.warning('get_rate_captions: could not read ChartOfCode, using defaults. %s', e)
+    return captions
+
+
 def get_item_data(item_code):
     try:
         from common.middleware.database_middleware import get_customer_db
@@ -629,12 +747,12 @@ def item_master_view(request):
         with connections[db].cursor() as cur:
             cur.execute('SELECT "ItemCode", "ItemName" FROM "InventoryItems" ORDER BY "ItemID" DESC LIMIT 50')
             for row in cur.fetchall():
-                item_code_options.append({'value': row[0], 'label': f"{row[0]} - {row[1]}"})
+                item_code_options.append({'value': row[0], 'label': f"{row[0]} | {row[1]}"})
     except Exception as e:
         logger.error("Error fetching item codes: %s", e)
 
     # 1. Batch fetch ALL needed ItemGroups in 1 single round-trip:
-    all_needed_categories = [9, 1, 16, 7, 124, 2, 4, 130, 131, 132, 133, 134, 138, 3, 29, 30, 31, 201, 202, 203]
+    all_needed_categories = [9, 1, 16, 7, 129, 2, 4, 130, 131, 132, 133, 134, 138, 3, 29, 30, 31, 201, 202, 203]
     batch_map = get_batch_category_options(all_needed_categories)
 
     uom_opts = sorted(batch_map.get(9, []), key=lambda x: int(x['value']) if x['value'].isdigit() else 0)
@@ -644,7 +762,7 @@ def item_master_view(request):
         'group1': batch_map.get(1, []),
         'warehouse': batch_map.get(16, []),
         'tax_group': batch_map.get(7, []),
-        'packing': batch_map.get(124, []),
+        'packing': batch_map.get(129, []),
         'category': batch_map.get(2, []),
         'brand': batch_map.get(4, []),
         'department': batch_map.get(130, []),
@@ -667,11 +785,15 @@ def item_master_view(request):
 
     item_data = get_item_data(item_code) if item_code else {}
 
+    # Fetch Rate0–Rate5 captions from ChartOfCode (falls back to defaults if missing)
+    rate_captions = get_rate_captions()
+
     cfg = build_item_master_form_config(
-        item_data=item_data, 
+        item_data=item_data,
         next_item_code=next_code,
         options_map=options_map,
-        item_code_options=item_code_options
+        item_code_options=item_code_options,
+        rate_captions=rate_captions,
     )
 
     return render(request, 'inventory/items/item_master_form.html', {
@@ -771,49 +893,12 @@ def _make_stock_crud(db_alias):
     )
 
 
-def _safe_resolve_group(cur, category, val):
-    if not val:
-        return ''
-    s_val = str(val).strip()
-    if not s_val:
-        return ''
-    if s_val.isdigit():
-        return s_val
-    # 1. Look up existing
-    cur.execute(
-        'SELECT "GroupID" FROM "ItemGroups" WHERE "Category"=%s AND LOWER("Description") = LOWER(%s) LIMIT 1',
-        [category, s_val]
-    )
-    row = cur.fetchone()
-    if not row:
-        cur.execute(
-            'SELECT "GroupID" FROM "ItemGroups" WHERE LOWER("Description") = LOWER(%s) LIMIT 1',
-            [s_val]
-        )
-        row = cur.fetchone()
-    if row:
-        return str(row[0])
+# ── ItemGroup resolver (shared utility) ──────────────────────────────────────
+from common.utils.itemgroup_utils import resolve_itemgroup, resolve_itemgroup_fields
 
-    # 2. Insert with retry for concurrency collisions
-    for _ in range(5):
-        try:
-            cur.execute('SELECT COALESCE(MAX("GroupID"), 0) + 1 FROM "ItemGroups"')
-            new_id = cur.fetchone()[0]
-            cur.execute(
-                'INSERT INTO "ItemGroups" ("GroupID", "Category", "Description") VALUES (%s, %s, %s)',
-                [new_id, category, s_val]
-            )
-            return str(new_id)
-        except Exception:
-            cur.execute(
-                'SELECT "GroupID" FROM "ItemGroups" WHERE "Category"=%s AND LOWER("Description") = LOWER(%s) LIMIT 1',
-                [category, s_val]
-            )
-            row = cur.fetchone()
-            if row:
-                return str(row[0])
-            continue
-    return str(new_id)
+# Backward-compat alias used inside this module
+_safe_resolve_group = lambda cur, category, val: resolve_itemgroup(cur, category, val)
+
 
 
 @login_required
@@ -827,27 +912,33 @@ def save_item(request):
         db = get_customer_db()
         post = request.POST.dict()
 
-        # ── 1. Resolve UOM fields (ensure integer GroupIDs) ─────────────────
-        uom_fields = ['BaseUnit', 'PurchaseUnit', 'SalesUnit', 'Unit1', 'Unit2', 'Unit3', 'Unit4', 'Unit5', 'Unit6']
-        from django.db import connections
-        with connections[db].cursor() as cur:
-            for uf in uom_fields:
-                val = post.get(uf, '').strip()
-                post[uf] = _safe_resolve_group(cur, 9, val)
-
-        # ── 1b. Resolve Item & ItemGroup1..5 fields ─────────────────────────
-        item_group_categories = {
-            'Item': 29,
-            'ItemGroup1': 1,
-            'ItemGroup2': 30,
-            'ItemGroup3': 31,
-            'ItemGroup4': 201,
-            'ItemGroup5': 202,
+        # ── 1. Resolve all type-19 (ItemGroups) fields in one pass ──────────
+        #      Add any new type-19 field here with its correct typecode.
+        TYPE19_FIELD_TYPECODES = {
+            # UOM fields  (Category 9)
+            'BaseUnit'      : 9,
+            'PurchaseUnit'  : 9,
+            'SalesUnit'     : 9,
+            'Unit1'         : 9,
+            'Unit2'         : 9,
+            'Unit3'         : 9,
+            'Unit4'         : 9,
+            'Unit5'         : 9,
+            'Unit6'         : 9,
+            # Packing type  (Category 129)
+            'PackingDetails': 129,
+            # Item groups
+            'Item'          : 29,
+            'ItemGroup1'    : 1,
+            'ItemGroup2'    : 30,
+            'ItemGroup3'    : 31,
+            'ItemGroup4'    : 201,
+            'ItemGroup5'    : 202,
         }
+        from django.db import connections
+        
         with connections[db].cursor() as cur:
-            for ig_field, def_cat in item_group_categories.items():
-                val = post.get(ig_field, '').strip()
-                post[ig_field] = _safe_resolve_group(cur, def_cat, val)
+            resolve_itemgroup_fields(cur, post, TYPE19_FIELD_TYPECODES)
 
         # ── 2. Sync Brand & Category fields ────────────────────────────────
         if post.get('BrandName') and not post.get('Brand'):
@@ -883,7 +974,7 @@ def save_item(request):
                 return None
 
         fields = [
-            '"PurchasePrice"', '"Rate0"', '"Rate1"', '"Rate2"', '"Rate3"', '"Rate4"', '"Rate5"',
+            '"Rate0"', '"Rate1"', '"Rate2"', '"Rate3"', '"Rate4"', '"Rate5"',
             '"LUCost"', '"Discount"', '"SpecialDiscount"', '"PurchaseDiscount"',
             '"MultiUnitData"',
             '"Unit1BaseRate"', '"Unit1MRPRate"', '"Unit1DRPRate"', '"Unit1FDPRate"', '"Unit1BranchRate"',
@@ -895,7 +986,7 @@ def save_item(request):
         ]
 
         vals = [
-            _flt('PurchasePrice') or 0, _flt('Rate0'), _flt('MRP') or 0, _flt('DRP'), _flt('FDP'), None, None,
+            _flt('Rate0'), _flt('Rate1'), _flt('Rate2'), _flt('Rate3'), _flt('Rate4'), _flt('Rate5'),
             _flt('LastUnitCost'), _flt('Discount'), _flt('SPDiscount'), _flt('PurDiscount'),
             mu_json_str,
             pricing_map.get('Unit1BaseRate'), pricing_map.get('Unit1MRPRate'), pricing_map.get('Unit1DRPRate'), pricing_map.get('Unit1FDPRate'), pricing_map.get('Unit1BranchRate'),
@@ -1192,4 +1283,65 @@ def resolve_groups(request):
         return JsonResponse({'success': True, 'results': results, 'field_map': field_map})
     except Exception as e:
         logger.error("Error in resolve_groups: %s", e, exc_info=True)
+        return JsonResponse({'success': False, 'error': str(e)})
+def verify_barcode(request):
+    """
+    Checks if a given barcode already exists in:
+    1. InventoryItems.ItemCode
+    2. InventoryItems.AssortedBarcode
+    3. InventoryItems.UnitXBarcode (1-6)
+    4. Stocks.StockID (if numeric)
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Invalid method'})
+        
+    import json
+    from common.middleware.database_middleware import get_customer_db
+    from django.db import connections
+    
+    try:
+        data = json.loads(request.body)
+        barcode = str(data.get('barcode', '')).strip()
+        item_code_ignore = str(data.get('item_code', '')).strip()
+        
+        if not barcode:
+            return JsonResponse({'success': False, 'error': 'No barcode provided'})
+            
+        db = get_customer_db()
+        
+        with connections[db].cursor() as cur:
+            # 1. Check ItemCode
+            cur.execute('SELECT "ItemCode", "ItemName" FROM "InventoryItems" WHERE "ItemCode" = %s AND "ItemCode" != %s', [barcode, item_code_ignore])
+            row = cur.fetchone()
+            if row:
+                return JsonResponse({'success': True, 'exists': True, 'message': f"Barcode already exists as Item Code for: {row[1]}"})
+                
+            # 2. Check Unit Barcodes (1 to 6)
+            for i in range(1, 7):
+                cur.execute(f'SELECT "ItemCode", "ItemName" FROM "InventoryItems" WHERE "Unit{i}Barcode" = %s AND "ItemCode" != %s', [barcode, item_code_ignore])
+                row = cur.fetchone()
+                if row:
+                    return JsonResponse({'success': True, 'exists': True, 'message': f"Barcode already exists as Unit {i} Barcode for: {row[1]}"})
+            
+            # 3. Check AssortedBarcode
+            cur.execute('SELECT "ItemCode", "ItemName" FROM "InventoryItems" WHERE "AssortedBarcode" ILIKE %s AND "ItemCode" != %s', [f"%{barcode}%", item_code_ignore])
+            for r in cur.fetchall():
+                cur.execute('SELECT "AssortedBarcode" FROM "InventoryItems" WHERE "ItemCode" = %s', [r[0]])
+                ab_row = cur.fetchone()
+                if ab_row and ab_row[0]:
+                    barcodes = [b.strip() for b in ab_row[0].split(',')]
+                    if barcode in barcodes:
+                        return JsonResponse({'success': True, 'exists': True, 'message': f"Barcode already exists in Assorted Barcodes for: {r[1]}"})
+
+            # 4. Check StockID
+            if barcode.isdigit():
+                cur.execute('SELECT s."ItemID", i."ItemName" FROM "Stocks" s JOIN "InventoryItems" i ON s."ItemID" = i."ItemID" WHERE s."StockID" = %s AND i."ItemCode" != %s', [int(barcode), item_code_ignore])
+                row = cur.fetchone()
+                if row:
+                    return JsonResponse({'success': True, 'exists': True, 'message': f"Barcode already exists as Stock ID for: {row[1]}"})
+                    
+        return JsonResponse({'success': True, 'exists': False})
+        
+    except Exception as e:
+        logger.error('verify_barcode error: %s', e, exc_info=True)
         return JsonResponse({'success': False, 'error': str(e)})

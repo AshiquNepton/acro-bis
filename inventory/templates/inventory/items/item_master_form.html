@@ -21,39 +21,15 @@ document.addEventListener('DOMContentLoaded', function() {
     var nameInp = document.getElementById('id_ItemName');
     var shortInp = document.getElementById('id_ShortName');
     var localInp = document.getElementById('id_LocalName');
+    var aiQueryInp = document.getElementById('id_ai_search_query');
 
     if (nameInp) {
+        // AI translation for short/local name + sync AI query
         nameInp.addEventListener('input', function() {
             var val = this.value || '';
             if (!val) return;
             if (shortInp && !shortInp.value) shortInp.value = val;
-            if (localInp && !localInp.value) {
-                fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(val) + '&langpair=en|ar')
-                    .then(function(r) { return r.json(); })
-                    .then(function(d) {
-                        if (d && d.responseData && d.responseData.translatedText) {
-                            localInp.value = d.responseData.translatedText;
-                        }
-                    })
-                    .catch(function(e) { console.error('Translation error:', e); });
-            }
-        });
-    }
-});
-</script>
-
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    var nameInp = document.getElementById('id_ItemName');
-    var shortInp = document.getElementById('id_ShortName');
-    var localInp = document.getElementById('id_LocalName');
-
-    if (nameInp) {
-        nameInp.addEventListener('input', function() {
-            var val = this.value || '';
-            if (!val) return;
-            if (shortInp && !shortInp.value) shortInp.value = val;
+            if (aiQueryInp && !aiQueryInp.value) aiQueryInp.value = val;
             if (localInp && !localInp.value) {
                 fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(val) + '&langpair=en|ar')
                     .then(function(r) { return r.json(); })
@@ -71,32 +47,6 @@ document.addEventListener('DOMContentLoaded', function() {
 {% endblock %}
 
 {% block app_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    var nameInp = document.getElementById('id_ItemName');
-    var shortInp = document.getElementById('id_ShortName');
-    var localInp = document.getElementById('id_LocalName');
-
-    if (nameInp) {
-        nameInp.addEventListener('input', function() {
-            var val = this.value || '';
-            if (!val) return;
-            if (shortInp && !shortInp.value) shortInp.value = val;
-            if (localInp && !localInp.value) {
-                fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(val) + '&langpair=en|ar')
-                    .then(function(r) { return r.json(); })
-                    .then(function(d) {
-                        if (d && d.responseData && d.responseData.translatedText) {
-                            localInp.value = d.responseData.translatedText;
-                        }
-                    })
-                    .catch(function(e) { console.error('Translation error:', e); });
-            }
-        });
-    }
-});
-</script>
-
 <link rel="stylesheet" href="{% static 'common/css/form_design.css' %}">
 <script src="{% static 'common/js/form_design.js' %}"></script>
 <script>
@@ -116,11 +66,31 @@ window.MU_UNIT_OPTIONS = {{ mu_unit_options_json|safe|default:"[]" }};
 window.GROUP_CHOICES = {{ group_choices_json|safe|default:"{}" }};
 
 
+window._isFormDirty = false;
+document.addEventListener('input', function(e) { if (e.target.closest('.pf-page-wrapper')) window._isFormDirty = true; });
+document.addEventListener('change', function(e) { if (e.target.closest('.pf-page-wrapper')) window._isFormDirty = true; });
+
+// Intercept all links to show custom alert instead of native browser prompt
+document.addEventListener('click', function(e) {
+    var link = e.target.closest('a');
+    if (link && window._isFormDirty && !link.hasAttribute('target')) {
+        var href = link.getAttribute('href');
+        if (href && href !== '#' && !href.startsWith('javascript:')) {
+            e.preventDefault();
+            showConfirm('Data will be lost if you leave without saving.', function(confirmed) {
+                if (confirmed) {
+                    window._isFormDirty = false;
+                    window.location.href = href;
+                }
+            }, 'warning', 'Unsaved Changes');
+        }
+    }
+});
+
 window._pfConfig = {
     '{{ form_config.form_id }}': {
         formId           : '{{ form_config.form_id }}',
         lookupField      : 'ItemCode',
-        disableAutoLookup: true,
         disableAutoLookup: true,
         heroNameField    : 'ItemName',
         heroDefaultName  : 'New Item',
@@ -130,17 +100,34 @@ window._pfConfig = {
         lookupUrl        : "{% url 'inventory:item_master_load' %}",
         deleteIdField    : 'ItemID',
         deleteLabelField : 'ItemName',
+        onSaveSuccess    : function(d) {
+            window._isFormDirty = false;
+            window.location.href = window.location.pathname;
+        }
     }
 };
 
 /* ── Global Form Actions ── */
-function imClose()  { history.back(); }
+function imClose() {
+    if (window._isFormDirty) {
+        showConfirm('You have unsaved changes. Are you sure you want to exit?', function(confirmed) {
+            if (confirmed) {
+                window._isFormDirty = false;
+                history.back();
+            }
+        }, 'warning', 'Unsaved Changes', 'Yes, Exit', 'Cancel');
+    } else {
+        history.back();
+    }
+}
 function imNew() {
-    var itemName = document.querySelector('[name="ItemName"]');
-    if (itemName && itemName.value.trim() !== '') {
-        showConfirm('Clear form for a new item?', function(confirmed) { 
-            if (confirmed) window.location.href = window.location.pathname; 
-        }, 'warning', 'New Item');
+    if (window._isFormDirty) {
+        showConfirm('Data will be lost. Clear form for a new item?', function(confirmed) { 
+            if (confirmed) {
+                window._isFormDirty = false;
+                window.location.href = window.location.pathname; 
+            }
+        }, 'warning', 'Unsaved Changes');
     } else {
         window.location.href = window.location.pathname;
     }
@@ -165,6 +152,7 @@ function initSelectItemModal() {
         icon     : '<path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.267-8-12.356-8-5.096 0-5.096 8 0 8 5.096 0 7.261-8 12.356-8z" stroke-width="2"/>',
         width    : '480px',
         height   : '260px',
+        staticBackdrop: true, // Prevents closing on click outside
         tabs     : [
             { id: 'select_item_tab', label: 'Select Item' }
         ],
@@ -239,7 +227,7 @@ function initSelectItemModal() {
                     /* Row 4: Group 3 */
                     '<div style="display:flex; align-items:center; gap:8px;">' +
                         '<label for="im-si-g3-chk" style="width:85px; text-align:right; font-size:12px; font-weight:600; color:#333; display:inline-flex; align-items:center; justify-content:flex-end; gap:4px; cursor:pointer; user-select:none;">' +
-                            '<input type="checkbox" id="im-si-g3-chk" checked style="cursor:pointer; margin:0; width:13px; height:13px;">' +
+                            '<input type="checkbox" id="im-si-g3-chk" checked tabindex="-1" style="cursor:pointer; margin:0; width:13px; height:13px;">' +
                             '<span>Group 3</span>' +
                         '</label>' +
                         '<div style="flex:1; display:flex; align-items:stretch; position:relative;">' +
@@ -257,7 +245,7 @@ function initSelectItemModal() {
                     /* Row 5: Group 4 */
                     '<div style="display:flex; align-items:center; gap:8px;">' +
                         '<label for="im-si-g4-chk" style="width:85px; text-align:right; font-size:12px; font-weight:600; color:#333; display:inline-flex; align-items:center; justify-content:flex-end; gap:4px; cursor:pointer; user-select:none;">' +
-                            '<input type="checkbox" id="im-si-g4-chk" checked style="cursor:pointer; margin:0; width:13px; height:13px;">' +
+                            '<input type="checkbox" id="im-si-g4-chk" checked tabindex="-1" style="cursor:pointer; margin:0; width:13px; height:13px;">' +
                             '<span>Group 4</span>' +
                         '</label>' +
                         '<div style="flex:1; display:flex; align-items:stretch; position:relative;">' +
@@ -275,7 +263,7 @@ function initSelectItemModal() {
                     /* Row 6: Group 5 */
                     '<div style="display:flex; align-items:center; gap:8px;">' +
                         '<label for="im-si-g5-chk" style="width:85px; text-align:right; font-size:12px; font-weight:600; color:#333; display:inline-flex; align-items:center; justify-content:flex-end; gap:4px; cursor:pointer; user-select:none;">' +
-                            '<input type="checkbox" id="im-si-g5-chk" checked style="cursor:pointer; margin:0; width:13px; height:13px;">' +
+                            '<input type="checkbox" id="im-si-g5-chk" checked tabindex="-1" style="cursor:pointer; margin:0; width:13px; height:13px;">' +
                             '<span>Group 5</span>' +
                         '</label>' +
                         '<div style="flex:1; display:flex; align-items:stretch; position:relative;">' +
@@ -301,7 +289,7 @@ function initSelectItemModal() {
                                 '<path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>' +
                             '</svg>' +
                         '</span>' +
-                        '<span style="text-decoration:underline;">O</span>K' +
+                        '<span><span style="text-decoration:underline;">O</span>K</span>' +
                     '</button>' +
 
                     '<button type="button" class="pf-tb-btn pf-tb-btn-danger" id="im-si-cancel-btn" onclick="imCloseSelectItem()"' +
@@ -312,7 +300,7 @@ function initSelectItemModal() {
                                 '<line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>' +
                             '</svg>' +
                         '</span>' +
-                        '<span style="text-decoration:underline;">C</span>ancel' +
+                        '<span><span style="text-decoration:underline;">C</span>ancel</span>' +
                     '</button>' +
                 '</div>';
 
@@ -468,11 +456,46 @@ function imInitSelectItemEvents() {
             });
         }
 
+        var activeIdx = -1;
+
+        function updateActiveOpt() {
+            var opts = dd.querySelectorAll('.im-si-opt');
+            opts.forEach(function(opt, i) {
+                if (i === activeIdx) {
+                    opt.style.background = '#e3f0ff';
+                    opt.scrollIntoView({ block: 'nearest' });
+                } else {
+                    opt.style.background = '#fff';
+                }
+            });
+        }
+
         if (inp) {
-            inp.addEventListener('input', function() { renderDd(inp.value); });
+            inp.addEventListener('input', function() { activeIdx = -1; renderDd(inp.value); });
             inp.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') {
+                var isDdVisible = dd.style.display === 'block';
+                var opts = dd.querySelectorAll('.im-si-opt');
+
+                if (e.key === 'ArrowDown') {
                     e.preventDefault();
+                    if (!isDdVisible) {
+                        renderDd(inp.value);
+                    } else if (opts.length > 0) {
+                        activeIdx = (activeIdx + 1) % opts.length;
+                        updateActiveOpt();
+                    }
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (isDdVisible && opts.length > 0) {
+                        activeIdx = (activeIdx - 1 + opts.length) % opts.length;
+                        updateActiveOpt();
+                    }
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (isDdVisible && activeIdx >= 0 && activeIdx < opts.length) {
+                        inp.value = opts[activeIdx].getAttribute('data-val');
+                        activeIdx = -1;
+                    }
                     imCloseAllSelectItemDropdowns();
                     var nextF = fields[idx + 1];
                     if (nextF) {
@@ -482,9 +505,6 @@ function imInitSelectItemEvents() {
                     } else {
                         imConfirmSelectItem();
                     }
-                } else if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    renderDd(inp.value);
                 } else if (e.key === 'Escape') {
                     imCloseAllSelectItemDropdowns();
                 }
@@ -547,10 +567,19 @@ function imConfirmSelectItem() {
     // Advance focus immediately
     var groupSelect = document.getElementById('id_ItemGroup1');
     var typeSelect = document.getElementById('id_ItemType');
-    if (groupSelect && groupSelect.focus) {
-        groupSelect.focus();
-    } else if (typeSelect && typeSelect.focus) {
-        typeSelect.focus();
+    
+    if (groupSelect) {
+        if (window.jQuery && $(groupSelect).data('select2')) {
+            $(groupSelect).select2('focus');
+        } else {
+            groupSelect.focus();
+        }
+    } else if (typeSelect) {
+        if (window.jQuery && $(typeSelect).data('select2')) {
+            $(typeSelect).select2('focus');
+        } else {
+            typeSelect.focus();
+        }
     } else if (nameField) {
         nameField.blur();
     }
@@ -709,6 +738,31 @@ function imOpenBarcodeModal() {
             height: '260px',
             minRows: 8,
             data: initialList,
+            onValidateRow: function(barcode, callback) {
+                var codeInp = document.getElementById('id_ItemCode');
+                var currentCode = codeInp ? codeInp.value : '';
+                
+                fetch('/inventory/item-master/verify-barcode/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : ''
+                    },
+                    body: JSON.stringify({ barcode: barcode, item_code: currentCode })
+                })
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (data.success && data.exists) {
+                        callback(false, data.message);
+                    } else {
+                        callback(true);
+                    }
+                })
+                .catch(function(err) {
+                    console.error('Barcode validation error', err);
+                    callback(true); // Allow on network error so we don't block the user
+                });
+            },
             onSave: function(values, defaultVal, modal) {
                 var bcField = document.getElementById('id_AssortedBarcode');
                 if (bcField) {
@@ -806,7 +860,7 @@ function imFetchProductAI() {
             var d = res.data;
 
             // Populate description
-            var descEl = document.getElementById('id_product_description');
+            var descEl = document.getElementById('id_ProductDescription');
             if (descEl) descEl.value = d.product_description || '';
 
             // Populate Brand & Category if empty
@@ -937,5 +991,126 @@ if (document.readyState !== 'loading') {
 } else {
     document.addEventListener('DOMContentLoaded', imBindItemEvents);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SELLING RATES TWO-WAY CALCULATOR
+   ───────────────────────────────────────────────────────────────────────
+   Base selector:  "lc"    → uses Landing Cost  (#im-rm-lc)
+                   "rate0" → uses Purchase Price (#id_Rate0)
+
+   imRmCalcFromPct(idx)    user edits %      → recalculate Amount
+   imRmCalcFromAmt(idx)    user edits Amount → recalculate %
+   imRmBaseChange(idx)     user changes Base → recalculate Amount (keep %)
+   imRmLcChanged()         Landing Cost changed → recalculate all LC rows
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function imRmGetRateRows() {
+    // Return only the 6 rate rows (skipping the landing cost and header rows)
+    var allRows = document.querySelectorAll('.im-rates-matrix .pf-field-row');
+    var rateRows = [];
+    // The rate rows start at index 2 (0=LC, 1=Header)
+    for (var i = 2; i < allRows.length; i++) {
+        rateRows.push(allRows[i]);
+    }
+    return rateRows;
+}
+
+function imRmGetBaseVal(idx) {
+    if (idx === 0) {
+        var lcInp = document.getElementById('im-rm-lc');
+        return lcInp ? (parseFloat(lcInp.value) || 0) : 0;
+    }
+    var globalBase = document.getElementById('im-rm-global-base');
+    var choice = globalBase ? globalBase.value : 'rate0';
+    if (choice === 'lc') {
+        var lcInp = document.getElementById('im-rm-lc');
+        return lcInp ? (parseFloat(lcInp.value) || 0) : 0;
+    }
+    var r0 = document.getElementById('id_Rate0');
+    return r0 ? (parseFloat(r0.value) || 0) : 0;
+}
+
+function imRmCalcFromPct(idx) {
+    var rows  = imRmGetRateRows();
+    var row   = rows[idx];
+    if (!row) return;
+    var pctEl = row.querySelector('.im-rm-pct');
+    var amtEl = row.querySelector('.im-rm-amt');
+    if (!pctEl || !amtEl) return;
+    var pct   = parseFloat(pctEl.value);
+    var base  = imRmGetBaseVal(idx);
+    if (isNaN(pct) || base === 0) return;
+    amtEl.value = (base * (1 + pct / 100)).toFixed(4);
+    if (idx === 0) imRmRecalcRate0Dependants();
+}
+
+function imRmCalcFromAmt(idx) {
+    var rows  = imRmGetRateRows();
+    var row   = rows[idx];
+    if (!row) return;
+    var pctEl = row.querySelector('.im-rm-pct');
+    var amtEl = row.querySelector('.im-rm-amt');
+    if (!pctEl || !amtEl) return;
+    var amt   = parseFloat(amtEl.value);
+    var base  = imRmGetBaseVal(idx);
+    if (isNaN(amt) || base === 0) return;
+    pctEl.value = ((amt / base - 1) * 100).toFixed(2);
+    if (idx === 0) imRmRecalcRate0Dependants();
+}
+
+function imRmGlobalBaseChange() {
+    var rows = imRmGetRateRows();
+    rows.forEach(function(row, idx) {
+        if (idx > 0) {
+            var amtEl = row.querySelector('.im-rm-amt');
+            var pctEl = row.querySelector('.im-rm-pct');
+            var base  = imRmGetBaseVal(idx);
+            var pct   = parseFloat(pctEl.value);
+            if (!isNaN(pct) && base !== 0) {
+                amtEl.value = (base * (1 + pct / 100)).toFixed(4);
+            } else if (!isNaN(parseFloat(amtEl.value)) && base !== 0) {
+                pctEl.value = ((parseFloat(amtEl.value) / base - 1) * 100).toFixed(2);
+            }
+        }
+    });
+}
+
+function imRmLcChanged() {
+    var gb = document.getElementById('im-rm-global-base');
+    var isLcGlobal = gb && gb.value === 'lc';
+    var rows = imRmGetRateRows();
+    rows.forEach(function(row, idx) {
+        if (idx === 0 || isLcGlobal) {
+            imRmCalcFromPct(idx);
+        }
+    });
+}
+
+function imRmRecalcRate0Dependants() {
+    var gb = document.getElementById('im-rm-global-base');
+    if (gb && gb.value === 'rate0') {
+        var rows = imRmGetRateRows();
+        rows.forEach(function(row, idx) {
+            if (idx > 0) imRmCalcFromPct(idx);
+        });
+    }
+}
+
+function imRmInit() {
+    /* On page load: for rows that already have an amount, back-calculate % */
+    var rows = imRmGetRateRows();
+    rows.forEach(function(row, idx) {
+        var amtEl = row.querySelector('.im-rm-amt');
+        var pctEl = row.querySelector('.im-rm-pct');
+        if (!amtEl || !pctEl) return;
+        var amt  = parseFloat(amtEl.value);
+        var base = imRmGetBaseVal(idx);
+        if (!isNaN(amt) && amt !== 0 && base !== 0) {
+            pctEl.value = ((amt / base - 1) * 100).toFixed(2);
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', imRmInit);
 </script>
 {% endblock %}

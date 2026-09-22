@@ -132,7 +132,8 @@
         bd.className = 'utm-bd';
         bd.style.display = 'none';
         bd.addEventListener('click', function (e) {
-            if (e.target === bd) self.close();
+            // Modals are now static by default. Only close if explicitly allowed.
+            if (e.target === bd && cfg.closeOnBackdrop) self.close();
         });
         this._el = bd;
 

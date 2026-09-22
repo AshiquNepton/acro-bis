@@ -19,6 +19,7 @@ urlpatterns = [
     path('item-master/delete/', item_master.delete_item,          name='item_master_delete'),
     path('item-master/lookup/', item_master.lookup_item,          name='item_master_lookup'),
     path('item-master/resolve-groups/', item_master.resolve_groups, name='item_master_resolve_groups'),
+    path('item-master/verify-barcode/', item_master.verify_barcode, name='item_master_verify_barcode'),
 
     # Item Master — AI product info fetcher
     path('item-master/ai-product-info/', item_master.ai_fetch_product_info, name='ai_fetch_product_info'),
