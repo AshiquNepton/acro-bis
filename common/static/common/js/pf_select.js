@@ -314,6 +314,7 @@
         /* Popup */
         var popup = document.createElement('div');
         popup.className = 'pf-mchk-popup';
+        popup.setAttribute('data-name', name);
         popup.setAttribute('role', 'listbox');
  
         var search = document.createElement('input');
@@ -667,6 +668,7 @@ window.addEventListener('resize', _repositionAllSelectPopups);
         /* Popup */
         var popup = document.createElement('div');
         popup.className = 'pf-sel-popup';
+        popup.setAttribute('data-name', name);
         popup.setAttribute('role', 'listbox');
 
         var search = document.createElement('input');

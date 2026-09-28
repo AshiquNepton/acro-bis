@@ -10,6 +10,7 @@ from common.views.department import (
     save_department, get_department, delete_department, list_departments,
 )
 from common.views.import_excel import import_excel_process, import_excel_view, import_template_download
+from common.views.clear_locks import clear_locks
 from common.views.settings import theme_settings, save_theme
 from common.views.documents import load_docs, save_doc, delete_doc, serve_doc
 from common.views.filter_views import (
@@ -28,6 +29,12 @@ from common.views.global_settings import (
     gs_upload_image,
     gs_delete_image,
     gs_serve_image,
+)
+from common.views.default_settings import (
+    ds_load,
+    ds_save,
+    ds_load_captions,
+    ds_save_captions,
 )
 
 app_name = 'common'
@@ -123,6 +130,7 @@ urlpatterns = [
     path('import/',           import_excel_view,       name='import_excel_view'),
     path('import/process/',   import_excel_process,    name='import_excel_process'),
     path('import/template/',  import_template_download, name='import_template_download'),
+    path('import/clear_locks/', clear_locks, name='clear_locks'),
 
     # ── Global Settings ───────────────────────────────────────────────────────
     path('gs/config/',          gs_config,          name='gs_config'),
@@ -132,4 +140,10 @@ urlpatterns = [
     path('gs/images/upload/',   gs_upload_image,    name='gs_upload_image'),
     path('gs/images/delete/',   gs_delete_image,    name='gs_delete_image'),
     path('gs/images/serve/',    gs_serve_image,     name='gs_serve_image'),
+
+    # ── Default Settings ──────────────────────────────────────────────────────
+    path('ds/load/',            ds_load,            name='ds_load'),
+    path('ds/save/',            ds_save,            name='ds_save'),
+    path('ds/captions/load/',   ds_load_captions,   name='ds_load_captions'),
+    path('ds/captions/save/',   ds_save_captions,   name='ds_save_captions'),
 ]

@@ -48,6 +48,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 {% block app_js %}
 <link rel="stylesheet" href="{% static 'common/css/form_design.css' %}">
+<style>
+    /* Extend Item Code dropdown to cover the entire right panel width */
+    .pf-sel-popup[data-name="ItemCode"] {
+        width: 992px !important;
+        max-width: 90vw !important; /* Safety fallback for smaller screens */
+    }
+</style>
 <script src="{% static 'common/js/form_design.js' %}"></script>
 <script>
 /* ── Form Design registration (silent page-load init) ─────────────────── */

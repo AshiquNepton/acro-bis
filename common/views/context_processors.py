@@ -80,7 +80,8 @@ def sidebar_context(request):
                         {'label': 'Company Info',    'url': 'common:company_form'},
                         {'label': 'Database Config', 'url': 'common:database_config'},
                         {'label': 'Theme',           'url': 'common:theme_settings'},
-                        {'label': 'Logout',          'url': 'common:logout'},
+                        {'label': 'Default Settings', 'url': '#', 'onclick': 'openDefaultSettings()'},
+        {'label': 'Logout',          'url': 'common:logout'},
                     ]
                 },
             ]
@@ -127,7 +128,8 @@ def sidebar_context(request):
                         {'label': 'Company Info',    'url': 'common:company_form'},
                         {'label': 'Database Config', 'url': 'common:database_config'},
                         {'label': 'Theme',           'url': 'common:theme_settings'},
-                        {'label': 'Logout',          'url': 'common:logout'},
+                        {'label': 'Default Settings', 'url': '#', 'onclick': 'openDefaultSettings()'},
+        {'label': 'Logout',          'url': 'common:logout'},
                     ]
                 },
             ]
@@ -179,7 +181,8 @@ def sidebar_context(request):
                     'items': [
                         {'label': 'Database Config', 'url': 'common:database_config'},
                         {'label': 'Theme',           'url': 'common:theme_settings'},
-                        {'label': 'Logout',          'url': 'common:logout'},
+                        {'label': 'Default Settings', 'url': '#', 'onclick': 'openDefaultSettings()'},
+        {'label': 'Logout',          'url': 'common:logout'},
                     ]
                 },
             ]
@@ -225,7 +228,8 @@ def sidebar_context(request):
                     'items': [
                         {'label': 'Database Config', 'url': 'common:database_config'},
                         {'label': 'Theme',           'url': 'common:theme_settings'},
-                        {'label': 'Logout',          'url': 'common:logout'},
+                        {'label': 'Default Settings', 'url': '#', 'onclick': 'openDefaultSettings()'},
+        {'label': 'Logout',          'url': 'common:logout'},
                     ]
                 },
             ]
@@ -255,7 +259,8 @@ def sidebar_context(request):
                     'items': [
                         {'label': 'Database Config', 'url': 'common:database_config'},
                         {'label': 'Theme',           'url': 'common:theme_settings'},
-                        {'label': 'Logout',          'url': 'common:logout'},
+                        {'label': 'Default Settings', 'url': '#', 'onclick': 'openDefaultSettings()'},
+        {'label': 'Logout',          'url': 'common:logout'},
                     ]
                 },
             ]

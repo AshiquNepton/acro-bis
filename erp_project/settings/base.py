@@ -192,6 +192,12 @@ SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 
+# ── Upload / request size limits ──────────────────────────────────────────────
+# Default is 2.5 MB which is too small for large Excel imports
+# (e.g. 5 000-row inventory file ≈ 4 MB JSON).  20 MB gives comfortable headroom.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024   # 20 MB
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10_000            # raise field-count limit too
+
 # ============================================================================
 # PASSWORD VALIDATION
 # ============================================================================

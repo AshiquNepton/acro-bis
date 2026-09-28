@@ -28,6 +28,7 @@ Template download
 import io
 import json
 import logging
+import re
 from datetime import datetime, date, timedelta
 
 from django.db import connections
@@ -379,6 +380,10 @@ def _resolve_itemgroup_id(db_alias: str, category_id: int, description: str,
 
 @require_http_methods(['POST'])
 def import_excel_process(request):
+    # ── Auth guard — return JSON so JS doesn't receive an HTML redirect ────────
+    if not request.session.get('is_authenticated'):
+        return JsonResponse({'success': False, 'error': 'Not authenticated. Please log in.'}, status=403)
+
     try:
         from inventory.views.import_config import register_inventory_imports
         register_inventory_imports()
@@ -447,39 +452,49 @@ def import_excel_process(request):
     # same (category_id, description) pair across many rows.
     ig_cache: dict = {}
 
+    from django.db import transaction
+    
     imported = 0
     errors   = []
 
-    for idx, row in enumerate(rows):
-        excel_row_num = idx + 2   # Excel row 1 = header
-        try:
-            # ── Resolve ItemGroup text values → GroupID integers ───────────
-            # Mutate a copy so the original row dict is not changed (helpful
-            # if the caller retries on error).
-            resolved_row = dict(row)
-            for excel_key, category_id in itemgroup_cols.items():
-                raw_val = str(resolved_row.get(excel_key) or '').strip()
-                if not raw_val:
-                    # Empty → leave as-is; _coerce_row will handle required check
-                    continue
-                group_id = _resolve_itemgroup_id(
-                    db_alias, category_id, raw_val, ig_cache
-                )
-                # Overwrite the text with the integer so _coerce_row treats it
-                # as a plain 'int' column from this point on.
-                resolved_row[excel_key] = str(group_id)
-
-            db_row = _coerce_row(resolved_row, columns)
+    try:
+        with transaction.atomic(using=db_alias):
+            db_rows = []
+            
+            for idx, row in enumerate(rows):
+                excel_row_num = idx + 2
+                try:
+                    row = {re.sub(r'\\s*\\*\\s*', '', k).strip(): v for k, v in row.items()}
+                    resolved_row = dict(row)
+                    for excel_key, category_id in itemgroup_cols.items():
+                        raw_val = str(resolved_row.get(excel_key) or '').strip()
+                        if not raw_val: continue
+                        resolved_row[excel_key] = str(_resolve_itemgroup_id(db_alias, category_id, raw_val, ig_cache))
+        
+                    db_row = _coerce_row(resolved_row, columns)
+                    db_rows.append(db_row)
+        
+                except Exception as exc:
+                    errors.append({'row': excel_row_num, 'error': str(exc)})
+                    logger.warning('import row %d error: %s', excel_row_num, exc)
+                    
+            upsert_batch_fn = config.get('upsert_batch_fn')
             upsert_fn = config.get('upsert_fn')
-            if upsert_fn:
-                upsert_fn(db_alias, db_row)
+            
+            if upsert_batch_fn and db_rows:
+                upsert_batch_fn(db_alias, db_rows)
+                imported += len(db_rows)
             else:
-                _upsert_row(db_alias, table, pk_col, db_row)
-            imported += 1
-
-        except Exception as exc:
-            errors.append({'row': excel_row_num, 'error': str(exc)})
-            logger.warning('import row %d error: %s', excel_row_num, exc)
+                for db_row in db_rows:
+                    if upsert_fn:
+                        upsert_fn(db_alias, db_row)
+                    else:
+                        _upsert_row(db_alias, table, pk_col, db_row)
+                    imported += 1
+    except Exception as exc:
+        # If the transaction is aborted, catch the block-level exception
+        errors.append({'row': 'Batch', 'error': 'Batch transaction failed: ' + str(exc)})
+        imported = 0
 
     return JsonResponse({'success': True, 'imported': imported, 'errors': errors})
 

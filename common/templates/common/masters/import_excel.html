@@ -169,8 +169,13 @@ let ixRows     = [];
 let ixColumns  = [];
 let ixEditMode = false;
 
-// ── CSRF ─────────────────────────────────────────────────────────────────────
+// ── CSRF ──────────────────────────────────────────────────────────────────────
+// Django injects the token directly — avoids depending on the csrftoken cookie
+// which is only set when {% csrf_token %} appears inside a <form> on this page.
+const IX_CSRF_TOKEN = '{{ csrf_token }}';
 function ixCsrf() {
+    // Prefer the server-injected value; fall back to cookie for safety
+    if (IX_CSRF_TOKEN) return IX_CSRF_TOKEN;
     const m = document.cookie.match(/csrftoken=([^;]+)/);
     return m ? decodeURIComponent(m[1]) : '';
 }
@@ -196,14 +201,62 @@ function ixTypeChanged() {
     };
 }());
 
+// ── Normalise an Excel header key:
+//   • trim whitespace  •  strip trailing ' *' (template adds this to required cols)
+//   e.g.  "Item Code *" → "Item Code",  " Item Name *" → "Item Name"
+function _ixNormKey(k) {
+    return String(k).trim().replace(/\s*\*\s*$/, '').trim();
+}
+
 function ixLoadFile(file) {
     const reader = new FileReader();
     reader.onload = function (e) {
         try {
-            const wb   = XLSX.read(e.target.result, { type: 'array', cellDates: false });
-            const ws   = wb.Sheets[wb.SheetNames[0]];
-            const data = XLSX.utils.sheet_to_json(ws, { raw: false, defval: '' });
-            ixRender(data);
+            const wb  = XLSX.read(e.target.result, { type: 'array', cellDates: false });
+            const ws  = wb.Sheets[wb.SheetNames[0]];
+
+            // Read as raw 2-D array — we control header detection ourselves
+            const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+            if (!raw.length) {
+                ixShowResult(false, 0, [{ row: '—', error: 'The file appears to be empty.' }]);
+                return;
+            }
+
+            // Row 0 = file headers (may contain "Item Code *", "Item Code", etc.)
+            const fileHeaders = raw[0].map(h => String(h));
+
+            // Detect and skip the template hint row (row 1 in downloaded templates).
+            // The template writes hints like "Text", "Number", "0.00",
+            // "DD/MM/YYYY", "Name (text)" in row 2.  If every non-empty cell
+            // in raw[1] matches one of these we skip it so real data starts at row 2.
+            const HINT_SET = new Set(['text','number','0.00','dd/mm/yyyy','name (text)','']);
+            let dataStartRow = 1;
+            if (raw.length > 1) {
+                const isHintRow = raw[1].every(v => HINT_SET.has(String(v).trim().toLowerCase()));
+                if (isHintRow) dataStartRow = 2;
+            }
+
+            // Build a mapping: file-header-string → canonical config key
+            // Uses case-insensitive match after stripping " *" and spaces.
+            const typeKey = document.getElementById('id_ix_import_type').value;
+            const cfgCols = IX_COLUMNS_CONFIG[typeKey] || [];
+            const headerMap = {};
+            fileHeaders.forEach(h => {
+                const norm  = _ixNormKey(h).toLowerCase();
+                const match = cfgCols.find(c => c.excel.trim().toLowerCase() === norm);
+                headerMap[h] = match ? match.excel : _ixNormKey(h);
+            });
+
+            // Convert every data row (array) → object keyed by canonical config name
+            const mapped = raw.slice(dataStartRow)
+                .filter(row => row.some(v => String(v).trim() !== ''))   // skip blank rows
+                .map(row => {
+                    const obj = {};
+                    fileHeaders.forEach((h, i) => { obj[headerMap[h]] = String(row[i] ?? ''); });
+                    return obj;
+                });
+
+            ixRender(mapped);
         } catch (err) {
             ixShowResult(false, 0, [{ row: '—', error: 'Could not parse file: ' + err.message }]);
         }
@@ -212,17 +265,19 @@ function ixLoadFile(file) {
 }
 
 // ── Render preview table ──────────────────────────────────────────────────────
+// data arrives already keyed by canonical config column names (mapped in ixLoadFile).
 function ixRender(data) {
-    ixRows     = data;
+    ixRows     = data;          // already clean — no further key remapping needed
     ixEditMode = false;
     _ixSyncEditBtn();
 
     const typeKey = document.getElementById('id_ix_import_type').value;
     ixColumns = IX_COLUMNS_CONFIG[typeKey] || [];
 
-    const excelKeys = data.length ? Object.keys(data[0]) : [];
-    const missing   = ixColumns.filter(c => c.required && !excelKeys.includes(c.excel));
-    const warnEl    = document.getElementById('ix-warn');
+    // Check which required config columns are present in the first row
+    const presentKeys = ixRows.length ? Object.keys(ixRows[0]).map(k => k.toLowerCase()) : [];
+    const missing     = ixColumns.filter(c => c.required && !presentKeys.includes(c.excel.trim().toLowerCase()));
+    const warnEl      = document.getElementById('ix-warn');
     if (missing.length) {
         warnEl.textContent = '⚠️  Required columns missing from file: ' +
             missing.map(c => '"' + c.excel + '"').join(', ');
@@ -231,7 +286,7 @@ function ixRender(data) {
         warnEl.style.display = 'none';
     }
 
-    // Build thead
+    // ── thead ──────────────────────────────────────────────────────────────────
     const thead = document.getElementById('ix-thead');
     thead.innerHTML = '';
     const hr = document.createElement('tr');
@@ -252,10 +307,10 @@ function ixRender(data) {
     });
     thead.appendChild(hr);
 
-    // Build tbody
+    // ── tbody — iterate ixRows (already mapped) ────────────────────────────────
     const tbody = document.getElementById('ix-tbody');
     tbody.innerHTML = '';
-    data.forEach((row, idx) => {
+    ixRows.forEach((row, idx) => {
         const tr = document.createElement('tr');
         tr.dataset.idx = idx;
 
@@ -287,7 +342,7 @@ function ixRender(data) {
     });
 
     const countEl = document.getElementById('ix-count-label');
-    if (countEl) countEl.textContent = `${data.length} row${data.length !== 1 ? 's' : ''} found`;
+    if (countEl) countEl.textContent = `${ixRows.length} row${ixRows.length !== 1 ? 's' : ''} found`;
 
     document.getElementById('ix-preview-card').style.display = '';
     document.getElementById('ix-result-card').style.display  = 'none';
@@ -507,7 +562,10 @@ function _ixDisableEdit() {
 
 async function ixImport() {
     const typeKey = document.getElementById('id_ix_import_type').value;
-    const btn = document.querySelector('[onclick="ixImport()"]');
+    const btn     = document.querySelector('[onclick="ixImport()"]');
+    const BATCH   = 100;   // rows per POST — keeps each request well under Django size limit
+
+    // Flush any in-progress edits into ixRows first
 
     // Flush any in-progress edits into ixRows before collecting checked rows
     if (ixEditMode) {
@@ -529,25 +587,64 @@ async function ixImport() {
     if (!checked.length) { ixToast('No rows selected for import.', 'w'); return; }
 
     if (btn) btn.disabled = true;
-    if (typeof window.erpLoader !== 'undefined') erpLoader.show('Importing…');
+
+    let totalImported = 0;
+    let allErrors     = [];
+
+    // Split into chunks of BATCH rows so each POST stays well under size limits
+    const batches = [];
+    for (let i = 0; i < checked.length; i += BATCH) batches.push(checked.slice(i, i + BATCH));
+
+    if (typeof window.erpLoader !== 'undefined')
+        erpLoader.show('Importing… 0 / ' + checked.length);
 
     try {
-        const res  = await fetch(IX_PROCESS_URL, {
-            method : 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken' : ixCsrf(),
-            },
-            body: JSON.stringify({ import_type: typeKey, rows: checked }),
-        });
-        const data = await res.json();
-        if (!data.success) {
-            ixShowResult(false, 0, [{ row: '—', error: data.error || 'Unknown error' }]);
-        } else {
-            ixShowResult(true, data.imported, data.errors || []);
+        for (let b = 0; b < batches.length; b++) {
+            if (typeof window.erpLoader !== 'undefined')
+                erpLoader.show('Importing… ' + totalImported + ' / ' + checked.length +
+                               ' (batch ' + (b + 1) + ' of ' + batches.length + ')');
+
+            const res = await fetch(IX_PROCESS_URL, {
+                method : 'POST',
+                headers: {
+                    'Content-Type'     : 'application/json',
+                    'Accept'           : 'application/json',
+                    'X-Requested-With' : 'XMLHttpRequest',
+                    'X-CSRFToken'      : ixCsrf(),
+                },
+                body: JSON.stringify({ import_type: typeKey, rows: batches[b] }),
+            });
+
+            // Guard: non-JSON means server error / size limit / redirect
+            const ct = res.headers.get('content-type') || '';
+            if (!ct.includes('application/json')) {
+                const text = await res.text();
+                const hint = res.status === 403
+                    ? 'Session expired — please refresh the page and log in again.'
+                    : res.status === 400
+                    ? 'Request rejected (HTTP 400) — CSRF token invalid or payload too large.'
+                    : 'Server returned HTTP ' + res.status + '. Check server logs.';
+                console.error('import_excel batch ' + b + ': non-JSON', res.status, text.slice(0, 400));
+                ixShowResult(false, totalImported, [{ row: '—', error: hint }, ...allErrors]);
+                return;
+            }
+
+            const data = await res.json();
+            if (!data.success) {
+                // Hard failure — stop immediately, report what was saved so far
+                ixShowResult(false, totalImported,
+                    [{ row: '—', error: data.error || 'Unknown error' }, ...allErrors]);
+                return;
+            }
+            totalImported += data.imported || 0;
+            allErrors      = allErrors.concat(data.errors || []);
         }
+
+        ixShowResult(true, totalImported, allErrors);
+
     } catch (err) {
-        ixShowResult(false, 0, [{ row: '—', error: 'Network error: ' + err.message }]);
+        ixShowResult(false, totalImported,
+            [{ row: '—', error: 'Network error: ' + err.message }, ...allErrors]);
     } finally {
         if (btn) btn.disabled = false;
         if (typeof window.erpLoader !== 'undefined') erpLoader.hide();

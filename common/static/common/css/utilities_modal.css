@@ -434,3 +434,90 @@
     border-color: var(--color-form-input-border-focus, var(--color-primary));
     box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb, 139, 0, 0), .10);
 }
+
+/* ════════════════════════════════════════════════════════════════
+   DEFAULT SETTINGS MODAL — toggle switches & action buttons
+   Used by default_settings_modal.js (reuses UtilityModal engine)
+   ════════════════════════════════════════════════════════════════ */
+
+/* Toggle row */
+.ds-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--color-border-light, #f0f0f2);
+    gap: 16px;
+}
+.ds-toggle-row:last-child { border-bottom: none; }
+.ds-toggle-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ds-toggle-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-primary, #222);
+}
+.ds-toggle-desc {
+    font-size: 11px;
+    color: var(--color-text-tertiary, #aaa);
+    line-height: 1.4;
+}
+
+/* Toggle switch control */
+.ds-toggle-ctl { position: relative; display: inline-flex; align-items: center; cursor: pointer; }
+.ds-toggle-ctl input[type="checkbox"] { opacity: 0; width: 0; height: 0; position: absolute; }
+.ds-switch {
+    display: inline-block;
+    width: 38px; height: 21px;
+    background: #ccc;
+    border-radius: 11px;
+    cursor: pointer;
+    transition: background 0.2s;
+    position: relative;
+}
+.ds-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 17px; height: 17px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.20);
+    transition: left 0.18s;
+}
+.ds-toggle-ctl input:checked + .ds-switch { background: var(--color-primary, #c0123c); }
+.ds-toggle-ctl input:checked + .ds-switch::after { left: 19px; }
+
+/* Action button (Set Captions row) */
+.ds-action-list { display: flex; flex-direction: column; gap: 8px; }
+.ds-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 14px;
+    background: var(--color-bg-tertiary, #f5f5f7);
+    border: 1px solid var(--color-border-light, #e8e8e8);
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s, border-color 0.15s, box-shadow 0.12s;
+    font-family: 'DM Sans', 'Segoe UI', sans-serif;
+    width: 100%;
+}
+.ds-action-btn:hover {
+    background: var(--color-hover-primary, #f0f4ff);
+    border-color: var(--color-primary, #c0123c);
+    box-shadow: 0 2px 8px rgba(var(--color-primary-rgb,192,18,60), 0.10);
+}
+.ds-action-btn-ico {
+    width: 34px; height: 34px;
+    border-radius: 7px;
+    background: var(--color-primary, #c0123c);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.ds-action-btn-ico svg { stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ds-action-btn-info { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.ds-action-btn-label { font-size: 12.5px; font-weight: 600; color: var(--color-text-primary, #222); }
+.ds-action-btn-desc  { font-size: 11px; color: var(--color-text-tertiary, #aaa); }
+.ds-action-btn-arrow { margin-left: auto; display: flex; align-items: center; color: var(--color-text-tertiary, #bbb); flex-shrink: 0; }
+.ds-action-btn-arrow svg { stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
