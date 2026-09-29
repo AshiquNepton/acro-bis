@@ -1,3 +1,21 @@
+
+/* Auto-injected CSS for pf-select grid mode */
+(function() {
+    if (document.getElementById('pf-grid-css')) return;
+    var style = document.createElement('style');
+    style.id = 'pf-grid-css';
+    style.innerHTML = `
+        .pf-sel-grid-popup { }
+        .pf-sel-grid-hdr { display: flex; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-weight: 600; font-size: 11px; color: #475569; position: sticky; top: 0; z-index: 10; }
+        .pf-grid-col1 { width: var(--pf-col1-width, 140px); flex-shrink: 0; padding: 6px 10px; position: relative; border-right: 1px solid #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pf-grid-col2 { flex: 1; padding: 6px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pf-resizer { position: absolute; right: -3px; top: 0; bottom: 0; width: 6px; cursor: col-resize; z-index: 2; }
+        .pf-resizer:hover { background: #cbd5e1; }
+        .pf-sel-opt.pf-grid-row { display: flex; padding: 0 !important; }
+        .pf-sel-opt.pf-grid-row .pf-grid-col1, .pf-sel-opt.pf-grid-row .pf-grid-col2 { padding: 6px 10px; cursor: inherit; }
+    `;
+    document.head.appendChild(style);
+})();
 /**
  * ================================================================
  *  common/static/common/js/pf_select.js   v1.4
@@ -541,7 +559,7 @@
         var popW     = trigRect.width;
  
         popup.style.position = 'absolute';
-        popup.style.zIndex   = '9999';
+        popup.style.zIndex   = '100010'; /* must be above utm-bd:has(.utm-modal--standard) which is 100005 */
         popup.style.left     = (wrapRect.left + scrollX) + 'px';
         popup.style.width    = popW + 'px';
         popup.style.right    = 'auto';
@@ -605,7 +623,18 @@
         var scrollY = window.pageYOffset || document.documentElement.scrollTop;
         var below2  = window.innerHeight - rect2.bottom;
         popup.style.left  = (rect2.left + scrollX) + 'px';
-        popup.style.width = rect2.width + 'px';
+        var popW = rect2.width;
+        if (popup.classList.contains('pf-sel-grid-popup')) {
+            var hero = wrap.closest('.pf-hero-fields');
+            if (hero) {
+                var heroRect = hero.getBoundingClientRect();
+                popup.style.left = (heroRect.left + scrollX) + 'px';
+                popW = heroRect.width;
+            } else {
+                popW = Math.max(450, rect2.width);
+            }
+        }
+        popup.style.width = popW + 'px';
         if (below2 < 220 && rect2.top > 220) {
             var ph = popup.offsetHeight;
             popup.style.top    = (rect2.top + scrollY - ph - 3) + 'px';
@@ -656,7 +685,11 @@ window.addEventListener('resize', _repositionAllSelectPopups);
 
         var valSpan = document.createElement('span');
         valSpan.className   = 'pf-sel-val';
-        valSpan.textContent = _labelFor(options, current) || (options[0] ? options[0].text : '');
+        var initLbl = _labelFor(options, current) || (options[0] ? options[0].text : '');
+        if (options.length > 0 && options.some(function(o) { return o.text.indexOf(' | ') !== -1; }) && initLbl.indexOf(' | ') !== -1) {
+            initLbl = initLbl.split(' | ')[0];
+        }
+        valSpan.textContent = initLbl;
 
         var arrSpan = document.createElement('span');
         arrSpan.className   = 'pf-sel-arr';
@@ -681,12 +714,53 @@ window.addEventListener('resize', _repositionAllSelectPopups);
         var list = document.createElement('div');
         list.className = 'pf-sel-list';
 
+        var hasPipeSplit = options.length > 0 && options.some(function(o) { return o.text.indexOf(' | ') !== -1; });
+        var savedColWidth = localStorage.getItem('pf_col1_width_' + name) || '140px';
+        var header = null;
+
+        if (hasPipeSplit) {
+            popup.classList.add('pf-sel-grid-popup'); wrap.classList.add('pf-grid-mode');
+            popup.style.setProperty('--pf-col1-width', savedColWidth);
+            
+            header = document.createElement('div');
+            header.className = 'pf-sel-grid-hdr';
+            header.innerHTML = '<div class="pf-grid-col1">Code<div class="pf-resizer"></div></div><div class="pf-grid-col2">Description</div>';
+            
+            var resizer = header.querySelector('.pf-resizer');
+            resizer.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var startX = e.clientX;
+                var startW = parseInt(getComputedStyle(header.querySelector('.pf-grid-col1')).width) || 140;
+                
+                function onMove(me) {
+                    var w = Math.max(50, startW + (me.clientX - startX));
+                    popup.style.setProperty('--pf-col1-width', w + 'px');
+                }
+                function onUp(ue) {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                    localStorage.setItem('pf_col1_width_' + name, popup.style.getPropertyValue('--pf-col1-width'));
+                }
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+        }
+
         options.forEach(function (opt) {
             var item = document.createElement('div');
             item.className   = 'pf-sel-opt';
             item.setAttribute('data-val', opt.value);
             item.setAttribute('role', 'option');
-            item.textContent = opt.text;
+            
+            if (hasPipeSplit && opt.text.indexOf(' | ') !== -1) {
+                var parts = opt.text.split(' | ');
+                item.classList.add('pf-grid-row');
+                item.innerHTML = '<div class="pf-grid-col1">' + parts[0] + '</div><span style="display:none;"> </span><div class="pf-grid-col2">' + parts.slice(1).join(' | ') + '</div>';
+            } else {
+                item.textContent = opt.text;
+            }
+            
             if (opt.value === current) {
                 item.classList.add('selected');
                 item.setAttribute('aria-selected', 'true');
@@ -702,6 +776,7 @@ window.addEventListener('resize', _repositionAllSelectPopups);
         });
 
         popup.appendChild(search);
+        if (typeof header !== 'undefined' && header) { popup.appendChild(header); }
         popup.appendChild(list);
 
         sel.style.display = 'none';
@@ -950,8 +1025,10 @@ window.addEventListener('resize', _repositionAllSelectPopups);
 
             /* ── Normal option ── */
             var val   = item.getAttribute('data-val');
-            var label = item.textContent;
-
+            var label = _labelFor(options, val) || item.textContent;
+            if (wrap.classList.contains('pf-grid-mode') && label.indexOf(' | ') !== -1) {
+                label = label.split(' | ')[0];
+            }
             valSpan.textContent = label;
             list.querySelectorAll('.pf-sel-opt').forEach(function (o) {
                 o.classList.remove('selected', 'pf-sel-highlighted');
@@ -982,9 +1059,20 @@ function _openPopup(wrap, popup, search, trigger) {
     var below   = window.innerHeight - rect.bottom;
 
     popup.style.position = 'absolute';
-    popup.style.zIndex   = '9999';
+    popup.style.zIndex   = '100010'; /* must be above utm-bd:has(.utm-modal--standard) which is 100005 */
     popup.style.left     = (rect.left + scrollX) + 'px';
-    popup.style.width    = rect.width + 'px';
+    var popW = rect.width;
+    if (popup.classList.contains('pf-sel-grid-popup')) {
+        var hero = wrap.closest('.pf-hero-fields');
+        if (hero) {
+            var heroRect = hero.getBoundingClientRect();
+            popup.style.left = (heroRect.left + scrollX) + 'px';
+            popW = heroRect.width;
+        } else {
+            popW = Math.max(450, rect.width);
+        }
+    }
+    popup.style.width    = popW + 'px';
     popup.style.right    = 'auto';
 
     if (below < 220 && rect.top > 220) {
@@ -1087,7 +1175,13 @@ function _closePopup(wrap, popup, trigger) {
             });
             item.classList.add('selected');
             item.setAttribute('aria-selected', 'true');
-            if (wrap._pfValSpan) wrap._pfValSpan.textContent = item.textContent;
+            if (wrap._pfValSpan) {
+                var setLbl = _labelFor(wrap._pfNative.options, strVal) || item.textContent;
+                if (wrap.classList.contains('pf-grid-mode') && setLbl.indexOf(' | ') !== -1) {
+                    setLbl = setLbl.split(' | ')[0];
+                }
+                wrap._pfValSpan.textContent = setLbl;
+            }
             if (wrap._pfNative) {
                     var oldVal = wrap._pfNative.value; // Get the current value
                     wrap._pfNative.value = strVal;     // Set the new value

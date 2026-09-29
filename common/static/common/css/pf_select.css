@@ -67,7 +67,7 @@
     top: calc(100% + 3px);
     left: 0;
     right: 0;
-    z-index: 8800;
+    z-index: 10005;
     background: var(--color-bg-secondary, #fff);
     border: 1px solid var(--color-primary, #7c3aed);
     border-radius: var(--radius-small, 6px);
@@ -206,7 +206,7 @@
     min-width: 180px;
     min-width: 200px;
     max-width: 360px;
-    z-index: 9900;
+    z-index: 10005;
     background: var(--color-bg-secondary, #fff);
     border: 1px solid var(--color-primary, #7c3aed);
     border-radius: var(--radius-small, 6px);

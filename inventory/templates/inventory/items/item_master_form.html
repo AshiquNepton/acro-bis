@@ -49,11 +49,6 @@ document.addEventListener('DOMContentLoaded', function() {
 {% block app_js %}
 <link rel="stylesheet" href="{% static 'common/css/form_design.css' %}">
 <style>
-    /* Extend Item Code dropdown to cover the entire right panel width */
-    .pf-sel-popup[data-name="ItemCode"] {
-        width: 992px !important;
-        max-width: 90vw !important; /* Safety fallback for smaller screens */
-    }
 </style>
 <script src="{% static 'common/js/form_design.js' %}"></script>
 <script>
@@ -107,12 +102,51 @@ window._pfConfig = {
         lookupUrl        : "{% url 'inventory:item_master_load' %}",
         deleteIdField    : 'ItemID',
         deleteLabelField : 'ItemName',
+        onPopulate       : function(data) {
+            /* Lock the ItemCode lookup field once a record is loaded.
+               This prevents accidentally navigating to a different item
+               while the current item's data is in the form.             */
+            imLockItemCode(true);
+            
+            /* The profile_form.js engine allocates an extra loader slot
+               if onPopulate exists, expecting it to do an async sub-load.
+               Since ours is synchronous, we must manually consume the slot. */
+            if (typeof window._loaderDone === 'function') window._loaderDone();
+        },
         onSaveSuccess    : function(d) {
             window._isFormDirty = false;
             window.location.href = window.location.pathname;
         }
     }
 };
+
+/* ── Item Code lock/unlock helpers ──────────────────────────────────────── */
+/* Tracks whether an existing record is currently loaded in the form */
+window._imRecordLoaded = false;
+
+function imLockItemCode(lock) {
+    window._imRecordLoaded = !!lock;
+    var codeInp = document.getElementById('id_ItemCode');
+    if (!codeInp) return;
+
+    /* Lock / unlock the raw input */
+    codeInp.readOnly = !!lock;
+    codeInp.style.background     = lock ? '#e8e8e8' : '';
+    codeInp.style.cursor         = lock ? 'not-allowed' : '';
+    codeInp.style.pointerEvents  = lock ? 'none' : '';
+
+    /* Also lock the pf-select custom trigger (if upgraded) */
+    var wrap = codeInp._pfWrap || (codeInp.closest ? codeInp.closest('.pf-sel-wrap') : null);
+    if (wrap) {
+        var trigger = wrap.querySelector('.pf-sel-trigger');
+        if (trigger) {
+            trigger.style.background    = lock ? '#e8e8e8' : '';
+            trigger.style.cursor        = lock ? 'not-allowed' : '';
+            trigger.style.pointerEvents = lock ? 'none' : '';
+            trigger.style.opacity       = lock ? '0.7' : '';
+        }
+    }
+}
 
 /* ── Global Form Actions ── */
 function imClose() {
@@ -158,20 +192,21 @@ function initSelectItemModal() {
         subtitle : '',
         icon     : '<path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.267-8-12.356-8-5.096 0-5.096 8 0 8 5.096 0 7.261-8 12.356-8z" stroke-width="2"/>',
         width    : '480px',
-        height   : '260px',
-        staticBackdrop: true, // Prevents closing on click outside
+        height   : '390px',
+        staticBackdrop: true,
         tabs     : [
             { id: 'select_item_tab', label: 'Select Item' }
         ],
         toolbar  : [],
         onBuild: function(m) {
-            // Apply standard sizing class to modal box
             if (m._el) {
                 var box = m._el.querySelector('.utm-modal');
-                if (box) box.classList.add('utm-modal--standard');
+                if (box) {
+                    box.classList.add('utm-modal--standard');
+                    box.style.height = '390px'; /* override standard's 260px to fit 6 rows */
+                }
             }
 
-            // Hide left sidenav completely so the content takes full modal width
             var nav = document.getElementById('im-select-item-modal-nav');
             if (nav) nav.style.display = 'none';
 
@@ -182,114 +217,41 @@ function initSelectItemModal() {
             pane.style.flexDirection = 'column';
             pane.style.height = '100%';
             pane.style.minHeight = '0';
-            pane.style.overflowY = 'auto';
+            pane.style.overflow  = 'hidden'; /* clip — action bar must stay fixed at bottom */
+
+            function makeRow(id, label, checkId, code, altCode) {
+                var checkHtml = checkId ? 
+                    '<label for="'+checkId+'" style="display:inline-flex; align-items:center; gap:4px; margin-left:6px; cursor:pointer; font-size:11px; color:#555;">' +
+                    '<input type="checkbox" id="'+checkId+'" checked style="margin:0;"> Disable</label>' : '';
+                
+                var optionsHtml = '<option value=""></option>';
+                if (window.GROUP_CHOICES) {
+                    var choices = window.GROUP_CHOICES[code] || (altCode && window.GROUP_CHOICES[altCode]) || [];
+                    choices.forEach(function(c) {
+                        var safeC = c.replace(/"/g, '&quot;');
+                        optionsHtml += '<option value="'+safeC+'">'+safeC+'</option>';
+                    });
+                }
+
+                return '<div style="display:flex; align-items:center; gap:8px;">' +
+                    '<label for="'+id+'" style="width:85px; text-align:right; font-size:12px; font-weight:600; color:#333; user-select:none; flex-shrink:0;">'+label+'</label>' +
+                    '<div style="flex:1; display:flex; align-items:center; min-width:0;">' +
+                        '<div class="pf-field" style="flex:1; margin:0;"><select id="'+id+'" data-allow-add="1" style="width:100%;">' +
+                        optionsHtml + '</select></div>' + checkHtml +
+                    '</div></div>';
+            }
 
             var html = 
-                '<div style="background:#f0f0f0; padding:18px 20px 14px; display:flex; flex-direction:column; gap:12px; font-family:\'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif; flex:1; min-height:0; overflow-y:auto;">' +
-                    /* Row 1: Item */
-                    '<div style="display:flex; align-items:center; gap:8px;">' +
-                        '<label for="im-si-item-inp" style="width:85px; text-align:right; font-size:12px; font-weight:600; color:#333; user-select:none;">Item</label>' +
-                        '<div style="flex:1; display:flex; align-items:stretch; position:relative;">' +
-                            '<input type="text" id="im-si-item-inp" autocomplete="off"' +
-                                   ' style="flex:1; height:26px; padding:2px 8px; font-size:12px; border:1px solid #abadb3; border-radius:3px 0 0 3px; outline:none; background:#d4e6ff; transition:background 0.12s;"' +
-                                   ' placeholder="">' +
-                            '<button type="button" id="im-si-item-btn" tabindex="-1"' +
-                                    ' style="width:24px; height:26px; border:1px solid #abadb3; border-left:none; border-radius:0 3px 3px 0; background:linear-gradient(to bottom, #fcfcfc, #e4e4e4); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; outline:none;">' +
-                                '<svg viewBox="0 0 24 24" width="10" height="10" fill="#800000"><polygon points="6,9 12,16 18,9"/></svg>' +
-                            '</button>' +
-                            '<div id="im-si-item-dd" style="display:none; position:absolute; top:27px; left:0; right:0; max-height:160px; overflow-y:auto; background:#fff; border:1px solid #abadb3; border-radius:3px; box-shadow:0 4px 12px rgba(0,0,0,0.15); z-index:10000;"></div>' +
-                        '</div>' +
-                    '</div>' +
-
-                    /* Row 2: Group 1 */
-                    '<div style="display:flex; align-items:center; gap:8px;">' +
-                        '<label for="im-si-g1-inp" style="width:85px; text-align:right; font-size:12px; font-weight:600; color:#333; user-select:none;">Group 1</label>' +
-                        '<div style="flex:1; display:flex; align-items:stretch; position:relative;">' +
-                            '<input type="text" id="im-si-g1-inp" autocomplete="off"' +
-                                   ' style="flex:1; height:26px; padding:2px 8px; font-size:12px; border:1px solid #abadb3; border-radius:3px 0 0 3px; outline:none; background:#ffffff; transition:background 0.12s;"' +
-                                   ' placeholder="">' +
-                            '<button type="button" id="im-si-g1-btn" tabindex="-1"' +
-                                    ' style="width:24px; height:26px; border:1px solid #abadb3; border-left:none; border-radius:0 3px 3px 0; background:linear-gradient(to bottom, #fcfcfc, #e4e4e4); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; outline:none;">' +
-                                '<svg viewBox="0 0 24 24" width="10" height="10" fill="#800000"><polygon points="6,9 12,16 18,9"/></svg>' +
-                            '</button>' +
-                            '<div id="im-si-g1-dd" style="display:none; position:absolute; top:27px; left:0; right:0; max-height:160px; overflow-y:auto; background:#fff; border:1px solid #abadb3; border-radius:3px; box-shadow:0 4px 12px rgba(0,0,0,0.15); z-index:10000;"></div>' +
-                        '</div>' +
-                    '</div>' +
-
-                    /* Row 3: Group 2 */
-                    '<div style="display:flex; align-items:center; gap:8px;">' +
-                        '<label for="im-si-g2-inp" style="width:85px; text-align:right; font-size:12px; font-weight:600; color:#333; user-select:none;">Group 2</label>' +
-                        '<div style="flex:1; display:flex; align-items:stretch; position:relative;">' +
-                            '<input type="text" id="im-si-g2-inp" autocomplete="off"' +
-                                   ' style="flex:1; height:26px; padding:2px 8px; font-size:12px; border:1px solid #abadb3; border-radius:3px 0 0 3px; outline:none; background:#ffffff; transition:background 0.12s;"' +
-                                   ' placeholder="">' +
-                            '<button type="button" id="im-si-g2-btn" tabindex="-1"' +
-                                    ' style="width:24px; height:26px; border:1px solid #abadb3; border-left:none; border-radius:0 3px 3px 0; background:linear-gradient(to bottom, #fcfcfc, #e4e4e4); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; outline:none;">' +
-                                '<svg viewBox="0 0 24 24" width="10" height="10" fill="#800000"><polygon points="6,9 12,16 18,9"/></svg>' +
-                            '</button>' +
-                            '<div id="im-si-g2-dd" style="display:none; position:absolute; top:27px; left:0; right:0; max-height:160px; overflow-y:auto; background:#fff; border:1px solid #abadb3; border-radius:3px; box-shadow:0 4px 12px rgba(0,0,0,0.15); z-index:10000;"></div>' +
-                        '</div>' +
-                    '</div>' +
-
-                    /* Row 4: Group 3 */
-                    '<div style="display:flex; align-items:center; gap:8px;">' +
-                        '<label for="im-si-g3-chk" style="width:85px; text-align:right; font-size:12px; font-weight:600; color:#333; display:inline-flex; align-items:center; justify-content:flex-end; gap:4px; cursor:pointer; user-select:none;">' +
-                            '<input type="checkbox" id="im-si-g3-chk" checked tabindex="-1" style="cursor:pointer; margin:0; width:13px; height:13px;">' +
-                            '<span>Group 3</span>' +
-                        '</label>' +
-                        '<div style="flex:1; display:flex; align-items:stretch; position:relative;">' +
-                            '<input type="text" id="im-si-g3-inp" autocomplete="off"' +
-                                   ' style="flex:1; height:26px; padding:2px 8px; font-size:12px; border:1px solid #abadb3; border-radius:3px 0 0 3px; outline:none; background:#ffffff; transition:background 0.12s;"' +
-                                   ' placeholder="">' +
-                            '<button type="button" id="im-si-g3-btn" tabindex="-1"' +
-                                    ' style="width:24px; height:26px; border:1px solid #abadb3; border-left:none; border-radius:0 3px 3px 0; background:linear-gradient(to bottom, #fcfcfc, #e4e4e4); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; outline:none;">' +
-                                '<svg viewBox="0 0 24 24" width="10" height="10" fill="#800000"><polygon points="6,9 12,16 18,9"/></svg>' +
-                            '</button>' +
-                            '<div id="im-si-g3-dd" style="display:none; position:absolute; top:27px; left:0; right:0; max-height:160px; overflow-y:auto; background:#fff; border:1px solid #abadb3; border-radius:3px; box-shadow:0 4px 12px rgba(0,0,0,0.15); z-index:10000;"></div>' +
-                        '</div>' +
-                    '</div>' +
-                    
-                    /* Row 5: Group 4 */
-                    '<div style="display:flex; align-items:center; gap:8px;">' +
-                        '<label for="im-si-g4-chk" style="width:85px; text-align:right; font-size:12px; font-weight:600; color:#333; display:inline-flex; align-items:center; justify-content:flex-end; gap:4px; cursor:pointer; user-select:none;">' +
-                            '<input type="checkbox" id="im-si-g4-chk" checked tabindex="-1" style="cursor:pointer; margin:0; width:13px; height:13px;">' +
-                            '<span>Group 4</span>' +
-                        '</label>' +
-                        '<div style="flex:1; display:flex; align-items:stretch; position:relative;">' +
-                            '<input type="text" id="im-si-g4-inp" autocomplete="off"' +
-                                   ' style="flex:1; height:26px; padding:2px 8px; font-size:12px; border:1px solid #abadb3; border-radius:3px 0 0 3px; outline:none; background:#ffffff; transition:background 0.12s;"' +
-                                   ' placeholder="">' +
-                            '<button type="button" id="im-si-g4-btn" tabindex="-1"' +
-                                    ' style="width:24px; height:26px; border:1px solid #abadb3; border-left:none; border-radius:0 3px 3px 0; background:linear-gradient(to bottom, #fcfcfc, #e4e4e4); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; outline:none;">' +
-                                '<svg viewBox="0 0 24 24" width="10" height="10" fill="#800000"><polygon points="6,9 12,16 18,9"/></svg>' +
-                            '</button>' +
-                            '<div id="im-si-g4-dd" style="display:none; position:absolute; top:27px; left:0; right:0; max-height:160px; overflow-y:auto; background:#fff; border:1px solid #abadb3; border-radius:3px; box-shadow:0 4px 12px rgba(0,0,0,0.15); z-index:10000;"></div>' +
-                        '</div>' +
-                    '</div>' +
-                    
-                    /* Row 6: Group 5 */
-                    '<div style="display:flex; align-items:center; gap:8px;">' +
-                        '<label for="im-si-g5-chk" style="width:85px; text-align:right; font-size:12px; font-weight:600; color:#333; display:inline-flex; align-items:center; justify-content:flex-end; gap:4px; cursor:pointer; user-select:none;">' +
-                            '<input type="checkbox" id="im-si-g5-chk" checked tabindex="-1" style="cursor:pointer; margin:0; width:13px; height:13px;">' +
-                            '<span>Group 5</span>' +
-                        '</label>' +
-                        '<div style="flex:1; display:flex; align-items:stretch; position:relative;">' +
-                            '<input type="text" id="im-si-g5-inp" autocomplete="off"' +
-                                   ' style="flex:1; height:26px; padding:2px 8px; font-size:12px; border:1px solid #abadb3; border-radius:3px 0 0 3px; outline:none; background:#ffffff; transition:background 0.12s;"' +
-                                   ' placeholder="">' +
-                            '<button type="button" id="im-si-g5-btn" tabindex="-1"' +
-                                    ' style="width:24px; height:26px; border:1px solid #abadb3; border-left:none; border-radius:0 3px 3px 0; background:linear-gradient(to bottom, #fcfcfc, #e4e4e4); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; outline:none;">' +
-                                '<svg viewBox="0 0 24 24" width="10" height="10" fill="#800000"><polygon points="6,9 12,16 18,9"/></svg>' +
-                            '</button>' +
-                            '<div id="im-si-g5-dd" style="display:none; position:absolute; top:27px; left:0; right:0; max-height:160px; overflow-y:auto; background:#fff; border:1px solid #abadb3; border-radius:3px; box-shadow:0 4px 12px rgba(0,0,0,0.15); z-index:10000;"></div>' +
-                        '</div>' +
-                    '</div>' +
+                '<div id="im-si-fields-area" style="background:#f0f0f0; padding:18px 20px 14px; display:flex; flex-direction:column; gap:12px; font-family:\'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif; flex:1; min-height:0; overflow-y:auto;">' +
+                    makeRow('im-si-item-inp', 'Item', null, '29', null) +
+                    makeRow('im-si-g1-inp', 'Group 1', null, '1', '30') +
+                    makeRow('im-si-g2-inp', 'Group 2', null, '30', '31') +
+                    makeRow('im-si-g3-inp', 'Group 3', 'im-si-g3-chk', '31', '201') +
+                    makeRow('im-si-g4-inp', 'Group 4', 'im-si-g4-chk', '201', '202') +
+                    makeRow('im-si-g5-inp', 'Group 5', 'im-si-g5-chk', '202', '203') +
                 '</div>' +
-
-                /* Bottom Action Area: OK and Cancel using theme_constants.py */
-                '<div class="lm-action-bar">' +
-                    '<button type="button" class="pf-tb-btn" id="im-si-ok-btn" onclick="imConfirmSelectItem()"' +
-                            ' title="Confirm">' +
+                '<div class="lm-action-bar" id="im-si-action-bar" style="flex-shrink:0;">' +
+                    '<button type="button" class="pf-tb-btn" id="im-si-ok-btn" onclick="imConfirmSelectItem()" title="Confirm">' +
                         '<span class="pf-tb-btn-icon">' +
                             '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
                                 '<polyline points="9 11 12 14 22 4"/>' +
@@ -298,9 +260,7 @@ function initSelectItemModal() {
                         '</span>' +
                         '<span><span style="text-decoration:underline;">O</span>K</span>' +
                     '</button>' +
-
-                    '<button type="button" class="pf-tb-btn pf-tb-btn-danger" id="im-si-cancel-btn" onclick="imCloseSelectItem()"' +
-                            ' title="Cancel">' +
+                    '<button type="button" class="pf-tb-btn pf-tb-btn-danger" id="im-si-cancel-btn" onclick="imCloseSelectItem()" title="Cancel">' +
                         '<span class="pf-tb-btn-icon">' +
                             '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
                                 '<circle cx="12" cy="12" r="10"/>' +
@@ -312,55 +272,30 @@ function initSelectItemModal() {
                 '</div>';
 
             pane.innerHTML = html;
+
+            if (window.pfSelUpgradeOne) {
+                ['item', 'g1', 'g2', 'g3', 'g4', 'g5'].forEach(function(f) {
+                    var sel = document.getElementById('im-si-' + f + '-inp');
+                    if (sel) window.pfSelUpgradeOne(sel);
+                });
+            }
+
+            // Fallback: If pf_select is missing, use select2 as backup
+            if (!window.pfSelUpgradeOne && window.jQuery && $.fn.select2) {
+                ['item', 'g1', 'g2', 'g3', 'g4', 'g5'].forEach(function(f) {
+                    var sel = document.getElementById('im-si-' + f + '-inp');
+                    if (sel) {
+                        $(sel).select2({ width: '100%', dropdownParent: $('#im-select-item-modal'), tags: true });
+                    }
+                });
+            }
+
             imInitSelectItemEvents();
         },
-        onOpen: function(m) {
-            imResetSelectItemFields();
-        }
+        onOpen: function(m) {}
     });
 
     return selectItemModal;
-}
-
-function imResetSelectItemFields() {
-    var itemInp = document.getElementById('im-si-item-inp');
-    var g1Inp = document.getElementById('im-si-g1-inp');
-    var g2Inp = document.getElementById('im-si-g2-inp');
-    var g3Inp = document.getElementById('im-si-g3-inp');
-    var g4Inp = document.getElementById('im-si-g4-inp');
-    var g5Inp = document.getElementById('im-si-g5-inp');
-    var catInp = document.getElementById('im-si-cat-inp');
-    var valInp = document.getElementById('im-si-val-inp');
-    var valChk = document.getElementById('im-si-val-chk');
-
-    if (itemInp) {
-        itemInp.value = (document.getElementById('id_ItemText') || {}).value || '';
-        itemInp.style.background = '#d4e6ff';
-        setTimeout(function() { itemInp.focus(); }, 50);
-    }
-    if (g1Inp) g1Inp.value = (document.getElementById('id_ItemGroup1Text') || {}).value || '';
-    if (g2Inp) g2Inp.value = (document.getElementById('id_ItemGroup2Text') || {}).value || '';
-    if (g3Inp) g3Inp.value = (document.getElementById('id_ItemGroup3Text') || {}).value || '';
-    if (g4Inp) g4Inp.value = (document.getElementById('id_ItemGroup4Text') || {}).value || '';
-    if (g5Inp) g5Inp.value = (document.getElementById('id_ItemGroup5Text') || {}).value || '';
-
-    // Original catInp / valInp logic
-    var currentBrand = (document.getElementById('id_Brand') || {}).value || '';
-    var currentCat = (document.getElementById('id_Category') || {}).value || '';
-    if (catInp) {
-        catInp.value = currentBrand && currentCat ? (currentBrand + ' / ' + currentCat) : (currentBrand || currentCat || '');
-        catInp.style.background = '#ffffff';
-    }
-    if (valInp) {
-        valInp.value = '';
-        valInp.style.background = '#ffffff';
-    }
-    if (valChk) {
-        valChk.checked = true;
-        if (valInp) valInp.disabled = false;
-    }
-
-    imCloseAllSelectItemDropdowns();
 }
 
 function imCloseAllSelectItemDropdowns() {
@@ -998,6 +933,18 @@ if (document.readyState !== 'loading') {
 } else {
     document.addEventListener('DOMContentLoaded', imBindItemEvents);
 }
+
+/* ── Pre-load detection ─────────────────────────────────────────────────
+   If the server pre-populated the form with an existing item (e.g. the
+   view received ?id= on GET), lock the ItemCode field immediately so the
+   user cannot accidentally launch the Select Item modal and overwrite it. */
+document.addEventListener('DOMContentLoaded', function() {
+    var itemIdEl = document.getElementById('id_ItemID');
+    if (itemIdEl && itemIdEl.value && itemIdEl.value !== '0' && itemIdEl.value.trim() !== '') {
+        window._imRecordLoaded = true;
+        imLockItemCode(true);
+    }
+});
 
 /* ═══════════════════════════════════════════════════════════════════════
    SELLING RATES TWO-WAY CALCULATOR

@@ -329,6 +329,11 @@
                     keyEl.classList.add('pf-found');
                     keyEl.classList.remove('pf-notfound');
                     _toast('Record loaded', 's');
+                    /* Reset dirty flag — programmatic field-fill via pfPopulate/pfSelSetValue
+                       dispatches change events that should NOT count as user edits. */
+                    if (typeof window._isFormDirty !== 'undefined') {
+                        window._isFormDirty = false;
+                    }
                 } else {
                     keyEl.classList.add('pf-notfound');
                     keyEl.classList.remove('pf-found');

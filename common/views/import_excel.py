@@ -464,7 +464,7 @@ def import_excel_process(request):
             for idx, row in enumerate(rows):
                 excel_row_num = idx + 2
                 try:
-                    row = {re.sub(r'\\s*\\*\\s*', '', k).strip(): v for k, v in row.items()}
+                    row = {re.sub(r'\s*\*\s*$', '', k).strip(): v for k, v in row.items()}
                     resolved_row = dict(row)
                     for excel_key, category_id in itemgroup_cols.items():
                         raw_val = str(resolved_row.get(excel_key) or '').strip()
@@ -492,7 +492,6 @@ def import_excel_process(request):
                         _upsert_row(db_alias, table, pk_col, db_row)
                     imported += 1
     except Exception as exc:
-        # If the transaction is aborted, catch the block-level exception
         errors.append({'row': 'Batch', 'error': 'Batch transaction failed: ' + str(exc)})
         imported = 0
 

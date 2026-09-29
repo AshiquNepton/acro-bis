@@ -116,6 +116,7 @@ def resolve_itemgroup(cur, typecode: int, val) -> str:
     new_id = None
     for attempt in range(_MAX_RETRIES):
         try:
+            cur.execute('SAVEPOINT ig_insert')
             cur.execute('SELECT COALESCE(MAX("GroupID"), 0) + 1 FROM "ItemGroups"')
             new_id = cur.fetchone()[0]
             cur.execute(
@@ -123,13 +124,15 @@ def resolve_itemgroup(cur, typecode: int, val) -> str:
                 'VALUES (%s, %s, %s)',
                 [new_id, typecode, s_val],
             )
+            cur.execute('RELEASE SAVEPOINT ig_insert')
             logger.info(
-                'resolve_itemgroup: inserted "%s" → GroupID=%s (Category=%s)',
+                'resolve_itemgroup: inserted "%s" -> GroupID=%s (Category=%s)',
                 s_val, new_id, typecode,
             )
             return str(new_id)
         except Exception:
-            # Another process may have inserted the same ID — re-check
+            cur.execute('ROLLBACK TO SAVEPOINT ig_insert')
+            # Another process may have inserted the same ID or constraint failed - re-check
             cur.execute(
                 'SELECT "GroupID" FROM "ItemGroups" '
                 'WHERE "Category" = %s AND LOWER("Description") = LOWER(%s) LIMIT 1',
@@ -139,11 +142,11 @@ def resolve_itemgroup(cur, typecode: int, val) -> str:
             if row:
                 return str(row[0])
             logger.debug(
-                'resolve_itemgroup: collision on attempt %d for "%s" (Category=%s), retrying…',
+                'resolve_itemgroup: collision on attempt %d for "%s" (Category=%s), retrying...',
                 attempt + 1, s_val, typecode,
             )
 
-    # Last-resort fallback — return whatever new_id was computed last
+    # Last-resort fallback - return whatever new_id was computed last
     logger.warning(
         'resolve_itemgroup: exhausted retries for "%s" (Category=%s), returning %s',
         s_val, typecode, new_id,

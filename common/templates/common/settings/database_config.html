@@ -29,15 +29,15 @@ function testConnection() {
     .then(r => r.json())
     .then(data => {
         btn.innerHTML = orig; btn.disabled = false;
-        alert(data.success ? '✅ Connection Successful!\n\n' + data.message : '❌ Connection Failed\n\n' + data.error);
+        showAlert(data.success ? 'Connection Successful! ' + data.message : 'Connection Failed! ' + data.error, data.success ? 'success' : 'error', 'Database Test');
     })
-    .catch(e => { btn.innerHTML = orig; btn.disabled = false; alert('❌ Error: ' + e); });
+    .catch(e => { btn.innerHTML = orig; btn.disabled = false; showAlert('Error: ' + e, 'error', 'Connection Error'); });
 }
 
 function saveDatabase() {
     const form = document.getElementById('database-config-form');
     if (!form.checkValidity()) { form.reportValidity(); return; }
-    if (confirm('Save database configuration?\n\nRestart server after saving.')) form.submit();
+    showConfirm('Save database configuration? Restart server after saving.', function(c) { if(c) form.submit(); }, 'warning', 'Save Configuration');
 }
 </script>
 {% endblock %}

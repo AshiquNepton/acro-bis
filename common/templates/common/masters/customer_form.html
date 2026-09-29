@@ -39,7 +39,7 @@ window._pfConfig = {
 
 /* Toolbar handlers */
 function pfClose()      { history.back(); }
-function pfNew()        { if (confirm('Clear form?')) pfClear(); }
+function pfNew()        { if (typeof showConfirm === 'function') { showConfirm('Clear form?', function(c) { if(c) pfClear(); }, 'warning', 'Clear'); } else { pfClear(); } }
 function pfSave()       { _pfSave(); }
 function pfDelete()     { _pfDelete(); }
 

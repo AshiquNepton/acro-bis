@@ -1055,84 +1055,97 @@ def save_item(request):
 def load_item(request):
     """
     Load a single item by ItemCode or ItemID.
-    Merges data from InventoryItems + Stocks into one dict for the form.
+    Merges data from InventoryItems + Stocks + ItemGroups in ONE query.
 
-    GET params: ?ItemCode=XXX  or  ?ItemID=123
+    GET params: ?field=ItemCode&value=XXX  (pfLookupNow standard)
+                ?ItemCode=XXX              (direct)
+                ?ItemID=123               (by ID)
+
+    Performance: single LEFT JOIN — no serial round-trips, no DDL on hot path.
     """
+    from decimal import Decimal
+    from datetime import date, datetime
+
     try:
-        db         = get_customer_db()
-        item_code  = request.GET.get('ItemCode', '').strip()
-        item_id    = request.GET.get('ItemID', '').strip()
-        
-        # Support pfLookupNow standard ?field=&value=
-        field = request.GET.get('field', '').strip()
-        val = request.GET.get('value', '').strip()
-        
+        db = get_customer_db()
 
-        if field == 'ItemCode': item_code = val
-        if field == 'ItemID': item_id = val
+        # ── Resolve lookup key ─────────────────────────────────────────────
+        field_param = request.GET.get('field', '').strip()
+        val_param   = request.GET.get('value', '').strip()
+        item_code   = request.GET.get('ItemCode', val_param if field_param == 'ItemCode' else '').strip()
+        item_id     = request.GET.get('ItemID',   val_param if field_param == 'ItemID'   else '').strip()
 
-        from inventory.models.item import ensure_inventory_items_table
-        from inventory.models.stock import ensure_stocks_table
-        ensure_inventory_items_table(db)
-        ensure_stocks_table(db)
+        if not item_code and not item_id:
+            return JsonResponse({'success': False, 'error': 'Provide ItemCode or ItemID'})
+
+        # ── Single JOIN query: InventoryItems + Stocks + ItemGroups ───────
+        # Aliases: i.* for InventoryItems, s.* for Stocks.
+        # ItemGroup texts resolved in the same pass via a lateral subquery.
+        # Using LOWER() equality is index-friendly (add a functional index if needed).
+        if item_code:
+            where_clause = 'LOWER(i."ItemCode") = LOWER(%s)'
+            where_param  = item_code
+        else:
+            where_clause = 'i."ItemID" = %s'
+            where_param  = int(item_id)
+
+        sql = f"""
+            SELECT
+                i.*,
+                s."Rate0", s."Rate1", s."Rate2", s."Rate3", s."Rate4", s."Rate5",
+                s."LUCost", s."FirmID", s."Vendor",
+                s."Discount"        AS "StockDiscount",
+                s."SpecialDiscount", s."PurchaseDiscount",
+                s."PurchaseDate",   s."BillNo", s."StockDate",
+                s."MultiUnitData",
+                s."Unit1BaseRate",  s."Unit1MRPRate",  s."Unit1DRPRate",  s."Unit1FDPRate",  s."Unit1BranchRate",
+                s."Unit2BaseRate",  s."Unit2MRPRate",  s."Unit2DRPRate",  s."Unit2FDPRate",  s."Unit2BranchRate",
+                s."Unit3BaseRate",  s."Unit3MRPRate",  s."Unit3DRPRate",  s."Unit3FDPRate",  s."Unit3BranchRate",
+                s."Unit4BaseRate",  s."Unit4MRPRate",  s."Unit4DRPRate",  s."Unit4FDPRate",  s."Unit4BranchRate",
+                s."Unit5BaseRate",  s."Unit5MRPRate",  s."Unit5DRPRate",  s."Unit5FDPRate",  s."Unit5BranchRate",
+                s."Unit6BaseRate",  s."Unit6MRPRate",  s."Unit6DRPRate",  s."Unit6FDPRate",  s."Unit6BranchRate",
+                -- ItemGroup description texts (correlated scalar subqueries — single pass)
+                (SELECT "Description" FROM "ItemGroups" WHERE "GroupID" = i."Item"       LIMIT 1) AS "ItemText",
+                (SELECT "Description" FROM "ItemGroups" WHERE "GroupID" = i."ItemGroup1" LIMIT 1) AS "ItemGroup1Text",
+                (SELECT "Description" FROM "ItemGroups" WHERE "GroupID" = i."ItemGroup2" LIMIT 1) AS "ItemGroup2Text",
+                (SELECT "Description" FROM "ItemGroups" WHERE "GroupID" = i."ItemGroup3" LIMIT 1) AS "ItemGroup3Text",
+                (SELECT "Description" FROM "ItemGroups" WHERE "GroupID" = i."ItemGroup4" LIMIT 1) AS "ItemGroup4Text",
+                (SELECT "Description" FROM "ItemGroups" WHERE "GroupID" = i."ItemGroup5" LIMIT 1) AS "ItemGroup5Text"
+            FROM "InventoryItems" i
+            LEFT JOIN "Stocks" s ON s."ItemID" = i."ItemID"
+            WHERE {where_clause}
+            LIMIT 1
+        """
 
         with connections[db].cursor() as cur:
-            # Fetch from InventoryItems
-            if item_code:
-                cur.execute('SELECT * FROM "InventoryItems" WHERE "ItemCode" ILIKE %s', [item_code])
-            elif item_id:
-                cur.execute('SELECT * FROM "InventoryItems" WHERE "ItemID" = %s', [item_id])
-            else:
-                return JsonResponse({'success': False, 'error': 'Provide ItemCode or ItemID'})
-
+            cur.execute(sql, [where_param])
             row = cur.fetchone()
             if not row:
                 return JsonResponse({'success': False, 'error': 'Item not found'})
-
             cols = [d[0] for d in cur.description]
             data = dict(zip(cols, row))
 
-            # Map CreatedAt → RegDate
-            created_at = data.get('CreatedAt')
-            if created_at:
-                if hasattr(created_at, 'strftime'):
-                    data['RegDate'] = created_at.strftime('%Y-%m-%d')
-                else:
-                    data['RegDate'] = str(created_at)[:10]
-
-            # Fetch related Stocks row
-            resolved_id = data.get('ItemID')
-            if resolved_id:
-                cur.execute('SELECT * FROM "Stocks" WHERE "ItemID" = %s', [resolved_id])
-                stock_row = cur.fetchone()
-                if stock_row:
-                    stock_cols = [d[0] for d in cur.description]
-                    data.update(dict(zip(stock_cols, stock_row)))
-                    data['multiunit_data'] = data.get('MultiUnitData') or ''
-
-        # Serialise dates/decimals
-        from datetime import date, datetime
+        # ── Serialise: dates, decimals, None ──────────────────────────────
         for k, v in data.items():
-            if isinstance(v, (date, datetime)):
+            if v is None:
+                data[k] = ''
+            elif isinstance(v, (date, datetime)):
                 data[k] = v.strftime('%Y-%m-%d')
-            elif hasattr(v, '__float__'):
+            elif isinstance(v, Decimal):
                 data[k] = str(v)
 
-        
-        # Also resolve the ItemGroups texts for the split modal!
-        group_ids = []
-        for f in ['Item', 'ItemGroup1', 'ItemGroup2', 'ItemGroup3', 'ItemGroup4', 'ItemGroup5']:
-            if data.get(f):
-                group_ids.append(str(data[f]))
-                
-        if group_ids:
-            with connections[db].cursor() as cur2:
-                cur2.execute('SELECT "GroupID", "Description" FROM "ItemGroups" WHERE "GroupID" = ANY(%s::int[])', [group_ids])
-                desc_map = {str(row[0]): row[1] for row in cur2.fetchall()}
-                for f in ['Item', 'ItemGroup1', 'ItemGroup2', 'ItemGroup3', 'ItemGroup4', 'ItemGroup5']:
-                    if data.get(f):
-                        data[f + 'Text'] = desc_map.get(str(data[f]), '')
+        # ── Derived fields ─────────────────────────────────────────────────
+        # CreatedAt → RegDate
+        created_at = data.get('CreatedAt') or data.get('RegDate')
+        if created_at and len(str(created_at)) >= 10:
+            data['RegDate'] = str(created_at)[:10]
+
+        # MultiUnitData alias
+        data['multiunit_data'] = data.get('MultiUnitData') or ''
+
+        # StockDiscount is stored under alias — keep original Discount too
+        if 'StockDiscount' in data and 'Discount' not in data:
+            data['Discount'] = data['StockDiscount']
 
         return JsonResponse({'success': True, 'data': data, 'pk': data.get('ItemID')})
 
