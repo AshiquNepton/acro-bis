@@ -15,4 +15,38 @@
 
 {% block app_js %}
 <script src="{% static 'common/js/rpt.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var lazyUrl = '{{ r.lazy_load_url|escapejs }}';
+    var lazyOffset = {{ r.lazy_load_offset|default:0 }};
+    var rid = '{{ r.id|escapejs }}';
+    
+    if (lazyUrl && lazyOffset > 0) {
+        var t0 = performance.now();
+        fetch(lazyUrl + '?offset=' + lazyOffset)
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success && data.rows && data.rows.length > 0) {
+                    var t1 = performance.now();
+                    var timeTaken = ((t1 - t0) / 1000).toFixed(2);
+                    
+                    // Append new rows to existing rows
+                    var currentRows = window._rptRows[rid] || [];
+                    var allRows = currentRows.concat(data.rows);
+                    window._rptRows[rid] = allRows;
+                    
+                    if (typeof window.rptSetRows === 'function') {
+                        window.rptSetRows(rid, allRows);
+                        if (typeof window.pfToast === 'function') {
+                            window.pfToast('Loaded ' + allRows.length + ' total rows in ' + timeTaken + 's.', 's');
+                        }
+                    }
+                }
+            })
+            .catch(function(err) {
+                console.error("Failed to lazy load stock report data", err);
+            });
+    }
+});
+</script>
 {% endblock %}

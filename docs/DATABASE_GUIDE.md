@@ -20,6 +20,16 @@ This document defines the safe, migration-based approach to database schema mana
 
 ---
 
+## 2. CRUD Uniformity Mandate
+
+> All database reads and writes **MUST** go through base functions defined in `core.crud` (e.g., `BaseCRUD` methods, `fetch_all`, `safe_atomic`).
+>
+> You **MUST NOT** use raw `cursor.execute(...)` calls directly in views, services, or models.
+>
+> If you need a new generic database operation, you must add it as a base function in `core.crud` (after asking for the preferred function name) and call it from your module.
+
+---
+
 ## 2. Where Schema Changes Belong
 
 - **Django migrations** (`<app>/migrations/`) are the default mechanism for any model-backed schema change. See existing examples like `common/migrations/0001_initial.py`.

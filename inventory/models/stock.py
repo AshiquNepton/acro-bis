@@ -133,13 +133,13 @@ def ensure_stocks_table(db_alias: str, force: bool = False) -> bool:
     ]
 
     try:
-        with connections[db_alias].cursor() as cur:
-            cur.execute(ddl)
-            for sql in _migrate_sql:
-                try:
-                    cur.execute(sql)
-                except Exception:
-                    pass  # column may already exist with right type
+        from core.crud import execute_sql
+        execute_sql(db_alias, ddl)
+        for sql in _migrate_sql:
+            try:
+                execute_sql(db_alias, sql)
+            except Exception:
+                pass  # column may already exist with right type
         _ENSURED_STOCK_TABLES.add(db_alias)
         logger.debug('ensure_stocks_table: table ready in %s', db_alias)
         return True

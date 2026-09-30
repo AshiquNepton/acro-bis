@@ -140,8 +140,16 @@
         /* Modal */
         var modal = document.createElement('div');
         modal.className = 'utm-modal';
-        modal.style.width    = cfg.width || '50%';
-        modal.style.minWidth = cfg.minWidth || '400px';
+        
+        var w = cfg.width, mw = cfg.minWidth;
+        var sz = (cfg.size || '').toLowerCase();
+        if (sz === 'sm' || sz === 'small') { w = '480px'; mw = '400px'; }
+        else if (sz === 'md' || sz === 'medium') { w = '780px'; mw = '600px'; }
+        else if (sz === 'lg' || sz === 'large') { w = '1000px'; mw = '800px'; }
+        else { w = w || '50%'; mw = mw || '400px'; } // Default fallback
+        
+        modal.style.width    = w;
+        modal.style.minWidth = mw;
         modal.style.height   = cfg.height || '50vh';
         modal.style.minHeight = cfg.minHeight || '320px';
         modal.setAttribute('role', 'dialog');

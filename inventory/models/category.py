@@ -57,13 +57,13 @@ def ensure_category_table(db_alias: str, force: bool = False) -> bool:
     ]
 
     try:
-        with connections[db_alias].cursor() as cur:
-            cur.execute(ddl)
-            for sql in _migrate_alters:
-                try:
-                    cur.execute(sql)
-                except Exception:
-                    pass
+        from core.crud import execute_sql
+        execute_sql(db_alias, ddl)
+        for sql in _migrate_alters:
+            try:
+                execute_sql(db_alias, sql)
+            except Exception:
+                pass
         _ENSURED_CAT_TABLES.add(db_alias)
         logger.debug('ensure_category_table: table ready in %s', db_alias)
         return True

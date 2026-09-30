@@ -725,6 +725,9 @@ window.addEventListener('resize', _repositionAllSelectPopups);
             header = document.createElement('div');
             header.className = 'pf-sel-grid-hdr';
             header.innerHTML = '<div class="pf-grid-col1">Code<div class="pf-resizer"></div></div><div class="pf-grid-col2">Description</div>';
+            if (name === 'ItemCode') {
+                header.style.display = 'none';
+            }
             
             var resizer = header.querySelector('.pf-resizer');
             resizer.addEventListener('mousedown', function(e) {

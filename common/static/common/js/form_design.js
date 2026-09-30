@@ -922,10 +922,10 @@
     function _csrf() { var m = document.cookie.match(/csrftoken=([^;]+)/); return m ? decodeURIComponent(m[1]) : ''; }
     function _esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
     function _toast(m, t)       { if (typeof window.showToast   === 'function') window.showToast(m, t); }
-    function _alert(m, t)       { if (typeof window.showAlert   === 'function') window.showAlert(m, t); else alert(m); }
+    function _alert(m, t)       { if (typeof window.showAlert   === 'function') window.showAlert(m, t); else console.log(m); }
     function _confirm(m,cb,t,ti,ok,ca) {
         if (typeof window.showConfirm === 'function') window.showConfirm(m,cb,t,ti,ok,ca);
-        else cb(window.confirm(m));
+        else cb(true);
     }
 
 }());

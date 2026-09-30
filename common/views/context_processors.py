@@ -68,6 +68,8 @@ def sidebar_context(request):
                 {
                     'id': 'registration', 'label': 'Registration', 'icon': I['Note'],
                     'items': [
+                        {'label': 'Company Info', 'url': 'common:company_form'},
+                        {'label': 'Group Setup',  'url': 'common:group_setup'},
                         {'label': 'Item Master', 'url': 'inventory:item_master'},
                         {'label': 'Customer',    'url': 'common:customer'},
                         {'label': 'Vendor',      'url': 'common:vendor'},
@@ -77,10 +79,11 @@ def sidebar_context(request):
                 {
                     'id': 'settings', 'label': 'Settings', 'icon': I['Settings'],
                     'items': [
-                        {'label': 'Company Info',    'url': 'common:company_form'},
                         {'label': 'Database Config', 'url': 'common:database_config'},
                         {'label': 'Theme',           'url': 'common:theme_settings'},
-                        {'label': 'Default Settings', 'url': '#', 'onclick': 'openDefaultSettings()'},
+                        {'label': 'Import from Excel', 'url': 'common:import_excel_view'},
+                        {'label': 'Default Settings', 'url': '#', 'onclick': 'openDefaultSettings()'},
+
         {'label': 'Logout',          'url': 'common:logout'},
                     ]
                 },
@@ -116,6 +119,8 @@ def sidebar_context(request):
                 {
                     'id': 'registration', 'label': 'Registration', 'icon': I['Note'],
                     'items': [
+                        {'label': 'Company Info', 'url': 'common:company_form'},
+                        {'label': 'Group Setup',  'url': 'common:group_setup'},
                         {'label': 'Item Master', 'url': 'inventory:item_master'},
                         {'label': 'Customer',    'url': 'common:customer'},
                         {'label': 'Vendor',      'url': 'common:vendor'},
@@ -125,10 +130,11 @@ def sidebar_context(request):
                 {
                     'id': 'settings', 'label': 'Settings', 'icon': I['Settings'],
                     'items': [
-                        {'label': 'Company Info',    'url': 'common:company_form'},
                         {'label': 'Database Config', 'url': 'common:database_config'},
                         {'label': 'Theme',           'url': 'common:theme_settings'},
-                        {'label': 'Default Settings', 'url': '#', 'onclick': 'openDefaultSettings()'},
+                        {'label': 'Import from Excel', 'url': 'common:import_excel_view'},
+                        {'label': 'Default Settings', 'url': '#', 'onclick': 'openDefaultSettings()'},
+
         {'label': 'Logout',          'url': 'common:logout'},
                     ]
                 },
@@ -145,18 +151,21 @@ def sidebar_context(request):
                     ]
                 },
                 {
-                    'id': 'inventory', 'label': 'Inventory', 'icon': I['Note'],
+                    'id': 'tasks', 'label': 'Tasks', 'icon': I['Note'],
                     'items': [
-                                                {'label': 'Stock Entry', 'url': '#'},
+                        {'label': 'Stock Entry', 'url': '#'},
                         {'label': 'Purchase Order', 'url': '#'},
                     ]
                 },
                 {
-                    'id': 'masters', 'label': 'Masters', 'icon': I['Customer'],
+                    'id': 'registration', 'label': 'Registration', 'icon': I['Note'],
                     'items': [
                         {'label': 'Company Info', 'url': 'common:company_form'},
-                                                {'label': 'Group Setup',  'url': 'common:group_setup'},
-                                                {'label': 'Import from Excel', 'url': 'common:import_excel_view'},
+                        {'label': 'Group Setup',  'url': 'common:group_setup'},
+                        {'label': 'Item Master', 'url': 'inventory:item_master'},
+                        {'label': 'Customer',    'url': 'common:customer'},
+                        {'label': 'Vendor',      'url': 'common:vendor'},
+                        {'label': 'Department',  'url': 'common:department_form'},
                     ]
                 },
                 {
@@ -168,20 +177,13 @@ def sidebar_context(request):
                     ]
                 },
                 {
-                    'id': 'registration', 'label': 'Registration', 'icon': I['Note'],
-                    'items': [
-                        {'label': 'Item Master', 'url': 'inventory:item_master'},
-                        {'label': 'Customer',    'url': 'common:customer'},
-                        {'label': 'Vendor',      'url': 'common:vendor'},
-                        {'label': 'Department',  'url': 'common:department_form'},
-                    ]
-                },
-                {
                     'id': 'settings', 'label': 'Settings', 'icon': I['Settings'],
                     'items': [
                         {'label': 'Database Config', 'url': 'common:database_config'},
                         {'label': 'Theme',           'url': 'common:theme_settings'},
-                        {'label': 'Default Settings', 'url': '#', 'onclick': 'openDefaultSettings()'},
+                        {'label': 'Import from Excel', 'url': 'common:import_excel_view'},
+                        {'label': 'Default Settings', 'url': '#', 'onclick': 'openDefaultSettings()'},
+
         {'label': 'Logout',          'url': 'common:logout'},
                     ]
                 },
@@ -207,16 +209,10 @@ def sidebar_context(request):
                     ]
                 },
                 {
-                    'id': 'masters', 'label': 'Masters', 'icon': I['Customer'],
-                    'items': [
-                        {'label': 'Company Info', 'url': 'common:company_form'},
-                                                {'label': 'Group Setup',  'url': 'common:group_setup'},
-                                                {'label': 'Import from Excel', 'url': 'common:import_excel_view'},
-                    ]
-                },
-                {
                     'id': 'registration', 'label': 'Registration', 'icon': I['Note'],
                     'items': [
+                        {'label': 'Company Info', 'url': 'common:company_form'},
+                        {'label': 'Group Setup',  'url': 'common:group_setup'},
                         {'label': 'Item Master', 'url': 'inventory:item_master'},
                         {'label': 'Customer',    'url': 'common:customer'},
                         {'label': 'Vendor',      'url': 'common:vendor'},
@@ -228,7 +224,9 @@ def sidebar_context(request):
                     'items': [
                         {'label': 'Database Config', 'url': 'common:database_config'},
                         {'label': 'Theme',           'url': 'common:theme_settings'},
-                        {'label': 'Default Settings', 'url': '#', 'onclick': 'openDefaultSettings()'},
+                        {'label': 'Import from Excel', 'url': 'common:import_excel_view'},
+                        {'label': 'Default Settings', 'url': '#', 'onclick': 'openDefaultSettings()'},
+
         {'label': 'Logout',          'url': 'common:logout'},
                     ]
                 },
@@ -238,16 +236,10 @@ def sidebar_context(request):
         navbar_config = {
             'sections': [
                 {
-                    'id': 'masters', 'label': 'Masters', 'icon': I['Dashboard'], 'active': True,
-                    'items': [
-                        {'label': 'Company Info', 'url': 'common:company_form'},
-                                                {'label': 'Group Setup',  'url': 'common:group_setup'},
-                                                {'label': 'Import from Excel', 'url': 'common:import_excel_view'},
-                    ]
-                },
-                {
                     'id': 'registration', 'label': 'Registration', 'icon': I['Note'],
                     'items': [
+                        {'label': 'Company Info', 'url': 'common:company_form'},
+                        {'label': 'Group Setup',  'url': 'common:group_setup'},
                         {'label': 'Item Master', 'url': 'inventory:item_master'},
                         {'label': 'Customer',    'url': 'common:customer'},
                         {'label': 'Vendor',      'url': 'common:vendor'},
@@ -259,7 +251,9 @@ def sidebar_context(request):
                     'items': [
                         {'label': 'Database Config', 'url': 'common:database_config'},
                         {'label': 'Theme',           'url': 'common:theme_settings'},
-                        {'label': 'Default Settings', 'url': '#', 'onclick': 'openDefaultSettings()'},
+                        {'label': 'Import from Excel', 'url': 'common:import_excel_view'},
+                        {'label': 'Default Settings', 'url': '#', 'onclick': 'openDefaultSettings()'},
+
         {'label': 'Logout',          'url': 'common:logout'},
                     ]
                 },

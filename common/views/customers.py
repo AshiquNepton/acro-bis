@@ -4,20 +4,15 @@ from django.http import JsonResponse
 from common.views.decorators import login_required
 from common.views.party_master import (
     build_party_form_config, save_party, load_party, 
-    delete_party, lookup_party, generate_next_party_code, get_party_code_options
+    delete_party, lookup_party, generate_next_party_code, get_party_code_options, base_party_ctx
 )
 
 logger = logging.getLogger(__name__)
 
-def _base_ctx(request, title):
-    return {
-        'page_title': title,
-        'user_info': {'name': request.session.get('username', 'User'), 'id': request.session.get('custid', 'N/A')},
-    }
 
 @login_required
 def customer_form(request):
-    ctx = _base_ctx(request, 'Customer Management')
+    ctx = base_party_ctx(request, 'Customer Management')
     
     # Generate next code or use existing one from request
     ac_code = request.GET.get('AcCode', '').strip()
@@ -31,6 +26,7 @@ def customer_form(request):
         ac_code=ac_code or next_code,
         ac_code_options=ac_code_options
     )
+    ctx['page_title'] = 'Customer'
     return render(request, 'common/masters/customer_form.html', ctx)
 
 def save_customer(request):

@@ -47,10 +47,6 @@
 
     <div class="rpt-topbar-left">
         {% if r.icon %}<span class="rpt-icon">{{ r.icon|safe }}</span>{% endif %}
-        <div class="rpt-title-block">
-            <h1 class="rpt-title">{{ r.title }}</h1>
-            {% if r.subtitle %}<p class="rpt-subtitle">{{ r.subtitle }}</p>{% endif %}
-        </div>
     </div>
 
     <div class="rpt-topbar-right">
@@ -184,7 +180,7 @@
             <div class="rpt-list-wrap">
                 <table class="rpt-tbl" id="rpt-list-tbl-{{ r.id }}">
                     <thead><tr>
-                        {% for col in r.cols %}{% if col.type != 'photo' %}<th data-col="{{ col.key }}" style="{% if col.width %}width:{{ col.width }}px;min-width:{{ col.width }}px;max-width:{{ col.width }}px;{% endif %}{% if col.align %}text-align:{{ col.align }};{% elif col.type == 'number' %}text-align:right;{% endif %}">{{ col.label }}</th>{% endif %}{% endfor %}
+                        {% for col in r.cols %}{% if col.type != 'photo' %}<th data-col="{{ col.key }}" style="{% if col.width %}width:{{ col.width }}px;min-width:{{ col.width }}px;{% endif %}{% if col.align %}text-align:{{ col.align }};{% elif col.type == 'number' %}text-align:right;{% endif %}">{{ col.label }}</th>{% endif %}{% endfor %}
                     </tr></thead>
                     <tbody id="rpt-list-body-{{ r.id }}"></tbody>
                 </table>
@@ -198,7 +194,7 @@
                 <table class="rpt-tbl rpt-tbl--grid" id="rpt-grid-tbl-{{ r.id }}">
                     <thead><tr>
                         <th style="width:44px;min-width:44px;max-width:44px"></th>
-                        {% for col in r.cols %}{% if col.type != 'photo' %}<th data-col="{{ col.key }}" style="{% if col.width %}width:{{ col.width }}px;min-width:{{ col.width }}px;max-width:{{ col.width }}px;{% endif %}{% if col.align %}text-align:{{ col.align }};{% elif col.type == 'number' %}text-align:right;{% endif %}">{{ col.label }}</th>{% endif %}{% endfor %}
+                        {% for col in r.cols %}{% if col.type != 'photo' %}<th data-col="{{ col.key }}" style="{% if col.width %}width:{{ col.width }}px;min-width:{{ col.width }}px;{% endif %}{% if col.align %}text-align:{{ col.align }};{% elif col.type == 'number' %}text-align:right;{% endif %}">{{ col.label }}</th>{% endif %}{% endfor %}
                     </tr></thead>
                     <tbody id="rpt-grid-body-{{ r.id }}"></tbody>
                 </table>
@@ -275,20 +271,20 @@
         var _orig = window.rptSetView;
         window.rptSetView = function(rid, view, btn) {
             try { localStorage.setItem('rpt_view_' + rid, view); } catch(e) {}
-            console.log('[rpt] view saved → rpt_view_' + rid + ' = "' + view + '"');
+
             _orig(rid, view, btn);
         };
-        console.log('[rpt] rptSetView persistence wrapper installed');
+
     }
 
     function _restoreSavedView(rid) {
         var saved = '';
         try { saved = localStorage.getItem('rpt_view_' + rid) || ''; } catch(e) {}
         if (!saved) {
-            console.log('[rpt] no saved view for ' + rid);
+
             return;
         }
-        console.log('[rpt] restoring view "' + saved + '" for ' + rid);
+
         var attempts = 0;
         var timer = setInterval(function() {
             attempts++;
@@ -296,10 +292,10 @@
             if (btn && typeof window.rptSetView === 'function') {
                 clearInterval(timer);
                 if (btn.classList.contains('active')) {
-                    console.log('[rpt] view already active: ' + saved);
+
                 } else {
                     btn.click();
-                    console.log('[rpt] view restored to: ' + saved + ' (attempt ' + attempts + ')');
+
                 }
             } else if (attempts >= 40) {
                 clearInterval(timer);
@@ -361,7 +357,7 @@
         if (currentStyle) {
             try {
                 localStorage.setItem('rpt_last_style_' + rid, currentStyle);
-                console.log('[rpt] default style saved → rpt_last_style_' + rid + ' = "' + currentStyle + '"');
+
             } catch(e) { console.warn('[rpt] localStorage write failed:', e); }
             if (typeof window.pfToast === 'function')
                 window.pfToast('Default style set: ' + currentStyle, 's');
@@ -455,7 +451,7 @@
     (function _installLastStyleFallback() {
 
         if (typeof window.rptGetLastStyle === 'function') {
-            console.log('[rpt] rpt_print.js owns style restore — fallback skipped');
+
             return;
         }
 
@@ -471,7 +467,7 @@
             }
             var last = '';
             try { last = localStorage.getItem('rpt_last_style_' + reportId) || ''; } catch(e) {}
-            if (!last) { console.log('[rpt] no saved style for', reportId); return; }
+            if (!last) {  return; }
             var found = false;
             for (var i = 0; i < styleSel.options.length; i++) {
                 if (styleSel.options[i].value === last) {
@@ -479,7 +475,7 @@
                     if (typeof window.pfSelSetValue === 'function')
                         window.pfSelSetValue('rptf-report-style', last);
                     found = true;
-                    console.log('[rpt] style auto-selected: "' + last + '"');
+
                     break;
                 }
             }
@@ -498,7 +494,7 @@
                 setTimeout(function() { _applyStyle(reportId); }, 400);
             };
             window.rptOpenFilterModal = _currentlyWrapped;
-            console.log('[rpt] _lastStyleFallback installed/re-installed (poll #' + _pollCount + ')');
+
         }
 
         /* First attempt immediately */
@@ -510,7 +506,7 @@
             _wrapIfChanged();
             if (typeof window.rptGetLastStyle === 'function' || _pollCount >= 50) {
                 clearInterval(_pollTimer);
-                console.log('[rpt] _lastStyleFallback poll ended at check #' + _pollCount);
+
             }
         }, 100);
 

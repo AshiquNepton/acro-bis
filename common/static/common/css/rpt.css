@@ -442,6 +442,7 @@
 
 /* Table — fixed layout so colgroup widths are honoured */
 .rpt-tbl {
+    width: 100%;
     border-collapse: collapse;
     font-size: 12.5px;
     font-family: inherit;

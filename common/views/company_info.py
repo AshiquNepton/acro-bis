@@ -449,7 +449,39 @@ def company_form(request):
         company_options=company_options,
         business_type=business_type,
     )
+
+    if auto_select:
+        try:
+            company = Organization.objects.using(customer_db).get(CompanyId=auto_select)
+            data = {}
+            for db_field, form_field in COMPANY_FIELD_MAPPING.items():
+                value = getattr(company, db_field, None)
+                if value is None:
+                    data[form_field] = ''
+                elif hasattr(value, 'strftime'):
+                    data[form_field] = value.strftime('%Y-%m-%d')
+                elif db_field == 'DefaultDb':
+                    data[form_field] = value == 1 if isinstance(value, int) else bool(value)
+                else:
+                    data[form_field] = str(value)
+
+            for hf in config['header_fields']:
+                if hf['name'] in data:
+                    hf['value'] = data[hf['name']]
+
+            for tab in config['tabs']:
+                for col in tab['columns']:
+                    for field in col:
+                        if field['name'] in data:
+                            if field.get('type') == '10':
+                                field['checked'] = data[field['name']]
+                            else:
+                                field['value'] = data[field['name']]
+        except Exception as e:
+            logger.error('Failed to pre-fill company form: %s', e)
+
     return render(request, 'common/masters/company_form.html', {
+        'page_title'          : 'Company Info',
         'form_config'         : config,
         'auto_select_company' : auto_select,
     })

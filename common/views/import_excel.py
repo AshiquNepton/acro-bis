@@ -122,18 +122,9 @@ def build_import_form_config(import_types: list) -> dict:
 # ── Import page view ──────────────────────────────────────────────────────────
 
 def import_excel_view(request):
-    try:
-        from inventory.views.import_config import register_inventory_imports
-        register_inventory_imports()
-    except ImportError: pass
-    try:
-        from common.views.employee_import_config import register_employee_imports
-        register_employee_imports()
-    except ImportError: pass
-    try:
-        from common.views.party_import_config import register_party_imports
-        register_party_imports()
-    except ImportError: pass
+    register_inventory_imports()
+    register_employee_imports()
+    register_party_imports()
 
     """
     Renders the generic import-from-Excel page.
@@ -152,6 +143,7 @@ def import_excel_view(request):
     }
 
     return render(request, 'common/masters/import_excel.html', {
+        'page_title':     'Import from Excel',
         'form_config':    build_import_form_config(import_types),
         'import_types':   import_types,
         'columns_config': json.dumps(columns_config),
@@ -163,18 +155,9 @@ def import_excel_view(request):
 # ── Template download ─────────────────────────────────────────────────────────
 
 def import_template_download(request):
-    try:
-        from inventory.views.import_config import register_inventory_imports
-        register_inventory_imports()
-    except ImportError: pass
-    try:
-        from common.views.employee_import_config import register_employee_imports
-        register_employee_imports()
-    except ImportError: pass
-    try:
-        from common.views.party_import_config import register_party_imports
-        register_party_imports()
-    except ImportError: pass
+    register_inventory_imports()
+    register_employee_imports()
+    register_party_imports()
 
     """
     GET  /import/template/?type=<key>        (common URL)
@@ -252,37 +235,16 @@ def import_template_download(request):
         cell.alignment = center_align
         cell.border    = thin_border
 
-    # ── Row 2: Hints (format / example) ──────────────────────────────────────
-    _type_hints = {
-        'str':   'Text',
-        'int':   'Number',
-        'float': '0.00',
-        'date':  'DD/MM/YYYY',
-    }
-    for col_idx, col in enumerate(columns, start=1):
-        hint = _type_hints.get(col.get('type', 'str'), 'Text')
-        # ItemGroup fields — user enters the name, not a number
-        if col.get('itemgroup_col'):
-            hint = 'Name (text)'
-        cell = ws.cell(row=2, column=col_idx, value=hint)
-        cell.font      = hint_font
-        cell.fill      = hint_fill
-        cell.alignment = center_align
-        cell.border    = thin_border
-
     # ── Column widths ─────────────────────────────────────────────────────────
     for col_idx, col in enumerate(columns, start=1):
-        # Width = longest of header text, hint text, plus a little padding
         header_len = len(col['excel']) + (2 if col.get('required') else 0)
-        hint_len   = len(_type_hints.get(col.get('type', 'str'), 'Text'))
-        ws.column_dimensions[get_column_letter(col_idx)].width = max(header_len, hint_len, 12) + 2
+        ws.column_dimensions[get_column_letter(col_idx)].width = max(header_len, 15)
 
     # ── Row heights ───────────────────────────────────────────────────────────
     ws.row_dimensions[1].height = 22
-    ws.row_dimensions[2].height = 16
 
     # ── Freeze pane below header ──────────────────────────────────────────────
-    ws.freeze_panes = 'A3'
+    ws.freeze_panes = 'A2'
 
     # ── Stream response ───────────────────────────────────────────────────────
     buf      = io.BytesIO()
@@ -376,7 +338,18 @@ def _resolve_itemgroup_id(db_alias: str, category_id: int, description: str,
     return next_id
 
 
-# ── Process endpoint (shared across all modules) ──────────────────────────────
+# -- IMPORT CONFIGURATIONS --
+from common.middleware.database_middleware import get_customer_db
+from common.models.employee import ensure_employees_table
+from common.views.party_master import ensure_party_tables
+from inventory.models.item import ensure_inventory_items_table
+from core.crud import excel_import
+
+@require_http_methods(['POST'])
+
+
+
+
 
 @require_http_methods(['POST'])
 def import_excel_process(request):
@@ -384,18 +357,9 @@ def import_excel_process(request):
     if not request.session.get('is_authenticated'):
         return JsonResponse({'success': False, 'error': 'Not authenticated. Please log in.'}, status=403)
 
-    try:
-        from inventory.views.import_config import register_inventory_imports
-        register_inventory_imports()
-    except ImportError: pass
-    try:
-        from common.views.employee_import_config import register_employee_imports
-        register_employee_imports()
-    except ImportError: pass
-    try:
-        from common.views.party_import_config import register_party_imports
-        register_party_imports()
-    except ImportError: pass
+    register_inventory_imports()
+    register_employee_imports()
+    register_party_imports()
 
     """
     POST body (JSON):
@@ -472,7 +436,7 @@ def import_excel_process(request):
                         resolved_row[excel_key] = str(_resolve_itemgroup_id(db_alias, category_id, raw_val, ig_cache))
         
                     db_row = _coerce_row(resolved_row, columns)
-                    db_rows.append(db_row)
+                    db_rows.append((excel_row_num, db_row))
         
                 except Exception as exc:
                     errors.append({'row': excel_row_num, 'error': str(exc)})
@@ -482,17 +446,25 @@ def import_excel_process(request):
             upsert_fn = config.get('upsert_fn')
             
             if upsert_batch_fn and db_rows:
-                upsert_batch_fn(db_alias, db_rows)
-                imported += len(db_rows)
+                try:
+                    upsert_batch_fn(db_alias, [r[1] for r in db_rows])
+                    imported += len(db_rows)
+                except Exception as exc:
+                    errors.append({'row': 'Batch', 'error': 'Batch transaction failed: ' + str(exc)})
             else:
-                for db_row in db_rows:
-                    if upsert_fn:
-                        upsert_fn(db_alias, db_row)
-                    else:
-                        _upsert_row(db_alias, table, pk_col, db_row)
-                    imported += 1
+                for excel_row_num, db_row in db_rows:
+                    try:
+                        with transaction.atomic(using=db_alias):
+                            if upsert_fn:
+                                upsert_fn(db_alias, db_row)
+                            else:
+                                _upsert_row(db_alias, table, pk_col, db_row)
+                            imported += 1
+                    except Exception as exc:
+                        errors.append({'row': excel_row_num, 'error': 'DB error: ' + str(exc)})
+                        
     except Exception as exc:
-        errors.append({'row': 'Batch', 'error': 'Batch transaction failed: ' + str(exc)})
+        errors.append({'row': 'Batch', 'error': 'Fatal transaction error: ' + str(exc)})
         imported = 0
 
     return JsonResponse({'success': True, 'imported': imported, 'errors': errors})
@@ -636,3 +608,6 @@ def _upsert_row(db_alias: str, table: str, pk_col: str, data: dict):
                         [data[c] for c in update_cols] + [pk_val],
                     )
             
+
+
+

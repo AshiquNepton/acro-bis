@@ -69,8 +69,15 @@ window.GROUP_CHOICES = {{ group_choices_json|safe|default:"{}" }};
 
 
 window._isFormDirty = false;
-document.addEventListener('input', function(e) { if (e.target.closest('.pf-page-wrapper')) window._isFormDirty = true; });
-document.addEventListener('change', function(e) { if (e.target.closest('.pf-page-wrapper')) window._isFormDirty = true; });
+var _imFormInitDone = false;
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+        _imFormInitDone = true;
+        window._isFormDirty = false;
+    }, 500);
+});
+document.addEventListener('input', function(e) { if (_imFormInitDone && e.target.closest('.pf-page-wrapper')) window._isFormDirty = true; });
+document.addEventListener('change', function(e) { if (_imFormInitDone && e.target.closest('.pf-page-wrapper')) window._isFormDirty = true; });
 
 // Intercept all links to show custom alert instead of native browser prompt
 document.addEventListener('click', function(e) {
@@ -79,9 +86,11 @@ document.addEventListener('click', function(e) {
         var href = link.getAttribute('href');
         if (href && href !== '#' && !href.startsWith('javascript:')) {
             e.preventDefault();
+            if (window.erpLoader) window.erpLoader.hide();
             showConfirm('Data will be lost if you leave without saving.', function(confirmed) {
                 if (confirmed) {
                     window._isFormDirty = false;
+                    if (window.erpLoader) window.erpLoader.show('');
                     window.location.href = href;
                 }
             }, 'warning', 'Unsaved Changes');
@@ -112,6 +121,8 @@ window._pfConfig = {
                if onPopulate exists, expecting it to do an async sub-load.
                Since ours is synchronous, we must manually consume the slot. */
             if (typeof window._loaderDone === 'function') window._loaderDone();
+
+            setTimeout(function() { window._isFormDirty = false; }, 100);
         },
         onSaveSuccess    : function(d) {
             window._isFormDirty = false;
@@ -189,9 +200,10 @@ function initSelectItemModal() {
     selectItemModal = new UtilityModal({
         id       : 'im-select-item-modal',
         title    : 'Select Item',
+        size: 'md',
         subtitle : '',
         icon     : '<path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.267-8-12.356-8-5.096 0-5.096 8 0 8 5.096 0 7.261-8 12.356-8z" stroke-width="2"/>',
-        width    : '480px',
+        
         height   : '390px',
         staticBackdrop: true,
         tabs     : [

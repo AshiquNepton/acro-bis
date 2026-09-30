@@ -11,6 +11,14 @@ from core.crud import (
 )
 
 
+
+def setup_mock_cursor(mock_connections):
+    mock_cursor = MagicMock()
+    mock_conn = MagicMock()
+    mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+    mock_connections.__getitem__.return_value = mock_conn
+    return mock_cursor
+
 class BaseCRUDHelperTests(SimpleTestCase):
     """Unit tests for BaseCRUD type coercion and formatting helper functions."""
 
@@ -168,16 +176,9 @@ class BaseCRUDSQLGenerationTests(SimpleTestCase):
             required=['reg_no', 'emp_name'],
         )
 
-    def _setup_mock_cursor(self, mock_connections):
-        mock_cursor = MagicMock()
-        mock_conn = MagicMock()
-        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
-        mock_connections.__getitem__.return_value = mock_conn
-        return mock_cursor
-
     @patch('core.crud.connections')
     def test_get_sql_generation(self, mock_connections):
-        mock_cursor = self._setup_mock_cursor(mock_connections)
+        mock_cursor = setup_mock_cursor(mock_connections)
         mock_cursor.description = [('RegNo',), ('EmpName',), ('BasicPay',), ('Active',)]
         mock_cursor.fetchone.return_value = ('E101', 'Alice', 5000.0, 1)
 
@@ -196,7 +197,7 @@ class BaseCRUDSQLGenerationTests(SimpleTestCase):
 
     @patch('core.crud.connections')
     def test_get_record_not_found(self, mock_connections):
-        mock_cursor = self._setup_mock_cursor(mock_connections)
+        mock_cursor = setup_mock_cursor(mock_connections)
         mock_cursor.fetchone.return_value = None
 
         response = self.crud.get('E999')
@@ -207,7 +208,7 @@ class BaseCRUDSQLGenerationTests(SimpleTestCase):
 
     @patch('core.crud.connections')
     def test_delete_sql_generation(self, mock_connections):
-        mock_cursor = self._setup_mock_cursor(mock_connections)
+        mock_cursor = setup_mock_cursor(mock_connections)
         mock_cursor.fetchone.return_value = (1,)
 
         response = self.crud.delete('E101')
@@ -228,7 +229,7 @@ class BaseCRUDSQLGenerationTests(SimpleTestCase):
 
     @patch('core.crud.connections')
     def test_lookup_sql_generation(self, mock_connections):
-        mock_cursor = self._setup_mock_cursor(mock_connections)
+        mock_cursor = setup_mock_cursor(mock_connections)
         mock_cursor.description = [('RegNo',), ('EmpName',)]
         mock_cursor.fetchone.return_value = ('E101', 'Alice')
 
@@ -244,7 +245,7 @@ class BaseCRUDSQLGenerationTests(SimpleTestCase):
 
     @patch('core.crud.connections')
     def test_search_sql_generation(self, mock_connections):
-        mock_cursor = self._setup_mock_cursor(mock_connections)
+        mock_cursor = setup_mock_cursor(mock_connections)
         mock_cursor.fetchall.return_value = [('E101', 'Alice')]
 
         response = self.crud.search('Ali', search_col='EmpName', display_cols=['RegNo', 'EmpName'], limit=10)
@@ -260,7 +261,7 @@ class BaseCRUDSQLGenerationTests(SimpleTestCase):
 
     @patch('core.crud.connections')
     def test_list_sql_generation(self, mock_connections):
-        mock_cursor = self._setup_mock_cursor(mock_connections)
+        mock_cursor = setup_mock_cursor(mock_connections)
         mock_cursor.description = [('RegNo',), ('EmpName',), ('Active',)]
         mock_cursor.fetchall.return_value = [('E101', 'Alice', 1)]
 
@@ -281,7 +282,7 @@ class BaseCRUDSQLGenerationTests(SimpleTestCase):
     @patch('core.crud.connections')
     def test_check_duplicate_sql(self, mock_connections):
         self.crud._ensure_table = lambda force=False: None
-        mock_cursor = self._setup_mock_cursor(mock_connections)
+        mock_cursor = setup_mock_cursor(mock_connections)
         mock_cursor.fetchone.return_value = ('E101',)
 
         # Test duplicate check with text column and numeric column
@@ -324,13 +325,6 @@ class BaseCRUDSaveTests(SimpleTestCase):
     def tearDown(self):
         self.print_patcher.stop()
 
-    def _setup_mock_cursor(self, mock_connections):
-        mock_cursor = MagicMock()
-        mock_conn = MagicMock()
-        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
-        mock_connections.__getitem__.return_value = mock_conn
-        return mock_cursor
-
     def test_save_missing_required_fields(self):
         post_data = {'reg_no': 'E101'}  # emp_name missing
         response = self.crud.save(post_data)
@@ -342,7 +336,7 @@ class BaseCRUDSaveTests(SimpleTestCase):
     @patch('core.crud._is_identity_column', return_value=False)
     @patch('core.crud.connections')
     def test_save_insert(self, mock_connections, mock_is_identity):
-        mock_cursor = self._setup_mock_cursor(mock_connections)
+        mock_cursor = setup_mock_cursor(mock_connections)
         # Existence check returns None (new record)
         mock_cursor.fetchone.side_effect = [
             None,          # SELECT 1 FROM Employees WHERE RegNo = 'E101' -> does not exist
@@ -365,7 +359,7 @@ class BaseCRUDSaveTests(SimpleTestCase):
 
     @patch('core.crud.connections')
     def test_save_update(self, mock_connections):
-        mock_cursor = self._setup_mock_cursor(mock_connections)
+        mock_cursor = setup_mock_cursor(mock_connections)
         # Existence check returns record (updating existing record)
         mock_cursor.fetchone.return_value = (1,)
 
@@ -386,7 +380,7 @@ class BaseCRUDSaveTests(SimpleTestCase):
 
     @patch('core.crud.connections')
     def test_save_duplicate_aborted(self, mock_connections):
-        mock_cursor = self._setup_mock_cursor(mock_connections)
+        mock_cursor = setup_mock_cursor(mock_connections)
         # Step 4 existence check returns None (new record)
         # Step 5 duplicate check returns existing record ('E999')
         mock_cursor.fetchone.side_effect = [
@@ -406,7 +400,7 @@ class BaseCRUDSaveTests(SimpleTestCase):
     @patch('core.crud.connections')
     def test_save_is_new_true_already_exists_reallocates(self, mock_connections, mock_is_identity):
         """When is_new=True and prefilled ID already exists, reallocate to next_id_value without overwriting."""
-        mock_cursor = self._setup_mock_cursor(mock_connections)
+        mock_cursor = setup_mock_cursor(mock_connections)
         # 1. Existence check finds ID '100' already exists
         # 2. next_id_value query returns 101
         # 3. INSERT returns 101
@@ -427,7 +421,7 @@ class BaseCRUDSaveTests(SimpleTestCase):
     @patch('core.crud.connections')
     def test_save_is_new_false_not_found_aborts(self, mock_connections):
         """When is_new=False and ID is not found, reject rather than inserting corrupted record."""
-        mock_cursor = self._setup_mock_cursor(mock_connections)
+        mock_cursor = setup_mock_cursor(mock_connections)
         mock_cursor.fetchone.return_value = None  # Record doesn't exist
 
         post_data = {'_is_new': '0', 'reg_no': 'E999', 'emp_name': 'Deleted Employee'}
@@ -442,7 +436,7 @@ class BaseCRUDSaveTests(SimpleTestCase):
     def test_save_concurrent_collision_retry(self, mock_connections, mock_is_identity):
         """When concurrent insert causes duplicate key IntegrityError, retry with new PK."""
         from django.db import IntegrityError
-        mock_cursor = self._setup_mock_cursor(mock_connections)
+        mock_cursor = setup_mock_cursor(mock_connections)
         # Attempt 1: exists check -> None, execute INSERT raises IntegrityError
         # Attempt 2: next_id_value -> 102, execute INSERT succeeds -> returns 102
         mock_cursor.fetchone.side_effect = [

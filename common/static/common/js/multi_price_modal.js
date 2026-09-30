@@ -69,10 +69,9 @@
         this.modal = new UtilityModal({
             id       : self.id,
             title    : 'Multiple Price Level',
+            size     : 'sm',
             subtitle : '',
             icon     : THEME_ICONS.infinity,
-            width    : '490px',
-            height   : '410px',
             tabs     : [
                 { id: 'pricing_tab', label: 'Pricing Matrix' }
             ],
@@ -219,9 +218,8 @@
                 self.locationModal = new ListModal({
                     id: self.id + '-loc-list-modal',
                     title: 'Position / Location Entry',
+                    size: 'sm',
                     columnLabel: 'Position / Bin Location',
-                    width: '480px',
-                    height: '260px',
                     minRows: 8,
                     data: initialList,
                     onSave: function(values, defaultVal, m) {
@@ -702,8 +700,7 @@
                 id: 'mu-barcode-list-modal',
                 title: 'Barcodes Entry',
                 columnLabel: 'Barcode',
-                width: '480px',
-                height: '260px',
+                size: 'sm',
                 minRows: 8,
                 data: initialList,
                 onSave: function (values, defaultVal, m) {

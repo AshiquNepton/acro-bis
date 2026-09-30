@@ -38,16 +38,25 @@ function closeForm(formId) {
             }
         });
     }
-    if (hasData) {
-        if (!confirm('Form has unsaved data. Are you sure you want to close?')) {
-            return;
+    const _doClose = () => {
+        if (form) {
+            form.setAttribute('data-state', 'hidden');
         }
-    }
-    if (form) {
-        form.setAttribute('data-state', 'hidden');
-    }
-    if (overlay) {
-        overlay.classList.remove('active');
+        if (overlay) {
+            overlay.classList.remove('active');
+        }
+    };
+    
+    if (hasData) {
+        if (typeof window.showConfirm === 'function') {
+            window.showConfirm('Form has unsaved data. Are you sure you want to close?', function(ok) {
+                if (ok) _doClose();
+            }, 'warning', 'Unsaved Data', 'Yes, Close', 'Cancel');
+        } else {
+            _doClose();
+        }
+    } else {
+        _doClose();
     }
 }
 
@@ -78,12 +87,20 @@ function validateForm(formId) {
 function resetForm(formId) {
     const formElement = document.getElementById(formId + '-form');
     if (formElement) {
-        if (confirm('Are you sure you want to reset the form?')) {
+        const _doReset = () => {
             formElement.reset();
             const inputs = formElement.querySelectorAll('input, textarea, select');
             inputs.forEach(input => {
                 input.classList.remove('error');
             });
+        };
+        
+        if (typeof window.showConfirm === 'function') {
+            window.showConfirm('Are you sure you want to reset the form?', function(ok) {
+                if (ok) _doReset();
+            }, 'warning', 'Reset Form', 'Yes, Reset', 'Cancel');
+        } else {
+            _doReset();
         }
     }
 }

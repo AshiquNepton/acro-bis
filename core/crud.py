@@ -64,6 +64,10 @@ from django.http import JsonResponse
 
 logger = logging.getLogger(__name__)
 
+def get_tenant_db(request=None):
+    """Returns the multi-tenant database alias for the current request."""
+    return 'customer_db'
+
 
 # ─── Bidirectional label ↔ int maps ──────────────────────────────────────────
 _STR_TO_INT = {
@@ -268,6 +272,177 @@ def clear_ensured_table_cache(db_alias=None, table=None):
     else:
         _ENSURED_TABLES.clear()
 
+
+def fetch_all(db_alias, sql, params=None):
+    """
+    Executes a raw SQL query and maps the result rows to a list of dicts.
+    Uses list comprehension and zip for high-performance extraction.
+    """
+    with connections[db_alias].cursor() as cur:
+        cur.execute(sql, params or [])
+        cols = [d[0] for d in cur.description]
+        return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+def fetch_one(db_alias, sql, params=None):
+    """
+    Executes a raw SQL query and maps the first result row to a dict.
+    Returns None if no rows are found.
+    """
+    with connections[db_alias].cursor() as cur:
+        cur.execute(sql, params or [])
+        row = cur.fetchone()
+        if not row:
+            return None
+        cols = [d[0] for d in cur.description]
+        return dict(zip(cols, row))
+
+def fetch_tuples(db_alias, sql, params=None):
+    """
+    Executes a raw SQL query and returns the raw list of tuples (fastest for legacy code).
+    """
+    with connections[db_alias].cursor() as cur:
+        cur.execute(sql, params or [])
+        return cur.fetchall()
+
+def fetch_one_tuple(db_alias, sql, params=None):
+    """
+    Executes a raw SQL query and returns a single raw tuple.
+    """
+    with connections[db_alias].cursor() as cur:
+        cur.execute(sql, params or [])
+        return cur.fetchone()
+
+def execute_sql(db_alias, sql, params=None):
+    """
+    Executes a raw SQL query (INSERT/UPDATE/DELETE) and returns the number of affected rows.
+    """
+    with connections[db_alias].cursor() as cur:
+        cur.execute(sql, params or [])
+        return cur.rowcount
+
+def excel_import(db_alias: str, excel_pk_col: str, db_rows: list, tables_config: list, pre_process=None):
+    """
+    Fast batched multi-table upsert for Excel imports.
+    tables_config = [
+        {
+            'table': 'PrimaryTable',
+            'pk': 'InternalID', 
+            'lookup_col': 'ExcelCodeCol', # Column to match against excel_pk_col
+            'auto_pk': True, # Generate MAX(pk) + 1
+            'defaults': {'Group': 1},
+            'fields': ['ExcelCodeCol', 'Name', ...] # None = all fields
+        },
+        {
+            'table': 'ChildTable',
+            'fk': 'InternalID',
+            'fields': ['Address', 'Phone', ...]
+        }
+    ]
+    """
+    if not db_rows or not tables_config:
+        return 0
+        
+    if pre_process:
+        pre_process(db_alias, db_rows)
+
+    primary = tables_config[0]
+    p_table = primary['table']
+    p_pk = primary.get('pk', excel_pk_col)
+    p_lookup = primary.get('lookup_col', excel_pk_col)
+    p_auto = primary.get('auto_pk', False)
+    p_defaults = primary.get('defaults', {})
+
+    provided_codes = [r.get(excel_pk_col) for r in db_rows if r.get(excel_pk_col)]
+    existing = {}
+    
+    if provided_codes:
+        where_clauses = [f'"{p_lookup}" = ANY(%s)']
+        params = [provided_codes]
+        for k, v in p_defaults.items():
+            where_clauses.append(f'"{k}" = %s')
+            params.append(v)
+            
+        where_str = ' AND '.join(where_clauses)
+        existing_rows = fetch_tuples(db_alias, f'SELECT "{p_lookup}", "{p_pk}" FROM "{p_table}" WHERE {where_str}', params)
+        existing = {r[0]: r[1] for r in existing_rows}
+
+    next_pk = None
+    if p_auto:
+        max_id = fetch_one_tuple(db_alias, f'SELECT COALESCE(MAX("{p_pk}"), 0) FROM "{p_table}"')[0]
+        next_pk = max_id
+
+    sql_statements = []
+    sql_params = []
+    q = lambda c: f'"{c}"'
+
+    for db_row in db_rows:
+        code = db_row.get(excel_pk_col)
+        if not code:
+            continue
+
+        exists = code in existing
+        internal_pk = existing[code] if exists else None
+
+        if not exists and p_auto:
+            next_pk += 1
+            internal_pk = next_pk
+            existing[code] = internal_pk
+        elif not exists and not p_auto:
+            internal_pk = code
+
+        for idx, tconf in enumerate(tables_config):
+            tname = tconf['table']
+            defaults = tconf.get('defaults', {})
+            allowed_fields = tconf.get('fields')
+            
+            row_pk_col = p_pk if idx == 0 else tconf.get('fk', p_pk)
+            row_pk_val = internal_pk
+            
+            cols = []
+            vals = []
+            for k, v in db_row.items():
+                if v is None: continue
+                if allowed_fields is not None and k not in allowed_fields: continue
+                
+                # Never re-insert the internal PK from db_row if it's auto-generated or mapped
+                if k == row_pk_col: continue 
+                
+                cols.append(k)
+                vals.append(v)
+                
+            for k, v in defaults.items():
+                if k not in cols:
+                    cols.append(k)
+                    vals.append(v)
+                    
+            if not cols and idx > 0:
+                continue # Skip child table if no fields provided
+                
+            if exists:
+                if cols:
+                    if idx > 0:
+                        final_cols = [row_pk_col] + cols
+                        final_vals = [row_pk_val] + vals
+                        col_clause = ', '.join(q(c) for c in final_cols)
+                        val_clause = ', '.join('%s' for _ in final_cols)
+                        set_clause = ', '.join(f'{q(c)} = EXCLUDED.{q(c)}' for c in cols)
+                        sql_statements.append(f'INSERT INTO "{tname}" ({col_clause}) VALUES ({val_clause}) ON CONFLICT ({q(row_pk_col)}) DO UPDATE SET {set_clause};')
+                        sql_params.extend(final_vals)
+                    else:
+                        set_clause = ', '.join(f'{q(c)} = %s' for c in cols)
+                        sql_statements.append(f'UPDATE "{tname}" SET {set_clause} WHERE {q(row_pk_col)} = %s;')
+                        sql_params.extend(vals + [row_pk_val])
+            else:
+                final_cols = [row_pk_col] + cols
+                final_vals = [row_pk_val] + vals
+                col_clause = ', '.join(q(c) for c in final_cols)
+                val_clause = ', '.join('%s' for _ in final_cols)
+                sql_statements.append(f'INSERT INTO "{tname}" ({col_clause}) VALUES ({val_clause});')
+                sql_params.extend(final_vals)
+
+    if sql_statements:
+        return execute_sql(db_alias, ' '.join(sql_statements), sql_params)
+    return 0
 
 @contextmanager
 def safe_atomic(db_alias: str):

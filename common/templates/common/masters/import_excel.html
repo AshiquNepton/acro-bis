@@ -229,7 +229,7 @@ function ixLoadFile(file) {
             // The template writes hints like "Text", "Number", "0.00",
             // "DD/MM/YYYY", "Name (text)" in row 2.  If every non-empty cell
             // in raw[1] matches one of these we skip it so real data starts at row 2.
-            const HINT_SET = new Set(['text','number','0.00','dd/mm/yyyy','name (text)','']);
+            const HINT_SET = new Set(['text','number','0.00','0','0.0','dd/mm/yyyy','name (text)','']);
             let dataStartRow = 1;
             if (raw.length > 1) {
                 const isHintRow = raw[1].every(v => HINT_SET.has(String(v).trim().toLowerCase()));
@@ -243,7 +243,14 @@ function ixLoadFile(file) {
             const headerMap = {};
             fileHeaders.forEach(h => {
                 const norm  = _ixNormKey(h).toLowerCase();
-                const match = cfgCols.find(c => c.excel.trim().toLowerCase() === norm);
+                const match = cfgCols.find(c => {
+                    if (c.excel.trim().toLowerCase() === norm) return true;
+                    if (c.aliases) {
+                        const aliases = Array.isArray(c.aliases) ? c.aliases : [c.aliases];
+                        if (aliases.some(a => a.trim().toLowerCase() === norm)) return true;
+                    }
+                    return false;
+                });
                 headerMap[h] = match ? match.excel : _ixNormKey(h);
             });
 
@@ -376,6 +383,7 @@ function _ixBuildTemplateModal() {
     _ixTplModal = new UtilityModal({
         id      : 'ix-tpl-modal',
         title   : 'Download Template',
+        size: 'sm',
         subtitle: 'Choose a template to download',
         icon    : '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>' +
                   '<polyline points="17 8 12 3 7 8"/>' +

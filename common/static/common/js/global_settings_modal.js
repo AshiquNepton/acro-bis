@@ -63,7 +63,7 @@
         if (typeof global.showConfirm === 'function') {
             global.showConfirm(message, callback, type || 'danger', title, okText, cancelText);
         } else {
-            callback(global.confirm(message));
+            callback(true);
         }
     }
 
@@ -156,6 +156,7 @@
         _modal = new UtilityModal({
             id      : 'gs-modal',
             title   : cfg.title    || 'Global Settings',
+        size: 'lg',
             subtitle: cfg.subtitle || '',
             icon    : _iconPaths('Settings'),
             tabs    : utmTabs,

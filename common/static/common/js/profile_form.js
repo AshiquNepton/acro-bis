@@ -1197,7 +1197,7 @@ function _focusNextFrom(formEl, selector, currentEl) {
     }
     function _confirm(message, callback, type, title, confirmText, cancelText) {
         if (typeof window.showConfirm === 'function') window.showConfirm(message, callback, type || 'danger', title, confirmText, cancelText);
-        else callback(window.confirm(message));
+        else callback(true);
     }
 
 

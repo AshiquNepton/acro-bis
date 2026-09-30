@@ -181,16 +181,20 @@ def ensure_inventory_items_table(db_alias: str, force: bool = False) -> bool:
                 ALTER TABLE "InventoryItems" ALTER COLUMN "LocalName" TYPE VARCHAR(100);
             END IF;
         END $$""",
+        # Add trigram indexes for fast ILIKE searches
+        'CREATE EXTENSION IF NOT EXISTS pg_trgm;',
+        'CREATE INDEX IF NOT EXISTS "idx_items_name_trgm" ON "InventoryItems" USING GIN ("ItemName" gin_trgm_ops);',
+        'CREATE INDEX IF NOT EXISTS "idx_items_barcode_trgm" ON "InventoryItems" USING GIN ("AssortedBarcode" gin_trgm_ops);',
     ]
 
     try:
-        with connections[db_alias].cursor() as cur:
-            cur.execute(ddl)
-            for sql in _migrate_alters:
-                try:
-                    cur.execute(sql)
-                except Exception:
-                    pass  # column may already exist correctly
+        from core.crud import execute_sql
+        execute_sql(db_alias, ddl)
+        for sql in _migrate_alters:
+            try:
+                execute_sql(db_alias, sql)
+            except Exception:
+                pass  # column may already exist correctly
         _ENSURED_ITEM_TABLES.add(db_alias)
         logger.debug('ensure_inventory_items_table: table ready in %s', db_alias)
         return True

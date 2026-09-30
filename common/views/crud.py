@@ -23,3 +23,4 @@ _is_identity_column = _core_crud._is_identity_column
 safe_atomic = _core_crud.safe_atomic
 connections = _core_crud.connections
 logger = _core_crud.logger
+fetch_all = _core_crud.fetch_all

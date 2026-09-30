@@ -102,6 +102,7 @@
         _mainModal = new UtilityModal({
             id      : 'defsett-modal',
             title   : 'Default Settings',
+        size: 'md',
             subtitle: 'Configure application defaults',
             icon    : '<path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>' +
                       '<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06' +
@@ -303,6 +304,7 @@
         _capModal = new UtilityModal({
             id      : 'defsett-cap-modal',
             title   : 'Set Captions',
+        size: 'md',
             subtitle: 'Customise field labels shown across forms and reports',
             icon    : '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>' +
                       '<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',

@@ -341,6 +341,7 @@
 
     var _gfModal = new UtilityModal({
         id: 'rptf-gf', title: 'Get Fields',
+        size: 'md',
         icon: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
         tabs: [{ id: 'gf', label: '» Tables / Fields', icon: 'doc' }],
         onBuild: function (modal) {
@@ -446,6 +447,7 @@
     var _filterModal = new UtilityModal({
         id: 'rptf-filter',
         title: 'Filter',
+        size: 'md',
         icon: '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>',
         tabs: [{ id: 'filter', label: '» Filter', icon: 'doc' }],
         toolbar: [
@@ -775,6 +777,7 @@ var _entryFilterState = {
 var _entryFilterModal = new UtilityModal({
     id: 'rptf-entry-filter',
     title: 'Filter',
+        size: 'md',
     icon: '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>',
     tabs: [{ id: 'filter', label: '» Filter', icon: 'doc' }],
     toolbar: [
@@ -1872,9 +1875,9 @@ else if (e.key === 'Enter') { e.preventDefault(); if (active) { active.dispatchE
     var _totalModal = new UtilityModal({
         id: 'rpt-total-modal',
         title: 'Total',
+        size: 'sm',
         icon: '<circle cx="12" cy="12" r="10"/><path d="M16 8h-8l5 4-5 4h8"/>',
-        width: '560px',
-        height: '380px',
+        
         tabs: [{ id: 'totals', label: '» Total', icon: 'doc' }],
         toolbar: [
             { label: 'OK', icon: 'save', danger: false, onclick: function () { _totalModal.close(); } },
@@ -2045,6 +2048,7 @@ else if (e.key === 'Enter') { e.preventDefault(); if (active) { active.dispatchE
     ═════════════════════════════════════════════════════════════════ */
     var _optModal = new UtilityModal({
         id: 'rpt-opt-modal', title: 'Report Options',
+        size: 'md',
         icon: 'M12 20h9 M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z',
         tabs: [{ id: 'opts', label: '» Fields', icon: 'doc' }],
         toolbar: [
@@ -2328,6 +2332,7 @@ else if (e.key === 'Enter') { e.preventDefault(); if (active) { active.dispatchE
     var _refModal = new UtilityModal({
         id: 'rptf-ref',
         title: 'Report Field',
+        size: 'md',
         icon: 'M12 20h9 M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z',
         tabs: [{ id: 'rf', label: '» Field Details', icon: 'doc' }],
         toolbar: [
@@ -2585,6 +2590,7 @@ else if (e.key === 'Enter') { e.preventDefault(); if (active) { active.dispatchE
     ═════════════════════════════════════════════════════════════════ */
     var _srModal = new UtilityModal({
         id: 'rpt-sr-modal', title: 'Save Report',
+        size: 'sm',
         icon: 'M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z M17 21V13H7V21 M7 3V8H15',
         tabs: [{ id: 'sr', label: '» Styles', icon: 'doc' }],
         toolbar: [
@@ -2741,6 +2747,7 @@ else if (e.key === 'Enter') { e.preventDefault(); if (active) { active.dispatchE
 
     var _efModal = new UtilityModal({
         id: 'rpt-ef-modal', title: 'Edit Filter',
+        size: 'md',
         icon: '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>',
         tabs: [{ id: 'ef', label: '» Filter Fields', icon: 'doc' }],
         toolbar: [

@@ -1,6 +1,6 @@
 """
 Inventory import type registrations.
-Call register_inventory_imports() once (from inventory/views/import_view.py).
+Call register_inventory_imports() once.
 """
 from common.middleware.database_middleware import get_customer_db
 from common.views.import_excel import register_import_type
@@ -100,63 +100,77 @@ def inventory_upsert_batch(db_alias: str, db_rows: list, _state={"item_id": None
         with connections[db_alias].cursor() as cur:
             cur.execute(' '.join(sql_statements), sql_params)
 
-
 def register_inventory_imports():
-    """Idempotent - safe to call on every request."""
     register_import_type('inventory', {
         'label'        : 'Inventory Items',
         'table'        : 'InventoryItems',
-        'pk_col'       : 'ItemCode',  # Unique key for updates/inserts
+        'pk_col'       : 'ItemCode',
         'db_alias_fn'  : get_customer_db,
         'table_creator': ensure_inventory_items_table,
         'upsert_batch_fn': inventory_upsert_batch,
-        'columns'      : [
-            {'excel': 'Item Code',          'db_col': 'ItemCode',         'type': 'str',   'required': False},
-            {'excel': 'Item Name',          'db_col': 'ItemName',         'type': 'str',   'required': True},
+        'columns': [
+            {'excel': 'Item Code',          'db': 'ItemCode',         'type': 'str', 'required': False},
+            {'excel': 'Item Name',          'db': 'ItemName',         'type': 'str', 'required': True},
+            {'excel': 'Item Category',      'db': 'Category',         'type': 'int', 'required': False},
             
-            # ItemGroup lookup fields
-            {'excel': 'Item',               'db_col': 'Item',             'type': 'int',   'required': False, 'itemgroup_col': True, 'category_id': 29},
-            {'excel': 'Group 1',            'db_col': 'ItemGroup1',       'type': 'int',   'required': False, 'itemgroup_col': True, 'category_id': 1},
-            {'excel': 'Group 2',            'db_col': 'ItemGroup2',       'type': 'int',   'required': False, 'itemgroup_col': True, 'category_id': 30},
-            {'excel': 'Group 3',            'db_col': 'ItemGroup3',       'type': 'int',   'required': False, 'itemgroup_col': True, 'category_id': 31},
-            {'excel': 'Group 4',            'db_col': 'ItemGroup4',       'type': 'int',   'required': False, 'itemgroup_col': True, 'category_id': 201},
-            {'excel': 'Group 5',            'db_col': 'ItemGroup5',       'type': 'int',   'required': False, 'itemgroup_col': True, 'category_id': 202},
+            {'excel': 'Item',               'db': 'Item',             'type': 'str', 'required': False, 'itemgroup_col': True, 'category_id': 7},
+            {'excel': 'Item Group 1',       'db': 'ItemGroup1',       'type': 'str', 'required': False, 'itemgroup_col': True, 'category_id': 8},
+            {'excel': 'Item Group 2',       'db': 'ItemGroup2',       'type': 'str', 'required': False, 'itemgroup_col': True, 'category_id': 9},
+            {'excel': 'Item Group 3',       'db': 'ItemGroup3',       'type': 'str', 'required': False, 'itemgroup_col': True, 'category_id': 10},
+            {'excel': 'Item Group 4',       'db': 'ItemGroup4',       'type': 'str', 'required': False, 'itemgroup_col': True, 'category_id': 11},
+            {'excel': 'Item Group 5',       'db': 'ItemGroup5',       'type': 'str', 'required': False, 'itemgroup_col': True, 'category_id': 12},
+
+            {'excel': 'Short Name',         'db': 'ShortName',        'type': 'str', 'required': False},
+            {'excel': 'Local Name',         'db': 'LocalName',        'type': 'str', 'required': False},
+            {'excel': 'Item Type',          'db': 'ItemType',         'type': 'int', 'required': False},
+            {'excel': 'Stock Valuation',    'db': 'StockValuation',   'type': 'int', 'required': False},
+            {'excel': 'Bin Location',       'db': 'BinLocation',      'type': 'str', 'required': False},
+            {'excel': 'Default Warehouse',  'db': 'DefaultWarehouse', 'type': 'int', 'required': False},
+
+            {'excel': 'Purchase Price',     'db': 'PurchasePrice',    'type': 'float', 'required': False},
+            {'excel': 'MRP',                'db': 'MRP',              'type': 'float', 'required': False},
+            {'excel': 'DRP',                'db': 'DRP',              'type': 'float', 'required': False},
+            {'excel': 'FDP',                'db': 'FDP',              'type': 'float', 'required': False},
+            {'excel': 'Discount',           'db': 'Discount',         'type': 'float', 'required': False},
+            {'excel': 'Purchase Discount',  'db': 'PurDiscount',      'type': 'float', 'required': False},
+            {'excel': 'Special Discount',   'db': 'SPDiscount',       'type': 'float', 'required': False},
+            {'excel': 'Last Unit Cost',     'db': 'LastUnitCost',     'type': 'float', 'required': False},
+
+            {'excel': 'Base Unit',          'db': 'BaseUnit',         'type': 'str', 'required': False, 'itemgroup_col': True, 'category_id': 13},
+            {'excel': 'Purchase Unit',      'db': 'PurchaseUnit',     'type': 'str', 'required': False, 'itemgroup_col': True, 'category_id': 14},
+            {'excel': 'Sales Unit',         'db': 'SalesUnit',        'type': 'str', 'required': False, 'itemgroup_col': True, 'category_id': 15},
+
+            {'excel': 'Tax',                'db': 'Tax',              'type': 'float', 'required': False},
+            {'excel': 'Tax Group',          'db': 'TaxGroup',         'type': 'int',   'required': False},
+            {'excel': 'Tax Code',           'db': 'TaxCode',          'type': 'str',   'required': False},
+
+            {'excel': 'Minimum Qty',        'db': 'MinQty',           'type': 'float', 'required': False},
+            {'excel': 'Maximum Qty',        'db': 'MaxQty',           'type': 'float', 'required': False},
+            {'excel': 'Reorder Qty',        'db': 'ReOrderQty',       'type': 'float', 'required': False},
+            {'excel': 'Economic Order Qty', 'db': 'EconOrderQty',     'type': 'float', 'required': False},
             
-            {'excel': 'Type',               'db_col': 'ItemType',         'type': 'int',   'required': False, 'itemgroup_col': True, 'category_id': 2},
-            {'excel': 'Brand',              'db_col': 'BrandName',        'type': 'int',   'required': False, 'itemgroup_col': True, 'category_id': 7},
-            {'excel': 'Category',           'db_col': 'CategoryName',     'type': 'int',   'required': False, 'itemgroup_col': True, 'category_id': 16},
-            {'excel': 'SubGroup',           'db_col': 'SubGroup',         'type': 'int',   'required': False, 'itemgroup_col': True, 'category_id': 124},
-            {'excel': 'Family',             'db_col': 'Family',           'type': 'int',   'required': False, 'itemgroup_col': True, 'category_id': 4},
-            {'excel': 'Color',              'db_col': 'Color',            'type': 'int',   'required': False, 'itemgroup_col': True, 'category_id': 130},
-            {'excel': 'Flavour',            'db_col': 'Flavour',          'type': 'int',   'required': False, 'itemgroup_col': True, 'category_id': 131},
+            {'excel': 'Multi Unit Data',    'db': 'MultiUnitData',    'type': 'str',   'required': False},
+
+            {'excel': 'Brand',              'db': 'Brand',            'type': 'str',   'required': False, 'itemgroup_col': True, 'category_id': 1},
+            {'excel': 'Manufacturer',       'db': 'Manufacturer',     'type': 'str',   'required': False, 'itemgroup_col': True, 'category_id': 5},
+            {'excel': 'Country of Origin',  'db': 'CountryOfOrigin',  'type': 'str',   'required': False, 'itemgroup_col': True, 'category_id': 6},
+            {'excel': 'Color',              'db': 'Color',            'type': 'str',   'required': False, 'itemgroup_col': True, 'category_id': 2},
+            {'excel': 'Size',               'db': 'Size',             'type': 'str',   'required': False, 'itemgroup_col': True, 'category_id': 3},
+            {'excel': 'Style',              'db': 'Style',            'type': 'str',   'required': False, 'itemgroup_col': True, 'category_id': 4},
+            {'excel': 'Warranty',           'db': 'Warranty',         'type': 'str',   'required': False, 'itemgroup_col': True, 'category_id': 20},
             
-            {'excel': 'Base Unit',          'db_col': 'BaseUnit',         'type': 'int',   'required': False, 'itemgroup_col': True, 'category_id': 9},
-            {'excel': 'Sales Unit',         'db_col': 'SalesUnit',        'type': 'int',   'required': False, 'itemgroup_col': True, 'category_id': 9},
-            {'excel': 'Purchase Unit',      'db_col': 'PurchaseUnit',     'type': 'int',   'required': False, 'itemgroup_col': True, 'category_id': 9},
-            
-            # Plain fields
-            {'excel': 'Short Name',         'db_col': 'ShortName',        'type': 'str',   'required': False},
-            {'excel': 'Local Name',         'db_col': 'LocalName',        'type': 'str',   'required': False},
-            {'excel': 'Description',        'db_col': 'ProductDescription','type': 'str',  'required': False},
-            {'excel': 'Bin Location',       'db_col': 'BinLocation',      'type': 'str',   'required': False},
-            {'excel': 'Tax Code',           'db_col': 'TaxCode',          'type': 'str',   'required': False},
-            {'excel': 'Supplier Code',      'db_col': 'SupplierProductCode','type': 'str', 'required': False},
-            {'excel': 'Barcode',            'db_col': 'AssortedBarcode',  'type': 'str',   'required': False},
-            
-            # Numerics
-            {'excel': 'Min Stock',          'db_col': 'MinStock',         'type': 'int',   'required': False},
-            {'excel': 'Max Stock',          'db_col': 'MaxStock',         'type': 'int',   'required': False},
-            {'excel': 'Reorder Qty',        'db_col': 'ReorderQty',       'type': 'int',   'required': False},
-            {'excel': 'Warranty (Months)',  'db_col': 'WarrantyPeriod',   'type': 'int',   'required': False},
-            
-            {'excel': 'Purchase Price',     'db_col': 'PurchasePrice',    'type': 'float', 'required': False},
-            {'excel': 'MRP',                'db_col': 'MRP',              'type': 'float', 'required': False},
-            {'excel': 'DRP',                'db_col': 'DRP',              'type': 'float', 'required': False},
-            {'excel': 'FDP',                'db_col': 'FDP',              'type': 'float', 'required': False},
-            {'excel': 'Last Unit Cost',     'db_col': 'LastUnitCost',     'type': 'float', 'required': False},
-            {'excel': 'Discount %',         'db_col': 'Discount',         'type': 'float', 'required': False},
-            {'excel': 'SP Discount %',      'db_col': 'SPDiscount',       'type': 'float', 'required': False},
-            {'excel': 'Pur Discount %',     'db_col': 'PurDiscount',      'type': 'float', 'required': False},
-            {'excel': 'Tax %',              'db_col': 'Tax',              'type': 'float', 'required': False},
-        ],
+            {'excel': 'Length',             'db': 'Length',           'type': 'float', 'required': False},
+            {'excel': 'Width',              'db': 'Width',            'type': 'float', 'required': False},
+            {'excel': 'Height',             'db': 'Height',           'type': 'float', 'required': False},
+            {'excel': 'Weight',             'db': 'Weight',           'type': 'float', 'required': False},
+            {'excel': 'Volume',             'db': 'Volume',           'type': 'float', 'required': False},
+
+            {'excel': 'Substitute Item 1',  'db': 'SubstituteItem1',  'type': 'str',   'required': False},
+            {'excel': 'Substitute Item 2',  'db': 'SubstituteItem2',  'type': 'str',   'required': False},
+            {'excel': 'Related Item 1',     'db': 'RelatedItem1',     'type': 'str',   'required': False},
+            {'excel': 'Related Item 2',     'db': 'RelatedItem2',     'type': 'str',   'required': False},
+
+            {'excel': 'Status',             'db': 'Status',           'type': 'int',   'required': False},
+            {'excel': 'Notes',              'db': 'Notes',            'type': 'str',   'required': False},
+        ]
     })

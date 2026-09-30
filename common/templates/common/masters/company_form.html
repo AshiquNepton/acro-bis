@@ -127,7 +127,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const autoId = "{{ auto_select_company|default:'' }}";
     if (autoId) {
         if (sel) sel.value = autoId;
-        cfOnCompanySelect(autoId);
+        // Backend now pre-fills the data, so we don't need to fetch on load.
     }
 });
 </script>

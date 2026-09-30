@@ -17,7 +17,7 @@ import logging
 
 from django.http       import JsonResponse
 from django.db         import connections
-from core.crud         import safe_atomic
+from core.crud         import safe_atomic, get_tenant_db
 
 logger = logging.getLogger(__name__)
 
@@ -85,10 +85,6 @@ DO UPDATE SET
 """
 
 
-def _db(request):
-    return 'customer_db'
-
-
 _ENSURED_FORM_DESIGN_TABLES = set()
 
 
@@ -120,7 +116,7 @@ def load_form_design(request):
     if not form_name:
         return JsonResponse({'success': False, 'error': 'form param required'})
     try:
-        db_alias = _db(request)
+        db_alias = get_tenant_db(request)
         with connections[db_alias].cursor() as cur:
             _ensure_table(cur, db_alias)
             cur.execute(
@@ -169,7 +165,7 @@ def save_form_design(request):
         if not form_name:
             return JsonResponse({'success': False, 'error': 'form required'})
 
-        db_alias = _db(request)
+        db_alias = get_tenant_db(request)
         with safe_atomic(db_alias):
             with connections[db_alias].cursor() as cur:
                 _ensure_table(cur, db_alias)
@@ -221,7 +217,7 @@ def reset_form_design(request):
         if not form_name:
             return JsonResponse({'success': False})
         from core.crud import execute_sql
-        execute_sql(_db(request), 'DELETE FROM "FormDesign" WHERE "ForamName"=%s', [form_name])
+        execute_sql(get_tenant_db(request), 'DELETE FROM "FormDesign" WHERE "ForamName"=%s', [form_name])
         return JsonResponse({'success': True, 'message': 'Design reset to defaults'})
     except Exception as e:
         logger.error('reset_form_design error: %s', e, exc_info=True)
@@ -238,7 +234,7 @@ def form_design_delete(request):
         control_name = str(data.get('controlName', '')).strip()[:60]
         if not form_name or not control_name:
             return JsonResponse({'success': False, 'error': 'Missing form or controlName'})
-        with connections[_db(request)].cursor() as cur:
+        with connections[get_tenant_db(request)].cursor() as cur:
             cur.execute(
                 'DELETE FROM "FormDesign" '
                 'WHERE "ForamName"=%s AND "TypeCode"=0 AND "ControlName"=%s',

@@ -231,6 +231,7 @@ def department_form(request):
 
     ctx = build_department_context(request, reverse('common:list_departments'))
     ctx['base_template'] = 'common/base.html'
+    ctx['page_title'] = 'Department'
     return render(request, 'common/masters/department_form.html', ctx)
 
 

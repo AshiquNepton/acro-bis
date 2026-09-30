@@ -6,19 +6,16 @@ from common.views.import_excel import (
     build_import_form_config,
     get_import_types,
     import_template_download,
-    import_excel_process,
+    import_excel_process
 )
 from inventory.views.import_config import register_inventory_imports
-from common.views.employee_import_config import register_employee_imports
-
 
 def import_excel_page(request):
     if not request.session.get('is_authenticated'):
         return redirect('common:login')
 
-    # Register inventory types (idempotent)
+    # Register all types (idempotent)
     register_inventory_imports()
-    register_employee_imports()
 
     types = get_import_types()
     import_types = [{'key': k, 'label': v['label']} for k, v in types.items()]

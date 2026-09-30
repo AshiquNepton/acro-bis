@@ -269,16 +269,9 @@ def build_item_master_form_config(item_data=None, next_item_code='ITM-0001', opt
 
     # ── 1. Hero Card (Top Banner) ─────────────────────────────────────────
     hero = build_hero_config(
-        show_avatar=False,
-        hero_icon='📦',
         name_field='ItemName',
         default_name=item_name or 'New Item',
         show_meta_rows=True,
-        row1_field='ItemGroup1',
-        row2_field='ItemCode',
-        badge1_label='Active' if is_active else 'Inactive',
-        badge1_class='pf-badge-active' if is_active else 'pf-badge-sub',
-        badge2_field='ItemType',
     )
 
     # ── 2. Action Bar (Top Toolbar Buttons) ───────────────────────────────
@@ -593,21 +586,34 @@ def get_batch_category_options(category_ids: list, db_alias: str = None) -> dict
     Returns a dict mapping category_id -> list of {'value': str, 'label': str}.
     """
     try:
+        from django.core.cache import cache
         from common.middleware.database_middleware import get_customer_db
         db = db_alias or get_customer_db()
-        with connections[db].cursor() as cur:
-            cur.execute(
-                'SELECT "Category", "GroupID", "Description" '
-                'FROM "ItemGroups" '
-                'WHERE "Category" = ANY(%s) '
-                'ORDER BY "Category", "Description"',
-                [list(category_ids)]
-            )
-            result = {cat: [] for cat in category_ids}
-            for cat, gid, desc in cur.fetchall():
-                if cat in result:
-                    result[cat].append({'value': str(gid), 'label': desc or ''})
-            return result
+        
+        # Build cache key based on db and requested categories
+        sorted_cats = sorted(list(category_ids))
+        cache_key = f"batch_cats_{db}_{'_'.join(map(str, sorted_cats))}"
+        
+        cached_result = cache.get(cache_key)
+        if cached_result is not None:
+            return cached_result
+            
+        from core.crud import fetch_tuples
+        rows = fetch_tuples(
+            db,
+            'SELECT "Category", "GroupID", "Description" '
+            'FROM "ItemGroups" '
+            'WHERE "Category" = ANY(%s) '
+            'ORDER BY "Category", "Description"',
+            [sorted_cats]
+        )
+        result = {cat: [] for cat in category_ids}
+        for cat, gid, desc in rows:
+            if cat in result:
+                result[cat].append({'value': str(gid), 'label': desc or ''})
+                
+        cache.set(cache_key, result, timeout=3600)  # Cache for 1 hour
+        return result
     except Exception as e:
         logger.error("Error fetching batch category options: %s", e)
         return {cat: [] for cat in category_ids}
@@ -666,20 +672,29 @@ def get_rate_captions(db_alias=None) -> dict:
     """
     captions = dict(_DEFAULT_RATE_CAPTIONS)  # start with defaults
     try:
+        from django.core.cache import cache
         from common.middleware.database_middleware import get_customer_db
         db = db_alias or get_customer_db()
-        with connections[db].cursor() as cur:
-            cur.execute(
-                """SELECT "Code", "Description" FROM "ChartOfCode"
-                   WHERE "Category" LIKE 'Captions%%' AND "Code" LIKE 'RATE%%'""",
-            )
-            for code, description in cur.fetchall():
-                # Map e.g. 'RATE0', 'RATE0X' → 'Rate0'
-                for i in range(6):
-                    if code and code.upper().startswith(f'RATE{i}'):
-                        if description:
-                            captions[f'Rate{i}'] = description
-                        break
+        
+        cache_key = f"rate_captions_{db}"
+        cached_captions = cache.get(cache_key)
+        if cached_captions:
+            return cached_captions
+            
+        from core.crud import fetch_tuples
+        rows = fetch_tuples(
+            db,
+            """SELECT "Code", "Description" FROM "ChartOfCode"
+               WHERE "Category" LIKE 'Captions%%' AND "Code" LIKE 'RATE%%'"""
+        )
+        for code, description in rows:
+            # Map e.g. 'RATE0', 'RATE0X' → 'Rate0'
+            for i in range(6):
+                if code and code.upper().startswith(f'RATE{i}'):
+                    if description:
+                        captions[f'Rate{i}'] = description
+                    break
+        cache.set(cache_key, captions, timeout=3600)
     except Exception as e:
         logger.warning('get_rate_captions: could not read ChartOfCode, using defaults. %s', e)
     return captions
@@ -689,49 +704,44 @@ def get_item_data(item_code):
     try:
         from common.middleware.database_middleware import get_customer_db
         db = get_customer_db()
-        with connections[db].cursor() as cur:
-            cur.execute('SELECT * FROM "InventoryItems" WHERE "ItemCode" ILIKE %s', [item_code])
-            row = cur.fetchone()
-            if not row:
-                return {}
-            cols = [d[0] for d in cur.description]
-            data = dict(zip(cols, row))
-            
-            created_at = data.get('CreatedAt')
-            if created_at:
-                if hasattr(created_at, 'strftime'):
-                    data['RegDate'] = created_at.strftime('%Y-%m-%d')
-                else:
-                    data['RegDate'] = str(created_at)[:10]
-            
-            resolved_id = data.get('ItemID')
-            if resolved_id:
-                cur.execute('SELECT * FROM "Stocks" WHERE "ItemID" = %s', [resolved_id])
-                stock_row = cur.fetchone()
-                if stock_row:
-                    stock_cols = [d[0] for d in cur.description]
-                    data.update(dict(zip(stock_cols, stock_row)))
-                    data['multiunit_data'] = data.get('MultiUnitData') or ''
-                    
-            from datetime import date, datetime
-            for k, v in data.items():
-                if isinstance(v, (date, datetime)):
-                    data[k] = v.strftime('%Y-%m-%d')
-                elif hasattr(v, '__float__'):
-                    data[k] = str(v)
+        from core.crud import fetch_one, fetch_tuples
+        data = fetch_one(db, 'SELECT * FROM "InventoryItems" WHERE "ItemCode" ILIKE %s', [item_code])
+        if not data:
+            return {}
+        
+        created_at = data.get('CreatedAt')
+        if created_at:
+            if hasattr(created_at, 'strftime'):
+                data['RegDate'] = created_at.strftime('%Y-%m-%d')
+            else:
+                data['RegDate'] = str(created_at)[:10]
+        
+        resolved_id = data.get('ItemID')
+        if resolved_id:
+            stock_data = fetch_one(db, 'SELECT * FROM "Stocks" WHERE "ItemID" = %s', [resolved_id])
+            if stock_data:
+                data.update(stock_data)
+                data['multiunit_data'] = data.get('MultiUnitData') or ''
+                
+        from datetime import date, datetime
+        for k, v in data.items():
+            if isinstance(v, (date, datetime)):
+                data[k] = v.strftime('%Y-%m-%d')
+            elif hasattr(v, '__float__'):
+                data[k] = str(v)
 
-            group_ids = []
+        group_ids = []
+        for f in ['Item', 'ItemGroup1', 'ItemGroup2', 'ItemGroup3', 'ItemGroup4', 'ItemGroup5']:
+            if data.get(f):
+                group_ids.append(str(data[f]))
+        
+        if group_ids:
+            rows = fetch_tuples(db, 'SELECT "GroupID", "Description" FROM "ItemGroups" WHERE "GroupID" = ANY(%s::int[])', [group_ids])
+            desc_map = {str(row[0]): row[1] for row in rows}
             for f in ['Item', 'ItemGroup1', 'ItemGroup2', 'ItemGroup3', 'ItemGroup4', 'ItemGroup5']:
                 if data.get(f):
-                    group_ids.append(str(data[f]))
-            
-            if group_ids:
-                cur.execute('SELECT "GroupID", "Description" FROM "ItemGroups" WHERE "GroupID" = ANY(%s::int[])', [group_ids])
-                desc_map = {str(row[0]): row[1] for row in cur.fetchall()}
-                for f in ['Item', 'ItemGroup1', 'ItemGroup2', 'ItemGroup3', 'ItemGroup4', 'ItemGroup5']:
-                    if data.get(f):
-                        data[f + 'Text'] = desc_map.get(str(data[f]), '')
-            return data
+                    data[f + 'Text'] = desc_map.get(str(data[f]), '')
+        return data
     except Exception as e:
         logger.error("Error fetching item data for %s: %s", item_code, e)
         return {}
@@ -744,10 +754,10 @@ def item_master_view(request):
     try:
         from common.middleware.database_middleware import get_customer_db
         db = get_customer_db()
-        with connections[db].cursor() as cur:
-            cur.execute('SELECT "ItemCode", "ItemName" FROM "InventoryItems" ORDER BY "ItemID" DESC LIMIT 50')
-            for row in cur.fetchall():
-                item_code_options.append({'value': row[0], 'label': f"{row[0]} | {row[1]}"})
+        from core.crud import fetch_tuples
+        rows = fetch_tuples(db, 'SELECT "ItemCode", "ItemName" FROM "InventoryItems" ORDER BY "ItemID" DESC LIMIT 50')
+        for row in rows:
+            item_code_options.append({'value': row[0], 'label': f"{row[0]} | {row[1]}"})
     except Exception as e:
         logger.error("Error fetching item codes: %s", e)
 
@@ -797,6 +807,7 @@ def item_master_view(request):
     )
 
     return render(request, 'inventory/items/item_master_form.html', {
+        'page_title': 'Item Master',
         'form_config': cfg,
         'mu_unit_options_json': json.dumps(options_map['uom']),
         'group_choices_json': json.dumps(group_choices)
@@ -1019,16 +1030,16 @@ def save_item(request):
 
                     # ── 6. Upsert Stocks atomically in same transaction ────
                     if item_id:
-                        with connections[db].cursor() as cur:
-                            set_clause = ', '.join([f'{f}=%s' for f in fields])
-                            cur.execute(f'UPDATE "Stocks" SET {set_clause} WHERE "ItemID"=%s', vals + [item_id])
-                            if cur.rowcount == 0:
-                                col_clause = ', '.join(fields)
-                                val_clause = ', '.join(['%s'] * len(fields))
-                                try:
-                                    cur.execute(f'INSERT INTO "Stocks" ("ItemID", {col_clause}) VALUES (%s, {val_clause})', [item_id] + vals)
-                                except IntegrityError:
-                                    cur.execute(f'UPDATE "Stocks" SET {set_clause} WHERE "ItemID"=%s', vals + [item_id])
+                        from core.crud import execute_sql
+                        set_clause = ', '.join([f'{f}=%s' for f in fields])
+                        rowcount = execute_sql(db, f'UPDATE "Stocks" SET {set_clause} WHERE "ItemID"=%s', vals + [item_id])
+                        if rowcount == 0:
+                            col_clause = ', '.join(fields)
+                            val_clause = ', '.join(['%s'] * len(fields))
+                            try:
+                                execute_sql(db, f'INSERT INTO "Stocks" ("ItemID", {col_clause}) VALUES (%s, {val_clause})', [item_id] + vals)
+                            except IntegrityError:
+                                execute_sql(db, f'UPDATE "Stocks" SET {set_clause} WHERE "ItemID"=%s', vals + [item_id])
 
                 # Return success response
                 return JsonResponse({
@@ -1117,13 +1128,10 @@ def load_item(request):
             LIMIT 1
         """
 
-        with connections[db].cursor() as cur:
-            cur.execute(sql, [where_param])
-            row = cur.fetchone()
-            if not row:
-                return JsonResponse({'success': False, 'error': 'Item not found'})
-            cols = [d[0] for d in cur.description]
-            data = dict(zip(cols, row))
+        from core.crud import fetch_one
+        data = fetch_one(db, sql, [where_param])
+        if not data:
+            return JsonResponse({'success': False, 'error': 'Item not found'})
 
         # ── Serialise: dates, decimals, None ──────────────────────────────
         for k, v in data.items():
@@ -1191,22 +1199,20 @@ def lookup_item(request):
         from inventory.models.item import ensure_inventory_items_table
         ensure_inventory_items_table(db)
 
-        with connections[db].cursor() as cur:
-            if q:
-                cur.execute(
-                    'SELECT "ItemID", "ItemCode", "ItemName", "ItemGroup1", "Status" '
-                    'FROM "InventoryItems" '
-                    'WHERE "ItemCode" ILIKE %s OR "ItemName" ILIKE %s '
-                    'ORDER BY "ItemCode" LIMIT 30',
-                    [f'%{q}%', f'%{q}%']
-                )
-            else:
-                cur.execute(
-                    'SELECT "ItemID", "ItemCode", "ItemName", "ItemGroup1", "Status" '
-                    'FROM "InventoryItems" ORDER BY "ItemCode" LIMIT 30'
-                )
-            cols    = [d[0] for d in cur.description]
-            results = [dict(zip(cols, row)) for row in cur.fetchall()]
+        from core.crud import fetch_all
+        if q:
+            results = fetch_all(db,
+                'SELECT "ItemID", "ItemCode", "ItemName", "ItemGroup1", "Status" '
+                'FROM "InventoryItems" '
+                'WHERE "ItemCode" ILIKE %s OR "ItemName" ILIKE %s '
+                'ORDER BY "ItemCode" LIMIT 30',
+                [f'%{q}%', f'%{q}%']
+            )
+        else:
+            results = fetch_all(db,
+                'SELECT "ItemID", "ItemCode", "ItemName", "ItemGroup1", "Status" '
+                'FROM "InventoryItems" ORDER BY "ItemCode" LIMIT 30'
+            )
 
         return JsonResponse({'success': True, 'results': results})
 
@@ -1236,17 +1242,19 @@ def resolve_groups(request):
         existing_exact = {}  # (cat, lower_name) -> gid
         existing_desc = {}   # lower_name -> gid
 
-        with connections[db].cursor() as cur:
-            if names:
-                cur.execute(
-                    'SELECT "Category", "Description", "GroupID" FROM "ItemGroups" WHERE "Description" = ANY(%s)',
-                    [names]
-                )
-                for cat, desc, gid in cur.fetchall():
-                    d_lower = (desc or '').strip().lower()
-                    existing_exact[(cat, d_lower)] = gid
-                    if d_lower not in existing_desc:
-                        existing_desc[d_lower] = gid
+        from core.crud import fetch_tuples, fetch_one_tuple, execute_sql
+
+        if names:
+            rows = fetch_tuples(
+                db,
+                'SELECT "Category", "Description", "GroupID" FROM "ItemGroups" WHERE "Description" = ANY(%s)',
+                [names]
+            )
+            for cat, desc, gid in rows:
+                d_lower = (desc or '').strip().lower()
+                existing_exact[(cat, d_lower)] = gid
+                if d_lower not in existing_desc:
+                    existing_desc[d_lower] = gid
 
             for g in groups:
                 name = (g.get('name') or '').strip()
@@ -1263,24 +1271,20 @@ def resolve_groups(request):
 
                 if not gid:
                     # Case-insensitive fallback if not exact match
-                    cur.execute('SELECT "GroupID" FROM "ItemGroups" WHERE "Category"=%s AND "Description" ILIKE %s LIMIT 1', [cat, name])
-                    row = cur.fetchone()
+                    row = fetch_one_tuple(db, 'SELECT "GroupID" FROM "ItemGroups" WHERE "Category"=%s AND "Description" ILIKE %s LIMIT 1', [cat, name])
                     if not row:
-                        cur.execute('SELECT "GroupID" FROM "ItemGroups" WHERE "Description" ILIKE %s LIMIT 1', [name])
-                        row = cur.fetchone()
+                        row = fetch_one_tuple(db, 'SELECT "GroupID" FROM "ItemGroups" WHERE "Description" ILIKE %s LIMIT 1', [name])
 
                     if row:
                         gid = row[0]
                     else:
                         for _ in range(5):
                             try:
-                                cur.execute('SELECT COALESCE(MAX("GroupID"), 0) + 1 FROM "ItemGroups"')
-                                gid = cur.fetchone()[0]
-                                cur.execute('INSERT INTO "ItemGroups" ("GroupID", "Category", "Description") VALUES (%s, %s, %s)', [gid, cat, name])
+                                gid = fetch_one_tuple(db, 'SELECT COALESCE(MAX("GroupID"), 0) + 1 FROM "ItemGroups"')[0]
+                                execute_sql(db, 'INSERT INTO "ItemGroups" ("GroupID", "Category", "Description") VALUES (%s, %s, %s)', [gid, cat, name])
                                 break
                             except Exception:
-                                cur.execute('SELECT "GroupID" FROM "ItemGroups" WHERE "Category"=%s AND "Description" ILIKE %s LIMIT 1', [cat, name])
-                                row = cur.fetchone()
+                                row = fetch_one_tuple(db, 'SELECT "GroupID" FROM "ItemGroups" WHERE "Category"=%s AND "Description" ILIKE %s LIMIT 1', [cat, name])
                                 if row:
                                     gid = row[0]
                                     break
@@ -1322,37 +1326,34 @@ def verify_barcode(request):
             
         db = get_customer_db()
         
-        with connections[db].cursor() as cur:
-            # 1. Check ItemCode
-            cur.execute('SELECT "ItemCode", "ItemName" FROM "InventoryItems" WHERE "ItemCode" = %s AND "ItemCode" != %s', [barcode, item_code_ignore])
-            row = cur.fetchone()
-            if row:
-                return JsonResponse({'success': True, 'exists': True, 'message': f"Barcode already exists as Item Code for: {row[1]}"})
-                
-            # 2. Check Unit Barcodes (1 to 6)
-            for i in range(1, 7):
-                cur.execute(f'SELECT "ItemCode", "ItemName" FROM "InventoryItems" WHERE "Unit{i}Barcode" = %s AND "ItemCode" != %s', [barcode, item_code_ignore])
-                row = cur.fetchone()
-                if row:
-                    return JsonResponse({'success': True, 'exists': True, 'message': f"Barcode already exists as Unit {i} Barcode for: {row[1]}"})
+        from core.crud import fetch_one_tuple, fetch_tuples
+        
+        # 1. Check ItemCode
+        row = fetch_one_tuple(db, 'SELECT "ItemCode", "ItemName" FROM "InventoryItems" WHERE "ItemCode" = %s AND "ItemCode" != %s', [barcode, item_code_ignore])
+        if row:
+            return JsonResponse({'success': True, 'exists': True, 'message': f"Barcode already exists as Item Code for: {row[1]}"})
             
-            # 3. Check AssortedBarcode
-            cur.execute('SELECT "ItemCode", "ItemName" FROM "InventoryItems" WHERE "AssortedBarcode" ILIKE %s AND "ItemCode" != %s', [f"%{barcode}%", item_code_ignore])
-            for r in cur.fetchall():
-                cur.execute('SELECT "AssortedBarcode" FROM "InventoryItems" WHERE "ItemCode" = %s', [r[0]])
-                ab_row = cur.fetchone()
-                if ab_row and ab_row[0]:
-                    barcodes = [b.strip() for b in ab_row[0].split(',')]
-                    if barcode in barcodes:
-                        return JsonResponse({'success': True, 'exists': True, 'message': f"Barcode already exists in Assorted Barcodes for: {r[1]}"})
+        # 2. Check Unit Barcodes (1 to 6)
+        for i in range(1, 7):
+            row = fetch_one_tuple(db, f'SELECT "ItemCode", "ItemName" FROM "InventoryItems" WHERE "Unit{i}Barcode" = %s AND "ItemCode" != %s', [barcode, item_code_ignore])
+            if row:
+                return JsonResponse({'success': True, 'exists': True, 'message': f"Barcode already exists as Unit {i} Barcode for: {row[1]}"})
+        
+        # 3. Check AssortedBarcode
+        rows = fetch_tuples(db, 'SELECT "ItemCode", "ItemName" FROM "InventoryItems" WHERE "AssortedBarcode" ILIKE %s AND "ItemCode" != %s', [f"%{barcode}%", item_code_ignore])
+        for r in rows:
+            ab_row = fetch_one_tuple(db, 'SELECT "AssortedBarcode" FROM "InventoryItems" WHERE "ItemCode" = %s', [r[0]])
+            if ab_row and ab_row[0]:
+                barcodes = [b.strip() for b in ab_row[0].split(',')]
+                if barcode in barcodes:
+                    return JsonResponse({'success': True, 'exists': True, 'message': f"Barcode already exists in Assorted Barcodes for: {r[1]}"})
 
-            # 4. Check StockID
-            if barcode.isdigit():
-                cur.execute('SELECT s."ItemID", i."ItemName" FROM "Stocks" s JOIN "InventoryItems" i ON s."ItemID" = i."ItemID" WHERE s."StockID" = %s AND i."ItemCode" != %s', [int(barcode), item_code_ignore])
-                row = cur.fetchone()
-                if row:
-                    return JsonResponse({'success': True, 'exists': True, 'message': f"Barcode already exists as Stock ID for: {row[1]}"})
-                    
+        # 4. Check StockID
+        if barcode.isdigit():
+            row = fetch_one_tuple(db, 'SELECT s."ItemID", i."ItemName" FROM "Stocks" s JOIN "InventoryItems" i ON s."ItemID" = i."ItemID" WHERE s."StockID" = %s AND i."ItemCode" != %s', [int(barcode), item_code_ignore])
+            if row:
+                return JsonResponse({'success': True, 'exists': True, 'message': f"Barcode already exists as Stock ID for: {row[1]}"})
+                
         return JsonResponse({'success': True, 'exists': False})
         
     except Exception as e:

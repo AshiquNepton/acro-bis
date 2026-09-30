@@ -173,3 +173,10 @@ def build_party_form_config(party_type: str, ac_code: str = None, ac_code_option
             },
         ],
     }
+
+
+def base_party_ctx(request, title):
+    return {
+        "page_title": title,
+        "user_info": {"name": request.session.get("username", "User"), "id": request.session.get("custid", "N/A")},
+    }

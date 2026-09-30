@@ -13,6 +13,7 @@
 
 ## 2. Naming Conventions
 
+- **Ask Before Naming**: If you need to create new functions or variables, always ask the user for the preferred names first to maintain uniformity.
 - **Python**: `snake_case` for functions, variables, and module filenames (`item_master.py`, `build_form_config`).
 - **Database Tables & Columns**: `TitleCase` matching legacy customer database conventions (e.g., `ItemCode`, `ItemName`, `FirmMaster`, `ChartOfAccounts`).
 - **HTML IDs & Classes**: `kebab-case` (`item-master-form`, `im-split-modal`).
@@ -27,7 +28,8 @@
    - `showToast(message, type)` for non-blocking notifications.
    - `showConfirm(message, callback, type, title, confirmText, cancelText)` for dangerous actions (deletes, resets, data loss).
    - `showAlert(message, type, title)` for blocking informational alerts.
-3. **Dirty State Protection**: Critical data entry screens must use a `window._isFormDirty` watcher to warn users of unsaved changes before exiting, using custom `showConfirm` logic for internal links and standard `beforeunload` for tab closures.
+3. **Modal Sizes**: When instantiating `new UtilityModal({...})`, **never** pass custom sizes like `width: '400px'`. You must strictly use the standard uniform size parameter: `size: 'sm'` (480px), `size: 'md'` (780px), or `size: 'lg'` (1000px).
+4. **Dirty State Protection**: Critical data entry screens must use a `window._isFormDirty` watcher to warn users of unsaved changes before exiting, using custom `showConfirm` logic for internal links and standard `beforeunload` for tab closures.
 
 ---
 
@@ -71,13 +73,13 @@ window._pfConfig = {
 
 ---
 
-## 5. Unified High-Performance Data Fetching (`DataFetcher`)
+## 5. Unified Data Fetching and CRUD Operations
 
-Use `common.services.data_fetcher.DataFetcher` to eliminate delay when querying large multi-tenant datasets:
+To guarantee consistency, security, and performance across the codebase, **all requests to read from or write to the database must go through a base function in `core.crud`**. Never write raw `cursor.execute(...)` calls directly inside module views.
 
-- **Selective Projection (`.values(*fields)`)**: bypasses heavy Django model instance hydration.
-- **Efficient Pagination (LIMIT/OFFSET Windowing)**: never load entire tables into memory.
-- **Streaming Iterator (`.iterator(chunk_size=1000)`)**: use `DataFetcher.stream_large_dataset()` for reports and exports.
+- **Fast SQL Queries**: Use `core.crud.fetch_all(db_alias, sql, params)` for raw SQL dictionary extraction.
+- **Form/Record Saves**: Use `core.crud.BaseCRUD` methods for inserts, updates, and deletes.
+- **ORM-based Large Datasets**: Use `common.services.data_fetcher.DataFetcher` to eliminate delay when querying large multi-tenant datasets (bypasses heavy hydration, uses slice pagination).
 
 ---
 
@@ -135,3 +137,9 @@ Before creating any new file, work through this checklist:
 5. Only then create a new file.
 
 This directly supports the zero-duplication philosophy and the architectural protection rules.
+
+---
+
+## 8. Reports Directory
+
+All automated project scans, code quality reports, and architectural findings must be saved in the `reports/` directory. This keeps the project root and `docs/` folder clean and ensures historical scan data is easily locatable.

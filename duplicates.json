@@ -1,0 +1,6 @@
+[
+  [
+    ".\\financial\\templates\\financial\\base.html",
+    ".\\inventory\\templates\\inventory\\base.html"
+  ]
+]

@@ -72,8 +72,7 @@
         this.id = cfg.id || ('lm-' + Math.random().toString(36).substr(2, 9));
         this.title = cfg.title || 'Bin Locations';
         this.columnLabel = cfg.columnLabel || 'Position / Bin Location';
-        this.width = cfg.width || '480px';
-        this.height = cfg.height || '260px';
+        this.size = cfg.size || 'sm';
         this.minRows = cfg.minRows || 8;
         this.rows = [];
         this.selectedIndex = 0;
@@ -122,10 +121,9 @@
         this.utilModal = new UtilityModal({
             id: this.id,
             title: this.title,
+            size: this.size,
             subtitle: '',
             icon: THEME_ICONS.infinity,
-            width: this.width,
-            height: this.height,
             tabs: [
                 { id: 'grid_tab', label: this.title }
             ],
@@ -136,8 +134,6 @@
                     var modalBox = m._el.querySelector('.utm-modal');
                     if (modalBox) {
                         modalBox.classList.add('utm-modal--standard');
-                        modalBox.style.width = self.width;
-                        modalBox.style.height = self.height;
                     }
                 }
 
@@ -518,8 +514,7 @@
                 id: modalId,
                 title: modalTitle || 'List Entries',
                 columnLabel: columnLabel || 'Value',
-                width: '480px',
-                height: '260px',
+                size: 'sm',
                 data: initialList,
                 onSave: function (values, defVal, m) {
                     var curEl = m._currentTargetEl;

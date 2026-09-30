@@ -10,39 +10,39 @@ from common.views.party_master import ensure_party_tables
 logger = logging.getLogger(__name__)
 
 def _generate_party_report(request, title, mgroup, form_id):
+    from core.crud import fetch_all
     db_alias = get_customer_db()
     ensure_party_tables(db_alias)
     
-    rows = []
     try:
-        with connections[db_alias].cursor() as cur:
-            cur.execute('''
-                SELECT 
-                    c."AccountID",
-                    c."AcCode",
-                    c."Description",
-                    COALESCE(v."Contact", '') AS "Contact",
-                    COALESCE(v."Mobile", '') AS "Mobile",
-                    COALESCE(v."City", '') AS "City",
-                    COALESCE(v."CreditLimit", 0) AS "CreditLimit"
-                FROM "ChartOfAccounts" c
-                LEFT JOIN "CustomerVendor" v ON c."AccountID" = v."AccountID"
-                WHERE c."MGroup" = %s
-                ORDER BY c."AccountID" ASC
-            ''', [mgroup])
-            cols = [d[0] for d in cur.description]
-            for idx, r in enumerate(cur.fetchall(), start=1):
-                d = dict(zip(cols, r))
-                rows.append({
-                    'id': d.get('AccountID'),
-                    'slno': idx,
-                    'ac_code': d.get('AcCode') or '',
-                    'name': d.get('Description') or '',
-                    'contact': d.get('Contact') or '',
-                    'mobile': d.get('Mobile') or '',
-                    'city': d.get('City') or '',
-                    'credit_limit': float(d.get('CreditLimit') or 0),
-                })
+        raw_rows = fetch_all(db_alias, '''
+            SELECT 
+                c."AccountID",
+                c."AcCode",
+                c."Description",
+                COALESCE(v."Contact", '') AS "Contact",
+                COALESCE(v."Mobile", '') AS "Mobile",
+                COALESCE(v."City", '') AS "City",
+                COALESCE(v."CreditLimit", 0) AS "CreditLimit"
+            FROM "ChartOfAccounts" c
+            LEFT JOIN "CustomerVendor" v ON c."AccountID" = v."AccountID"
+            WHERE c."MGroup" = %s
+            ORDER BY c."AccountID" ASC
+        ''', [mgroup])
+        
+        rows = [
+            {
+                'id': d.get('AccountID'),
+                'slno': idx,
+                'ac_code': d.get('AcCode') or '',
+                'name': d.get('Description') or '',
+                'contact': d.get('Contact') or '',
+                'mobile': d.get('Mobile') or '',
+                'city': d.get('City') or '',
+                'credit_limit': float(d.get('CreditLimit') or 0),
+            }
+            for idx, d in enumerate(raw_rows, start=1)
+        ]
     except Exception as e:
         logger.error(f"{form_id} query failed: %s", e, exc_info=True)
         rows = []
@@ -94,6 +94,7 @@ def _generate_party_report(request, title, mgroup, form_id):
     }
     
     context = {
+        'page_title': title,
         'r': report_cfg,
         'rows': json.dumps(rows, default=str),
     }

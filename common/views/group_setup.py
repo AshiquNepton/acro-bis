@@ -1,6 +1,7 @@
 # common/views/group_setup.py
 import json
 import logging
+from core.crud import get_tenant_db
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.db import connections
@@ -9,10 +10,6 @@ from common.views.decorators import login_required
 
 
 logger = logging.getLogger(__name__)
-
-
-def _db(request):
-    return 'customer_db'
 
 
 ITEM_GROUP_CATEGORIES = [
@@ -100,7 +97,7 @@ def group_setup_load(request):
         return JsonResponse({'success': False, 'rows': []})
     try:
         from core.crud import fetch_tuples
-        rows_db = fetch_tuples(_db(request),
+        rows_db = fetch_tuples(get_tenant_db(request),
             'SELECT "GroupID","Description","UCode" FROM "ItemGroups" '
             'WHERE "Category"=%s ORDER BY "GroupID"',
             [typecode]
@@ -121,7 +118,7 @@ def group_setup_save(request):
         to_save   = data.get('to_save',   [])
         to_delete = data.get('to_delete', [])
 
-        db_alias = _db(request)
+        db_alias = get_tenant_db(request)
         from django.db import transaction
         with transaction.atomic(using=db_alias):
             with connections[db_alias].cursor() as cur:
@@ -178,7 +175,7 @@ def group_setup_delete(request):
         data = json.loads(request.body)
         gid  = int(data.get('id', 0))
         from core.crud import execute_sql
-        execute_sql(_db(request), 'DELETE FROM "ItemGroups" WHERE "GroupID"=%s', [gid])
+        execute_sql(get_tenant_db(request), 'DELETE FROM "ItemGroups" WHERE "GroupID"=%s', [gid])
         return JsonResponse({'success': True})
     except Exception as e:
         logger.error('group_setup_delete: %s', e, exc_info=True)
