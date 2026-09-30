@@ -220,8 +220,8 @@ def reset_form_design(request):
         form_name = str(data.get('form', ''))[:50]
         if not form_name:
             return JsonResponse({'success': False})
-        with connections[_db(request)].cursor() as cur:
-            cur.execute('DELETE FROM "FormDesign" WHERE "ForamName"=%s', [form_name])
+        from core.crud import execute_sql
+        execute_sql(_db(request), 'DELETE FROM "FormDesign" WHERE "ForamName"=%s', [form_name])
         return JsonResponse({'success': True, 'message': 'Design reset to defaults'})
     except Exception as e:
         logger.error('reset_form_design error: %s', e, exc_info=True)
