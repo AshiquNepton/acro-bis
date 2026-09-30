@@ -76,14 +76,9 @@ def _get_group_label(db_alias, group_id):
     if not group_id:
         return ''
     try:
-        from django.db import connections
-        with connections[db_alias].cursor() as cur:
-            cur.execute(
-                'SELECT "Description" FROM "ItemGroups" WHERE "GroupID" = %s',
-                [group_id]
-            )
-            row = cur.fetchone()
-            return row[0] if row else str(group_id)
+        from core.crud import fetch_one_tuple
+        row = fetch_one_tuple(db_alias, 'SELECT "Description" FROM "ItemGroups" WHERE "GroupID" = %s', [group_id])
+        return row[0] if row else str(group_id)
     except Exception:
         return str(group_id)
 

@@ -52,16 +52,15 @@ def filter_reports(request):
     """
     try:
         _ensure_filter_table()
-        conn = _get_conn()
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT DISTINCT "ReportName"
-                FROM   "FilterDetails"
-                WHERE  "ReportName" IS NOT NULL
-                  AND  "ReportName" <> ''
-                ORDER  BY "ReportName"
-            """)
-            names = [row[0] for row in cur.fetchall()]
+        from core.crud import fetch_tuples
+        rows = fetch_tuples(get_customer_db(), """
+            SELECT DISTINCT "ReportName"
+            FROM   "FilterDetails"
+            WHERE  "ReportName" IS NOT NULL
+              AND  "ReportName" <> ''
+            ORDER  BY "ReportName"
+        """)
+        names = [row[0] for row in rows]
         return JsonResponse({'success': True, 'reports': names})
     except Exception as e:
         logger.error('[filter_reports] %s', e, exc_info=True)
@@ -82,20 +81,14 @@ def filter_load(request):
 
     try:
         _ensure_filter_table()
-        conn = _get_conn()
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT "FieldName", "DisplayName", "FieldType", "FilterSql",
-                       "ColWidth", "IDField", "Default", "Operator"
-                FROM   "FilterDetails"
-                WHERE  "ReportName" = %s
-                ORDER  BY "Default" DESC, "FieldName"
-                """,
-                [report_name],
-            )
-            cols = [c[0] for c in cur.description]
-            rows = [dict(zip(cols, row)) for row in cur.fetchall()]
+        from core.crud import fetch_all
+        rows = fetch_all(get_customer_db(), """
+            SELECT "FieldName", "DisplayName", "FieldType", "FilterSql",
+                   "ColWidth", "IDField", "Default", "Operator"
+            FROM   "FilterDetails"
+            WHERE  "ReportName" = %s
+            ORDER  BY "Default" DESC, "FieldName"
+        """, [report_name])
 
         for r in rows:
             for k, v in r.items():
@@ -138,26 +131,21 @@ def filter_save(request):
             return JsonResponse({'success': False, 'error': 'report_name and field_name are required'})
 
         _ensure_filter_table()
-        conn = _get_conn()
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO "FilterDetails"
-                    ("ReportName", "FieldName", "DisplayName", "FieldType",
-                     "FilterSql", "ColWidth", "IDField", "Default", "Operator")
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT ("ReportName", "FieldName") DO UPDATE SET
-                    "DisplayName" = EXCLUDED."DisplayName",
-                    "FieldType"   = EXCLUDED."FieldType",
-                    "FilterSql"   = EXCLUDED."FilterSql",
-                    "ColWidth"    = EXCLUDED."ColWidth",
-                    "IDField"     = EXCLUDED."IDField",
-                    "Default"     = EXCLUDED."Default",
-                    "Operator"    = EXCLUDED."Operator"
-                """,
-                [report_name, field_name, display_name, field_type,
-                 filter_sql, col_width, id_field, is_default, operator],
-            )
+        from core.crud import execute_sql
+        execute_sql(get_customer_db(), """
+            INSERT INTO "FilterDetails"
+                ("ReportName", "FieldName", "DisplayName", "FieldType",
+                 "FilterSql", "ColWidth", "IDField", "Default", "Operator")
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT ("ReportName", "FieldName") DO UPDATE SET
+                "DisplayName" = EXCLUDED."DisplayName",
+                "FieldType"   = EXCLUDED."FieldType",
+                "FilterSql"   = EXCLUDED."FilterSql",
+                "ColWidth"    = EXCLUDED."ColWidth",
+                "IDField"     = EXCLUDED."IDField",
+                "Default"     = EXCLUDED."Default",
+                "Operator"    = EXCLUDED."Operator"
+        """, [report_name, field_name, display_name, field_type, filter_sql, col_width, id_field, is_default, operator])
 
         return JsonResponse({'success': True, 'message': 'Saved'})
 
@@ -187,12 +175,8 @@ def filter_delete(request):
             return JsonResponse({'success': False, 'error': 'report_name and field_name required'})
 
         _ensure_filter_table()
-        conn = _get_conn()
-        with conn.cursor() as cur:
-            cur.execute(
-                'DELETE FROM "FilterDetails" WHERE "ReportName" = %s AND "FieldName" = %s',
-                [report_name, field_name],
-            )
+        from core.crud import execute_sql
+        execute_sql(get_customer_db(), 'DELETE FROM "FilterDetails" WHERE "ReportName" = %s AND "FieldName" = %s', [report_name, field_name])
 
         return JsonResponse({'success': True, 'message': 'Deleted'})
 
@@ -221,9 +205,8 @@ def filter_reset(request):
             return JsonResponse({'success': False, 'error': 'report_name required'})
 
         _ensure_filter_table()
-        conn = _get_conn()
-        with conn.cursor() as cur:
-            cur.execute('DELETE FROM "FilterDetails" WHERE "ReportName" = %s', [report_name])
+        from core.crud import execute_sql
+        execute_sql(get_customer_db(), 'DELETE FROM "FilterDetails" WHERE "ReportName" = %s', [report_name])
 
         return JsonResponse({'success': True, 'message': 'Reset'})
 
@@ -323,16 +306,16 @@ def filter_report_styles(request):
  
     try:
         db_alias = _get_company_db_from_request(request)
-        with connections[db_alias].cursor() as cur:
-            cur.execute(
-                'SELECT DISTINCT "ReportName" '
-                'FROM "ReportDetails" '
-                'WHERE "MRName" = %s '
-                '  AND "ReportName" IS NOT NULL '
-                'ORDER BY "ReportName"',
-                [mr_name]
-            )
-            styles = [row[0] for row in cur.fetchall()]
+        from core.crud import fetch_tuples
+        rows = fetch_tuples(db_alias, 
+            'SELECT DISTINCT "ReportName" '
+            'FROM "ReportDetails" '
+            'WHERE "MRName" = %s '
+            '  AND "ReportName" IS NOT NULL '
+            'ORDER BY "ReportName"',
+            [mr_name]
+        )
+        styles = [row[0] for row in rows]
         return JsonResponse({'success': True, 'styles': styles})
  
     except Exception as exc:

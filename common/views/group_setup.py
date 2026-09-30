@@ -99,13 +99,13 @@ def group_setup_load(request):
     except (ValueError, TypeError):
         return JsonResponse({'success': False, 'rows': []})
     try:
-        with connections[_db(request)].cursor() as cur:
-            cur.execute(
-                'SELECT "GroupID","Description","UCode" FROM "ItemGroups" '
-                'WHERE "Category"=%s ORDER BY "GroupID"',
-                [typecode]
-            )
-            rows = [{'id': r[0], 'description': r[1] or '', 'code': r[2] or ''} for r in cur.fetchall()]
+        from core.crud import fetch_tuples
+        rows_db = fetch_tuples(_db(request),
+            'SELECT "GroupID","Description","UCode" FROM "ItemGroups" '
+            'WHERE "Category"=%s ORDER BY "GroupID"',
+            [typecode]
+        )
+        rows = [{'id': r[0], 'description': r[1] or '', 'code': r[2] or ''} for r in rows_db]
         return JsonResponse({'success': True, 'rows': rows})
     except Exception as e:
         logger.error('group_setup_load: %s', e, exc_info=True)
@@ -177,8 +177,8 @@ def group_setup_delete(request):
     try:
         data = json.loads(request.body)
         gid  = int(data.get('id', 0))
-        with connections[_db(request)].cursor() as cur:
-            cur.execute('DELETE FROM "ItemGroups" WHERE "GroupID"=%s', [gid])
+        from core.crud import execute_sql
+        execute_sql(_db(request), 'DELETE FROM "ItemGroups" WHERE "GroupID"=%s', [gid])
         return JsonResponse({'success': True})
     except Exception as e:
         logger.error('group_setup_delete: %s', e, exc_info=True)

@@ -61,12 +61,12 @@ def _raw_conn(request):
 
 
 def _style_exists(request, report_name: str, mr_name: str) -> bool:
-    with _raw_conn(request).cursor() as cur:
-        cur.execute(
-            'SELECT COUNT(*) FROM "ReportDetails" WHERE "ReportName"=%s AND "MRName"=%s',
-            [report_name, mr_name],
-        )
-        return cur.fetchone()[0] > 0
+    from core.crud import fetch_one_tuple
+    row = fetch_one_tuple(_get_db_alias(request),
+        'SELECT COUNT(*) FROM "ReportDetails" WHERE "ReportName"=%s AND "MRName"=%s',
+        [report_name, mr_name]
+    )
+    return row[0] > 0 if row else False
 
 
 def _delete_style_rows(request, report_name: str, mr_name: str) -> int:
@@ -239,21 +239,20 @@ def report_load_style(request):
     try:
         ensure_report_details_table(_get_db_alias(request))
 
-        with _raw_conn(request).cursor() as cur:
-            cur.execute("""
-                SELECT "Section", "FName", "Show", "Width", "Index",
-                       "Alignment", "FieldType", "FormatText",
-                       COALESCE("Color",     '') AS "Color",
-                       COALESCE("TextColor", '') AS "TextColor",
-                       COALESCE("FKTable",   '') AS "FKTable",
-                       COALESCE("FKIDField", '') AS "FKIDField",
-                       COALESCE("FKField",   '') AS "FKField"
-                FROM   "ReportDetails"
-                WHERE  "ReportName" = %s
-                  AND  "MRName"     = %s
-                ORDER  BY "Index" ASC
-            """, [report_name, mr_name])
-            rows = cur.fetchall()
+        from core.crud import fetch_tuples
+        rows = fetch_tuples(_get_db_alias(request), """
+            SELECT "Section", "FName", "Show", "Width", "Index",
+                   "Alignment", "FieldType", "FormatText",
+                   COALESCE("Color",     '') AS "Color",
+                   COALESCE("TextColor", '') AS "TextColor",
+                   COALESCE("FKTable",   '') AS "FKTable",
+                   COALESCE("FKIDField", '') AS "FKIDField",
+                   COALESCE("FKField",   '') AS "FKField"
+            FROM   "ReportDetails"
+            WHERE  "ReportName" = %s
+              AND  "MRName"     = %s
+            ORDER  BY "Index" ASC
+        """, [report_name, mr_name])
 
         if not rows:
             return JsonResponse({
