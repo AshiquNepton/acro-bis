@@ -1,6 +1,7 @@
 # common/models/company_information.py
 
 from django.db import models
+from core.crud import execute_sql
 
 
 
@@ -77,15 +78,13 @@ def ensure_organization_logo_columns(db_alias: str = 'customer_db', force: bool 
     logger = logging.getLogger(__name__)
 
     try:
-        conn = connections[db_alias]
-        with conn.cursor() as cur:
-            cur.execute("""
-                ALTER TABLE "Organization"
-                ADD COLUMN IF NOT EXISTS "HeaderFullLogo" VARCHAR(500),
-                ADD COLUMN IF NOT EXISTS "HeaderSideLogo" VARCHAR(500),
-                ADD COLUMN IF NOT EXISTS "FooterFullLogo" VARCHAR(500),
-                ADD COLUMN IF NOT EXISTS "FooterSideLogo" VARCHAR(500)
-            """)
+        execute_sql(db_alias, """
+            ALTER TABLE "Organization"
+            ADD COLUMN IF NOT EXISTS "HeaderFullLogo" VARCHAR(500),
+            ADD COLUMN IF NOT EXISTS "HeaderSideLogo" VARCHAR(500),
+            ADD COLUMN IF NOT EXISTS "FooterFullLogo" VARCHAR(500),
+            ADD COLUMN IF NOT EXISTS "FooterSideLogo" VARCHAR(500)
+        """)
         _ENSURED_ORG_LOGO_COLS.add(db_alias)
         logger.info('[ensure_organization_logo_columns] done on db=%s', db_alias)
     except Exception as e:

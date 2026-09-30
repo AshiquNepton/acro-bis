@@ -23,6 +23,7 @@ New columns (2025):
 import logging
 from django.db import connections
 from django.db.utils import ProgrammingError, OperationalError
+from core.crud import fetch_one_tuple
 
 logger = logging.getLogger(__name__)
 
@@ -227,13 +228,11 @@ def ensure_employees_table(db_alias: str = 'customer_db') -> bool:
         conn = connections[db_alias]
 
         # Fast existence check
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT 1 FROM information_schema.tables
-                WHERE  table_schema = 'public'
-                AND    table_name   = 'Employees'
-            """)
-            already_exists = cur.fetchone() is not None
+        already_exists = fetch_one_tuple(db_alias, """
+            SELECT 1 FROM information_schema.tables
+            WHERE  table_schema = 'public'
+            AND    table_name   = 'Employees'
+        """) is not None
 
         if not already_exists:
             # Brand-new table — create it (already has the correct columns)

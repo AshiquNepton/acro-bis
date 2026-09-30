@@ -12,6 +12,7 @@ ensure_filter_details_table(db_alias):
 import logging
 from django.db import connections
 from django.db.utils import ProgrammingError, OperationalError
+from core.crud import fetch_one_tuple
 
 logger = logging.getLogger(__name__)
 
@@ -56,15 +57,13 @@ def ensure_filter_details_table(db_alias: str = 'customer_db', force: bool = Fal
     try:
         conn = connections[db_alias]
 
-        with conn.cursor() as cur:
-            # ── Does the table exist? ─────────────────────────────────────
-            cur.execute("""
-                SELECT 1
-                FROM   information_schema.tables
-                WHERE  table_schema = 'public'
-                AND    table_name   = 'FilterDetails'
-            """)
-            table_exists = cur.fetchone() is not None
+        # ── Does the table exist? ─────────────────────────────────────
+        table_exists = fetch_one_tuple(db_alias, """
+            SELECT 1
+            FROM   information_schema.tables
+            WHERE  table_schema = 'public'
+            AND    table_name   = 'FilterDetails'
+        """) is not None
 
         if not table_exists:
             # Fresh install — create with PK included
@@ -77,16 +76,14 @@ def ensure_filter_details_table(db_alias: str = 'customer_db', force: bool = Fal
             return True
 
         # ── Table exists — check whether PK constraint is present ─────────
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT 1
-                FROM   information_schema.table_constraints
-                WHERE  table_schema     = 'public'
-                AND    table_name       = 'FilterDetails'
-                AND    constraint_name  = 'PK_FilterDetails'
-                AND    constraint_type  = 'PRIMARY KEY'
-            """)
-            pk_exists = cur.fetchone() is not None
+        pk_exists = fetch_one_tuple(db_alias, """
+            SELECT 1
+            FROM   information_schema.table_constraints
+            WHERE  table_schema     = 'public'
+            AND    table_name       = 'FilterDetails'
+            AND    constraint_name  = 'PK_FilterDetails'
+            AND    constraint_type  = 'PRIMARY KEY'
+        """) is not None
 
         if not pk_exists:
             # Older table without the PK — add it now.

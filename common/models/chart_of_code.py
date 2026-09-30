@@ -36,7 +36,7 @@ from datetime import date
 from typing import Optional
 
 from django.db import connections
-from core.crud import safe_atomic
+from core.crud import safe_atomic, fetch_tuples, fetch_one_tuple, execute_sql
 
 logger = logging.getLogger(__name__)
 
@@ -223,13 +223,12 @@ class ChartOfCode:
         """Return the Description of a single row, or None."""
         cls.ensure(db_alias)
         try:
-            with cls._conn(db_alias).cursor() as cur:
-                cur.execute(
-                    f'SELECT "Description" FROM {cls.TABLE} '
-                    f'WHERE "Category"=%s AND "Code"=%s AND "TypeCode"=%s',
-                    [category, code, type_code],
-                )
-                row = cur.fetchone()
+            row = fetch_one_tuple(
+                db_alias,
+                f'SELECT "Description" FROM {cls.TABLE} '
+                f'WHERE "Category"=%s AND "Code"=%s AND "TypeCode"=%s',
+                [category, code, type_code],
+            )
             return row[0] if row else None
         except Exception as e:
             logger.error('[ChartOfCode.get] %s', e, exc_info=True)
@@ -261,9 +260,7 @@ class ChartOfCode:
                 sql    += ' AND "ENo"=%s'
                 params += [int(eno)]
 
-            with conn.cursor() as cur:
-                cur.execute(sql, params)
-                rows = cur.fetchall()
+            rows = fetch_tuples(db_alias, sql, params)
 
             result = {}
             for type_code, description in rows:
@@ -287,13 +284,13 @@ class ChartOfCode:
         """
         cls.ensure(db_alias)
         try:
-            with cls._conn(db_alias).cursor() as cur:
-                cur.execute(
-                    f'SELECT "TypeCode","Description" FROM {cls.TABLE} '
-                    f'WHERE "Category"=%s AND "Code"=%s AND "TypeCode" LIKE %s',
-                    [category, code, type_code_prefix + '%'],
-                )
-                return {tc: desc or '' for tc, desc in cur.fetchall()}
+            rows = fetch_tuples(
+                db_alias,
+                f'SELECT "TypeCode","Description" FROM {cls.TABLE} '
+                f'WHERE "Category"=%s AND "Code"=%s AND "TypeCode" LIKE %s',
+                [category, code, type_code_prefix + '%'],
+            )
+            return {tc: desc or '' for tc, desc in rows}
         except Exception as e:
             logger.error('[ChartOfCode.load_by_prefix] %s', e, exc_info=True)
             return {}
@@ -312,8 +309,7 @@ class ChartOfCode:
             if eno is not None:
                 sql    += ' AND "ENo"=%s'
                 params += [int(eno)]
-            with conn.cursor() as cur:
-                cur.execute(sql, params)
+            execute_sql(db_alias, sql, params)
             return True
         except Exception as e:
             logger.error('[ChartOfCode.delete_all] %s', e, exc_info=True)
@@ -325,12 +321,12 @@ class ChartOfCode:
         """Delete a single row by TypeCode."""
         cls.ensure(db_alias)
         try:
-            with cls._conn(db_alias).cursor() as cur:
-                cur.execute(
-                    f'DELETE FROM {cls.TABLE} '
-                    f'WHERE "Category"=%s AND "Code"=%s AND "TypeCode"=%s',
-                    [category, code, type_code],
-                )
+            execute_sql(
+                db_alias,
+                f'DELETE FROM {cls.TABLE} '
+                f'WHERE "Category"=%s AND "Code"=%s AND "TypeCode"=%s',
+                [category, code, type_code],
+            )
             return True
         except Exception as e:
             logger.error('[ChartOfCode.delete_one] %s', e, exc_info=True)
@@ -343,12 +339,12 @@ class ChartOfCode:
         """List all distinct (Category, Code) pairs in the table."""
         cls.ensure(db_alias)
         try:
-            with cls._conn(db_alias).cursor() as cur:
-                cur.execute(
-                    f'SELECT DISTINCT "Category","Code" FROM {cls.TABLE} '
-                    f'ORDER BY "Category","Code"'
-                )
-                return [{'category': r[0], 'code': r[1]} for r in cur.fetchall()]
+            rows = fetch_tuples(
+                db_alias,
+                f'SELECT DISTINCT "Category","Code" FROM {cls.TABLE} '
+                f'ORDER BY "Category","Code"'
+            )
+            return [{'category': r[0], 'code': r[1]} for r in rows]
         except Exception as e:
             logger.error('[ChartOfCode.list_categories] %s', e, exc_info=True)
             return []

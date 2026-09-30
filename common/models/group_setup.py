@@ -10,6 +10,7 @@ and is called automatically when the table is missing.
 import logging
 from django.db import connections
 from django.db.utils import ProgrammingError, OperationalError
+from core.crud import fetch_one_tuple
 
 logger = logging.getLogger(__name__)
 
@@ -55,14 +56,12 @@ def ensure_item_groups_table(db_alias: str = 'customer_db', force: bool = False)
     try:
         conn = connections[db_alias]
 
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT 1
-                FROM   information_schema.tables
-                WHERE  table_schema = 'public'
-                AND    table_name   = 'ItemGroups'
-            """)
-            already_exists = cur.fetchone() is not None
+        already_exists = fetch_one_tuple(db_alias, """
+            SELECT 1
+            FROM   information_schema.tables
+            WHERE  table_schema = 'public'
+            AND    table_name   = 'ItemGroups'
+        """) is not None
 
         if already_exists:
             _ENSURED_ITEM_GROUPS_TABLES.add(db_alias)

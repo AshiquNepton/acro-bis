@@ -12,6 +12,7 @@ The Under field stores Organization.CompanyId as a plain integer FK
 import logging
 
 from django.db import connections, OperationalError, ProgrammingError
+from core.crud import execute_sql
 
 logger = logging.getLogger(__name__)
 
@@ -45,8 +46,7 @@ def ensure_firm_master_table(db_alias: str, force: bool = False) -> bool:
         )
     """
     try:
-        with connections[db_alias].cursor() as cur:
-            cur.execute(ddl)
+        execute_sql(db_alias, ddl)
         _ENSURED_FIRM_TABLES.add(db_alias)
         logger.debug('ensure_firm_master_table: table ready in %s', db_alias)
         return True
