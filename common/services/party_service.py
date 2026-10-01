@@ -98,7 +98,7 @@ def get_party_code_options(mgroup: int, db_alias: str = None) -> list:
                 [mgroup]
             )
             for row in cur.fetchall():
-                options.append({'value': row[0], 'label': f"{row[0]} - {row[1]}"})
+                options.append({'value': row[0], 'label': f"{row[0]} | {row[1]}"})
     except Exception as e:
         logger.error('[get_party_code_options] %s', e)
     return options

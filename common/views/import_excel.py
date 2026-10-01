@@ -201,7 +201,7 @@ def import_template_download(request):
     ws.title = label
 
     # ── Styles ────────────────────────────────────────────────────────────────
-    theme = request.session.get('theme', 'red-white')
+    theme = request.session.get('theme', 'sky-white')
     if theme == 'purple-white':
         bg, bg_req = '7C3AED', '6D28D9'
     elif theme == 'blue-white':
@@ -210,8 +210,10 @@ def import_template_download(request):
         bg, bg_req = '16A34A', '15803D'
     elif theme == 'teal-white':
         bg, bg_req = '0F766E', '0D6B63'
-    else:
+    elif theme == 'red-white':
         bg, bg_req = 'C0123C', '960E2F'
+    else:
+        bg, bg_req = '136DB9', '0F5794'
 
     header_font    = Font(name='Arial', bold=True, color='FFFFFF', size=10)
     header_fill    = PatternFill('solid', start_color=bg, end_color=bg)
@@ -303,23 +305,25 @@ def _resolve_itemgroup_id(db_alias: str, category_id: int, description: str,
             return group_id
 
         # ── Insert new row with collision retry ────────────────────────────
+        from django.db import transaction
         for attempt in range(5):
             try:
-                cur.execute('SELECT COALESCE(MAX("GroupID"), 0) + 1 FROM "ItemGroups"')
-                next_id = cur.fetchone()[0]
-
-                cur.execute(
-                    'INSERT INTO "ItemGroups" '
-                    '("GroupID", "Category", "Description", "Under", "NREC") '
-                    'VALUES (%s, %s, %s, %s, %s)',
-                    [next_id, category_id, description.strip(), 1, None],
-                )
-                logger.info(
-                    '_resolve_itemgroup_id: inserted "%s" → GroupID=%d (Category=%d)',
-                    description.strip(), next_id, category_id,
-                )
-                cache[cache_key] = next_id
-                return next_id
+                with transaction.atomic(using=db_alias):
+                    cur.execute('SELECT COALESCE(MAX("GroupID"), 0) + 1 FROM "ItemGroups"')
+                    next_id = cur.fetchone()[0]
+    
+                    cur.execute(
+                        'INSERT INTO "ItemGroups" '
+                        '("GroupID", "Category", "Description", "Under", "NREC") '
+                        'VALUES (%s, %s, %s, %s, %s)',
+                        [next_id, category_id, description.strip(), 1, None],
+                    )
+                    logger.info(
+                        '_resolve_itemgroup_id: inserted "%s" → GroupID=%d (Category=%d)',
+                        description.strip(), next_id, category_id,
+                    )
+                    cache[cache_key] = next_id
+                    return next_id
             except Exception:
                 cur.execute(
                     'SELECT "GroupID" FROM "ItemGroups" '
@@ -428,15 +432,16 @@ def import_excel_process(request):
             for idx, row in enumerate(rows):
                 excel_row_num = idx + 2
                 try:
-                    row = {re.sub(r'\s*\*\s*$', '', k).strip(): v for k, v in row.items()}
-                    resolved_row = dict(row)
-                    for excel_key, category_id in itemgroup_cols.items():
-                        raw_val = str(resolved_row.get(excel_key) or '').strip()
-                        if not raw_val: continue
-                        resolved_row[excel_key] = str(_resolve_itemgroup_id(db_alias, category_id, raw_val, ig_cache))
-        
-                    db_row = _coerce_row(resolved_row, columns)
-                    db_rows.append((excel_row_num, db_row))
+                    with transaction.atomic(using=db_alias):
+                        row = {re.sub(r'\s*\*\s*$', '', k).strip(): v for k, v in row.items()}
+                        resolved_row = dict(row)
+                        for excel_key, category_id in itemgroup_cols.items():
+                            raw_val = str(resolved_row.get(excel_key) or '').strip()
+                            if not raw_val: continue
+                            resolved_row[excel_key] = str(_resolve_itemgroup_id(db_alias, category_id, raw_val, ig_cache))
+            
+                        db_row = _coerce_row(resolved_row, columns)
+                        db_rows.append((excel_row_num, db_row))
         
                 except Exception as exc:
                     errors.append({'row': excel_row_num, 'error': str(exc)})
@@ -447,8 +452,9 @@ def import_excel_process(request):
             
             if upsert_batch_fn and db_rows:
                 try:
-                    upsert_batch_fn(db_alias, [r[1] for r in db_rows])
-                    imported += len(db_rows)
+                    with transaction.atomic(using=db_alias):
+                        upsert_batch_fn(db_alias, [r[1] for r in db_rows])
+                        imported += len(db_rows)
                 except Exception as exc:
                     errors.append({'row': 'Batch', 'error': 'Batch transaction failed: ' + str(exc)})
             else:
@@ -594,11 +600,13 @@ def _upsert_row(db_alias: str, table: str, pk_col: str, data: dict):
         else:
             col_clause = ', '.join(q(c) for c in cols)
             val_clause = ', '.join('%s' for _ in cols)
+            from django.db import transaction
             try:
-                cur.execute(
-                    f'INSERT INTO {q(table)} ({col_clause}) VALUES ({val_clause})',
-                    vals,
-                )
+                with transaction.atomic(using=db_alias):
+                    cur.execute(
+                        f'INSERT INTO {q(table)} ({col_clause}) VALUES ({val_clause})',
+                        vals,
+                    )
             except Exception:
                 update_cols = [c for c in cols if c != pk_col]
                 if update_cols:

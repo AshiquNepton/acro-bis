@@ -1037,7 +1037,8 @@ def save_item(request):
                             col_clause = ', '.join(fields)
                             val_clause = ', '.join(['%s'] * len(fields))
                             try:
-                                execute_sql(db, f'INSERT INTO "Stocks" ("ItemID", {col_clause}) VALUES (%s, {val_clause})', [item_id] + vals)
+                                with transaction.atomic(using=db):
+                                    execute_sql(db, f'INSERT INTO "Stocks" ("ItemID", {col_clause}) VALUES (%s, {val_clause})', [item_id] + vals)
                             except IntegrityError:
                                 execute_sql(db, f'UPDATE "Stocks" SET {set_clause} WHERE "ItemID"=%s', vals + [item_id])
 

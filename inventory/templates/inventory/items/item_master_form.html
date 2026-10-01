@@ -126,7 +126,11 @@ window._pfConfig = {
         },
         onSaveSuccess    : function(d) {
             window._isFormDirty = false;
-            window.location.href = window.location.pathname;
+            if (d.ItemCode) {
+                window.location.href = window.location.pathname + '?ItemCode=' + encodeURIComponent(d.ItemCode) + '&saved=1';
+            } else {
+                window.location.href = window.location.pathname + '?saved=1';
+            }
         }
     }
 };
@@ -1077,6 +1081,18 @@ function imRmInit() {
     });
 }
 
-document.addEventListener('DOMContentLoaded', imRmInit);
+document.addEventListener('DOMContentLoaded', function() {
+    imRmInit();
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('saved') === '1') {
+        if (typeof showToast === 'function') {
+            showToast('Item saved successfully!', 'success');
+        }
+        // Optional: clean up the URL without reloading
+        const newUrl = window.location.pathname + (urlParams.get('ItemCode') ? '?ItemCode=' + encodeURIComponent(urlParams.get('ItemCode')) : '');
+        window.history.replaceState({}, document.title, newUrl);
+    }
+});
 </script>
 {% endblock %}

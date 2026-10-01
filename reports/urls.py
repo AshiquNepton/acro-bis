@@ -25,6 +25,8 @@ urlpatterns = [
 
     # Party Reports
     path('customer-list/', party_reports.customer_list, name='customer_list'),
+    path('customer-list/data/', party_reports.customer_list_data, name='customer_list_data'),
     path('vendor-list/', party_reports.vendor_list, name='vendor_list'),
+    path('vendor-list/data/', party_reports.vendor_list_data, name='vendor_list_data'),
 
 ]

@@ -11,9 +11,10 @@ VALID_THEMES = frozenset({
     'green-white',
     'teal-white',
     'dark',
+    'sky-white',
 })
 
-DEFAULT_THEME = 'red-white'
+DEFAULT_THEME = 'sky-white'
 
 
 # ─────────────────────────────────────────────────────────────────

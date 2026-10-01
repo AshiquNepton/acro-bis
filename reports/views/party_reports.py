@@ -1,51 +1,64 @@
 import json
 import logging
 from django.shortcuts import render
+from django.http import JsonResponse
 from django.db import connections
 from common.middleware.database_middleware import get_customer_db
 from common.theme_constants import tb
 from common.views.decorators import login_required
 from common.views.party_master import ensure_party_tables
+from django.views.decorators.http import require_GET
 
 logger = logging.getLogger(__name__)
 
+def _fetch_party_rows(db_alias, mgroup, offset=0, limit=None):
+    from core.crud import fetch_tuples
+    
+    sql = '''
+        SELECT 
+            c."AccountID",
+            c."AcCode",
+            c."Description",
+            COALESCE(v."Contact", '') AS "Contact",
+            COALESCE(v."Mobile", '') AS "Mobile",
+            COALESCE(CAST(v."City" AS VARCHAR), '') AS "City",
+            COALESCE(v."CreditLimit", 0) AS "CreditLimit"
+        FROM "ChartOfAccounts" c
+        LEFT JOIN "CustomerVendor" v ON c."AccountID" = v."AccountID"
+        WHERE c."MGroup" = %s
+        ORDER BY c."AccountID" ASC
+    '''
+    
+    if limit is not None:
+        sql += f' LIMIT {int(limit)} OFFSET {int(offset)}'
+        
+    raw_rows = fetch_tuples(db_alias, sql, [mgroup])
+    
+    return [
+        {
+            'id': row[0],
+            'slno': idx,
+            'ac_code': row[1] or '',
+            'name': row[2] or '',
+            'contact': row[3] or '',
+            'mobile': row[4] or '',
+            'city': row[5] or '',
+            'credit_limit': float(row[6] or 0),
+        }
+        for idx, row in enumerate(raw_rows, start=offset + 1)
+    ]
+
 def _generate_party_report(request, title, mgroup, form_id):
-    from core.crud import fetch_all
     db_alias = get_customer_db()
     ensure_party_tables(db_alias)
     
+    INITIAL_LIMIT = 100
+    rows = []
+    
     try:
-        raw_rows = fetch_all(db_alias, '''
-            SELECT 
-                c."AccountID",
-                c."AcCode",
-                c."Description",
-                COALESCE(v."Contact", '') AS "Contact",
-                COALESCE(v."Mobile", '') AS "Mobile",
-                COALESCE(v."City", '') AS "City",
-                COALESCE(v."CreditLimit", 0) AS "CreditLimit"
-            FROM "ChartOfAccounts" c
-            LEFT JOIN "CustomerVendor" v ON c."AccountID" = v."AccountID"
-            WHERE c."MGroup" = %s
-            ORDER BY c."AccountID" ASC
-        ''', [mgroup])
-        
-        rows = [
-            {
-                'id': d.get('AccountID'),
-                'slno': idx,
-                'ac_code': d.get('AcCode') or '',
-                'name': d.get('Description') or '',
-                'contact': d.get('Contact') or '',
-                'mobile': d.get('Mobile') or '',
-                'city': d.get('City') or '',
-                'credit_limit': float(d.get('CreditLimit') or 0),
-            }
-            for idx, d in enumerate(raw_rows, start=1)
-        ]
+        rows = _fetch_party_rows(db_alias, mgroup, offset=0, limit=INITIAL_LIMIT)
     except Exception as e:
         logger.error(f"{form_id} query failed: %s", e, exc_info=True)
-        rows = []
         
     report_cfg = {
         'id': form_id,
@@ -53,6 +66,8 @@ def _generate_party_report(request, title, mgroup, form_id):
         'title': title,
         'mr_name': title.replace(' ', ''),
         'close_onclick': 'history.back()',
+        'lazy_load_url': f'/reports/{form_id}/data/',
+        'lazy_load_offset': INITIAL_LIMIT,
         'toolbar': [
             tb('Close', 'history.back()', danger=True),
             tb('Save', f"rptRptSave('{form_id}')"),
@@ -98,12 +113,36 @@ def _generate_party_report(request, title, mgroup, form_id):
         'r': report_cfg,
         'rows': json.dumps(rows, default=str),
     }
-    return render(request, 'reports/stock_report.html', context)
+    return render(request, 'reports/generic_report.html', context)
 
 @login_required
 def customer_list(request):
     return _generate_party_report(request, 'Customer List', 36, 'customer-list')
 
 @login_required
+@require_GET
+def customer_list_data(request):
+    db_alias = get_customer_db()
+    try:
+        offset = int(request.GET.get('offset', 0))
+        rows = _fetch_party_rows(db_alias, 36, offset=offset, limit=None)
+        return JsonResponse({'success': True, 'rows': rows})
+    except Exception as e:
+        logger.error("customer_list_data failed: %s", e, exc_info=True)
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
 def vendor_list(request):
     return _generate_party_report(request, 'Vendor List', 37, 'vendor-list')
+
+@login_required
+@require_GET
+def vendor_list_data(request):
+    db_alias = get_customer_db()
+    try:
+        offset = int(request.GET.get('offset', 0))
+        rows = _fetch_party_rows(db_alias, 37, offset=offset, limit=None)
+        return JsonResponse({'success': True, 'rows': rows})
+    except Exception as e:
+        logger.error("vendor_list_data failed: %s", e, exc_info=True)
+        return JsonResponse({'success': False, 'error': str(e)})

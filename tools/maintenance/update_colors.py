@@ -10,7 +10,7 @@ for line in lines:
     if "req_fill       = PatternFill('solid', start_color='1D4ED8', end_color='1D4ED8')  # darker blue for required" in line:
         continue
     if "header_font    = Font(name='Arial', bold=True, color='FFFFFF', size=10)" in line:
-        new_lines.append('''    theme = request.session.get('theme', 'red-white')
+        new_lines.append('''    theme = request.session.get('theme', 'sky-white')
     if theme == 'purple-white':
         bg, bg_req = '7C3AED', '6D28D9'
     elif theme == 'blue-white':
@@ -19,8 +19,10 @@ for line in lines:
         bg, bg_req = '16A34A', '15803D'
     elif theme == 'teal-white':
         bg, bg_req = '0F766E', '0D6B63'
-    else:
+    elif theme == 'red-white':
         bg, bg_req = 'C0123C', '960E2F'
+    else:
+        bg, bg_req = '136DB9', '0F5794'
 
     header_font    = Font(name='Arial', bold=True, color='FFFFFF', size=10)
     header_fill    = PatternFill('solid', start_color=bg, end_color=bg)

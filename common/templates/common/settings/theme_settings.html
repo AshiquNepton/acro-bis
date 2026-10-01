@@ -185,8 +185,22 @@
             <div class="ts-section-title">Light Themes</div>
             <div class="ts-swatches">
 
-                {# Red-White (default) #}
-                <div class="ts-swatch {% if theme == 'red-white' or not theme %}active{% endif %}"
+                {# Sky-White (default) #}
+                <div class="ts-swatch {% if theme == 'sky-white' or not theme %}active{% endif %}"
+                     data-theme="sky-white" onclick="tsApply(this)">
+                    <div class="ts-swatch-strip">
+                        <div class="ts-swatch-strip-main"  style="background:#136db9;"></div>
+                        <div class="ts-swatch-strip-dark"  style="background:#0f5794;"></div>
+                        <div class="ts-swatch-strip-light" style="background:#f4f5f7;"></div>
+                    </div>
+                    <div class="ts-swatch-info">
+                        <span class="ts-swatch-name">Sky Blue</span>
+                        <span class="ts-swatch-check">✓</span>
+                    </div>
+                </div>
+
+                {# Red-White #}
+                <div class="ts-swatch {% if theme == 'red-white' %}active{% endif %}"
                      data-theme="red-white" onclick="tsApply(this)">
                     <div class="ts-swatch-strip">
                         <div class="ts-swatch-strip-main"  style="background:#c0123c;"></div>
@@ -289,7 +303,7 @@
 <script>
 // Mark the server-rendered active theme on load (in case JS runs before swatch is painted)
 document.addEventListener('DOMContentLoaded', function () {
-    var current = document.documentElement.getAttribute('data-theme') || 'red-white';
+    var current = document.documentElement.getAttribute('data-theme') || 'sky-white';
     document.querySelectorAll('.ts-swatch').forEach(function (el) {
         el.classList.toggle('active', el.dataset.theme === current);
     });

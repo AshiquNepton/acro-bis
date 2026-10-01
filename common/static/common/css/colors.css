@@ -3,44 +3,47 @@
    common/static/common/css/colors.css
 
    THEME SWITCHING:
-     Default (red-white) — no attribute needed
+     Default (sky-white) — no attribute needed
+     Red    → <html data-theme="red-white">
      Blue   → <html data-theme="blue-white">
      Purple → <html data-theme="purple-white">
      Green  → <html data-theme="green-white">
      Teal   → <html data-theme="teal-white">
 
    HOW TO SWITCH IN DJANGO:
-     <html data-theme="{{ user_preferences.theme|default:'red-white' }}">
+     <html data-theme="{{ user_preferences.theme|default:'sky-white' }}">
    ================================================================ */
 
 
 /* ════════════════════════════════════════════════════════════
    RED-WHITE  (default — matches your banking app screenshots)
    ════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════
+   SKY-WHITE (default)
+   ════════════════════════════════════════════════════════════ */
 :root,
-:root[data-theme="red-white"] {
-
+:root[data-theme="sky-white"] {
     /* ── Primary Brand ────────────────────────────────────── */
-    --color-primary:                  #c0123c;
-    --color-primary-dark:             #960e2f;
-    --color-primary-darker:           #6e0922;
-    --color-primary-light:            #e01647;
-    --color-primary-rgb:              192, 18, 60;   /* for rgba() usage */
+    --color-primary:                  #136db9;
+    --color-primary-dark:             #0f5794;
+    --color-primary-darker:           #0a3d67;
+    --color-primary-light:            #1a87e5;
+    --color-primary-rgb:              19, 109, 185;   /* for rgba() usage */
 
     /* ── Gradients ────────────────────────────────────────── */
-    --gradient-primary:               linear-gradient(135deg, #c0123c 0%, #8b0d2b 100%);
-    --gradient-sidebar:               linear-gradient(180deg, #c0123c 0%, #960e2f 55%, #6e0922 100%);
-    --gradient-progress:              linear-gradient(90deg,  #c0123c 0%, #e8184d 100%);
+    --gradient-primary:               linear-gradient(135deg, #1a87e5 0%, #0f5794 100%);
+    --gradient-sidebar:               linear-gradient(180deg, #1a87e5 0%, #136db9 55%, #0a3d67 100%);
+    --gradient-progress:              linear-gradient(90deg,  #136db9 0%, #46a3f5 100%);
     --gradient-success:               linear-gradient(135deg, #16a34a 0%, #15803d 100%);
     --gradient-danger:                linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
     --gradient-warning:               linear-gradient(135deg, #d97706 0%, #b45309 100%);
     --gradient-info:                  linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
 
     /* ── Sidebar ──────────────────────────────────────────── */
-    --color-sidebar-header-bg:        rgba(0,0,0,0.16);
-    --color-sidebar-item-hover:       rgba(255,255,255,0.12);
-    --color-sidebar-item-active:      rgba(255,255,255,0.20);
-    --color-sidebar-subitem-bg:       rgba(110,9,34,0.96);
+    --color-sidebar-header-bg:        rgba(0,0,0,0.14);
+    --color-sidebar-item-hover:       rgba(255,255,255,0.11);
+    --color-sidebar-item-active:      rgba(255,255,255,0.18);
+    --color-sidebar-subitem-bg:       rgba(10,61,103,0.97);
     --color-sidebar-text:             #ffffff;
 
     /* ── Accent ───────────────────────────────────────────── */
@@ -48,9 +51,24 @@
     --color-accent-red:               #ff4757;
     --color-accent-blue:              #3b82f6;
     --color-accent-green:             #22c55e;
+    --color-accent-blue:              #3b82f6;
+    --color-accent-green:             #22c55e;
     --color-accent-orange:            #f97316;
 
-    /* ── Backgrounds ──────────────────────────────────────── */
+    --color-text-link:                #136db9;
+    --color-text-link-hover:          #0f5794;
+    --color-border-primary:           #1a87e5;
+
+    --color-btn-primary-bg:           #136db9;
+    --color-btn-primary-hover:        #0f5794;
+    --color-form-input-border-focus:  #136db9;
+
+    --color-stat-card-1:              #136db9;
+    --shadow-primary:                 0 3px 12px rgba(19, 109, 185, 0.28);
+    --color-hover-primary:            rgba(19, 109, 185, 0.08);
+
+    --color-ring-info-bg:             #dbeafe;
+/* ── Backgrounds ──────────────────────────────────────── */
     --color-bg-primary:               #f4f5f7;
     --color-bg-secondary:             #ffffff;
     --color-bg-tertiary:              #f8f9fa;
@@ -63,18 +81,18 @@
     --color-text-tertiary:            #888899;
     --color-text-muted:               #aaaabc;
     --color-text-white:               #ffffff;
-    --color-text-link:                #c0123c;
-    --color-text-link-hover:          #960e2f;
+    --color-text-link:                #136db9;
+    --color-text-link-hover:          #0f5794;
 
     /* ── Borders ──────────────────────────────────────────── */
     --color-border-light:             #e4e4ec;
     --color-border-medium:            #d0d0de;
     --color-border-dark:              #b8b8cc;
-    --color-border-primary:           #c0123c;
+    --color-border-primary:           #136db9;
 
     /* ── Buttons ──────────────────────────────────────────── */
-    --color-btn-primary-bg:           #c0123c;
-    --color-btn-primary-hover:        #960e2f;
+    --color-btn-primary-bg:           #136db9;
+    --color-btn-primary-hover:        #0f5794;
     --color-btn-primary-text:         #ffffff;
 
     --color-btn-success-bg:           #16a34a;
@@ -98,7 +116,7 @@
     --color-btn-info-text:            #ffffff;
 
     /* ── Stat cards ───────────────────────────────────────── */
-    --color-stat-card-1:              #c0123c;
+    --color-stat-card-1:              #136db9;
     --color-stat-card-2:              #2563eb;
     --color-stat-card-3:              #16a34a;
     --color-stat-card-4:              #d97706;
@@ -129,7 +147,7 @@
     /* ── Form elements ────────────────────────────────────── */
     --color-form-input-bg:            #ffffff;
     --color-form-input-border:        #d0d0de;
-    --color-form-input-border-focus:  #c0123c;
+    --color-form-input-border-focus:  #136db9;
     --color-form-input-text:          #1a1a2e;
     --color-form-input-placeholder:   #9999aa;
     --color-form-label-text:          #444455;
@@ -175,12 +193,12 @@
     --shadow-small:                   0 2px 6px rgba(0,0,0,0.10);
     --shadow-medium:                  0 4px 16px rgba(0,0,0,0.09);
     --shadow-large:                   0 10px 40px rgba(0,0,0,0.16);
-    --shadow-primary:                 0 3px 12px rgba(192,18,60,0.28);
+    --shadow-primary:                 0 3px 12px rgba(19, 109, 185,0.28);
     --shadow-dropdown:                0 10px 32px rgba(0,0,0,0.18);
 
     /* ── Hover overlays ───────────────────────────────────── */
     --color-hover-overlay:            rgba(0,0,0,0.05);
-    --color-hover-primary:            rgba(192,18,60,0.08);
+    --color-hover-primary:            rgba(19, 109, 185,0.08);
 
     /* ── Border radius ────────────────────────────────────── */
     --radius-xs:                      3px;
@@ -216,6 +234,55 @@
     --transition-slow:    .45s ease;
 }
 
+
+/* ════════════════════════════════════════════════════════════
+   RED-WHITE
+   ════════════════════════════════════════════════════════════ */
+:root[data-theme="red-white"] {
+
+    /* ── Primary Brand ────────────────────────────────────── */
+    --color-primary:                  #c0123c;
+    --color-primary-dark:             #960e2f;
+    --color-primary-darker:           #6e0922;
+    --color-primary-light:            #e01647;
+    --color-primary-rgb:              192, 18, 60;   /* for rgba() usage */
+
+    /* ── Gradients ────────────────────────────────────────── */
+    --gradient-primary:               linear-gradient(135deg, #c0123c 0%, #8b0d2b 100%);
+    --gradient-sidebar:               linear-gradient(180deg, #c0123c 0%, #960e2f 55%, #6e0922 100%);
+    --gradient-progress:              linear-gradient(90deg,  #c0123c 0%, #e8184d 100%);
+    --gradient-success:               linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+    --gradient-danger:                linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    --gradient-warning:               linear-gradient(135deg, #d97706 0%, #b45309 100%);
+    --gradient-info:                  linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+
+    /* ── Sidebar ──────────────────────────────────────────── */
+    --color-sidebar-header-bg:        rgba(0,0,0,0.16);
+    --color-sidebar-item-hover:       rgba(255,255,255,0.12);
+    --color-sidebar-item-active:      rgba(255,255,255,0.20);
+    --color-sidebar-subitem-bg:       rgba(110,9,34,0.96);
+    --color-sidebar-text:             #ffffff;
+
+    /* ── Accent ───────────────────────────────────────────── */
+    --color-accent-gold:              #ffd700;
+    --color-accent-red:               #ff4757;
+    --color-accent-blue:              #3b82f6;
+    --color-accent-green:             #22c55e;
+    --color-accent-orange:            #f97316;
+
+    
+    --color-text-link:                #c0123c;
+    --color-text-link-hover:          #960e2f;
+    --color-border-primary:           #c0123c;
+
+    --color-btn-primary-bg:           #c0123c;
+    --color-btn-primary-hover:        #960e2f;
+    --color-form-input-border-focus:  #c0123c;
+
+    --color-stat-card-1:              #c0123c;
+    --shadow-primary:                 0 3px 12px rgba(192,18,60,0.28);
+    --color-hover-primary:            rgba(192,18,60,0.08);
+}
 
 /* ════════════════════════════════════════════════════════════
    PURPLE-WHITE
@@ -378,6 +445,7 @@
     --color-form-input-border:        #383858;
     --color-form-input-text:          #e8e8f0;
     --color-form-input-placeholder:   #606080;
+    --color-form-label-text:          #ffffff;
 
     --color-table-header-bg:          #22222e;
     --color-table-row-even:           #1a1a24;

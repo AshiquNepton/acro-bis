@@ -219,10 +219,11 @@
 .sidebar-navbar.collapsed .nav-section {
     width           : 56px;
     display         : flex;
+    flex-direction  : column;
     align-items     : center;
-    justify-content : center;
+    justify-content : flex-start;
     overflow        : visible;
-    position        : static;    /* kills stacking context */
+    position        : static;
 }
 
 .sidebar-navbar.collapsed .nav-tab {

@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    var VALID_THEMES = ['red-white', 'blue-white', 'purple-white', 'green-white', 'teal-white', 'dark'];
+    var VALID_THEMES = ['red-white', 'blue-white', 'purple-white', 'green-white', 'teal-white', 'dark', 'sky-white'];
     var SAVE_URL     = '/common/save-theme/';   // wired in urls.py
 
     /* ── Apply a theme from a swatch click ─────────────────── */

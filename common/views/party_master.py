@@ -69,7 +69,7 @@ def build_party_form_config(party_type: str, ac_code: str = None, ac_code_option
                 'label': f'{title.split()[0]} Code',
                 'type': '19', 
                 'required': True, 
-                'width': '160px', 
+                'width': '120px', 
                 'lookup_btn': True,
                 'value': ac_code,
                 'options': ac_code_options,
