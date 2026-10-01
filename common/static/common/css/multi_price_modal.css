@@ -71,7 +71,7 @@
 }
 
 .mp-base-select:focus {
-    border-color: var(--color-primary, #c0123c);
+    border-color: var(--color-primary, #136db9);
 }
 
 .mp-base-inp {
@@ -272,7 +272,7 @@
 }
 
 .mp-action-bar .pf-tb-btn#mp-btn-confirm {
-    background: var(--color-primary, #c0123c);
+    background: var(--color-primary, #136db9);
     color: #ffffff;
     border-color: var(--color-primary-dark, #9a0c2e);
 }
@@ -282,13 +282,13 @@
 }
 
 .mp-action-bar .pf-tb-btn-danger {
-    color: #c0123c;
+    color: #136db9;
     border-color: #f1b3c0;
 }
 
 .mp-action-bar .pf-tb-btn-danger:hover {
     background: #fee;
-    border-color: #c0123c;
+    border-color: #136db9;
 }
 
 .mp-action-bar .pf-tb-btn-icon {
@@ -343,7 +343,7 @@
 }
 
 .mu-input-group input:focus {
-    border-color: var(--color-primary, #c0123c);
+    border-color: var(--color-primary, #136db9);
     box-shadow: 0 0 0 2px rgba(192, 18, 60, 0.12);
 }
 
@@ -351,7 +351,7 @@
     height: 28px;
     margin-top: 17px;
     padding: 0 14px;
-    background: var(--color-primary, #c0123c);
+    background: var(--color-primary, #136db9);
     color: #ffffff;
     border: none;
     border-radius: 4px;
@@ -412,8 +412,8 @@
 
 .mu-price-badge:hover {
     background: var(--color-hover-primary, #f0f4ff);
-    border-color: var(--color-primary, #c0123c);
-    color: var(--color-primary, #c0123c);
+    border-color: var(--color-primary, #136db9);
+    color: var(--color-primary, #136db9);
 }
 
 .mu-action-btns {

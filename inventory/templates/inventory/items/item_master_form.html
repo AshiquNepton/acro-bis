@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (nameInp) {
         // AI translation for short/local name + sync AI query
-        nameInp.addEventListener('input', function() {
+        nameInp.addEventListener('blur', function() {
             var val = this.value || '';
             if (!val) return;
             if (shortInp && !shortInp.value) shortInp.value = val;
@@ -177,14 +177,13 @@ function imClose() {
     }
 }
 function imNew() {
-    if (window._isFormDirty) {
-        showConfirm('Data will be lost. Clear form for a new item?', function(confirmed) { 
-            if (confirmed) {
-                window._isFormDirty = false;
-                window.location.href = window.location.pathname; 
-            }
-        }, 'warning', 'Unsaved Changes');
+    var itemName = document.querySelector('[name="ItemName"]');
+    if (itemName && itemName.value.trim() !== '') {
+        showConfirm('Clear form for a new item?', function(confirmed) { 
+            if (confirmed) window.location.href = window.location.pathname; 
+        }, 'warning', 'New Item');
     } else {
+        // Form is empty, just clear silently
         window.location.href = window.location.pathname;
     }
 }
@@ -934,7 +933,7 @@ function imBindItemEvents() {
             btn.type = 'button';
             btn.id = 'btn-ai-fetch';
             btn.innerText = '⚡ Fetch Details via AI';
-            btn.style.cssText = 'margin-top:6px; background:var(--color-primary, #c0123c); color:#fff; border:none; padding:6px 14px; border-radius:4px; font-weight:600; font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:6px;';
+            btn.style.cssText = 'margin-top:6px; background:var(--color-primary, #136db9); color:#fff; border:none; padding:6px 14px; border-radius:4px; font-weight:600; font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:6px;';
             btn.onclick = imFetchProductAI;
             wrapper.appendChild(btn);
         }

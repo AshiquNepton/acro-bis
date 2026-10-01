@@ -621,18 +621,27 @@ def get_batch_category_options(category_ids: list, db_alias: str = None) -> dict
 
 from common.utils.code_generator import generate_next_code
 
+import re
+from django.db import connections
+
 def generate_next_item_code(db_alias: str = None) -> str:
-    """Generate the next available ItemCode using the generic generator."""
+    """Generate the next available ItemCode based on the latest entry."""
     from common.middleware.database_middleware import get_customer_db
     db = db_alias or get_customer_db()
     
-    return generate_next_code(
-        table='InventoryItems',
-        code_column='ItemCode',
-        order_column='ItemID',
-        prefix='ITM',
-        db_alias=db
-    )
+    with connections[db].cursor() as cur:
+        cur.execute('SELECT "ItemCode" FROM "InventoryItems" ORDER BY "ItemID" DESC LIMIT 1')
+        row = cur.fetchone()
+        
+    if not row or not row[0]: 
+        return 'ITM-0001'
+        
+    code = str(row[0])
+    match = re.search(r'(\d+)$', code)
+    if match:
+        prefix, num_str = code[:match.start()], match.group(1)
+        return f"{prefix}{int(num_str) + 1:0{len(num_str)}d}"
+    return f"{code}-0001"
 
 
 def get_uom_options(request=None):

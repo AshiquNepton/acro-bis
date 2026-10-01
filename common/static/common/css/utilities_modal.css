@@ -484,7 +484,7 @@
     box-shadow: 0 1px 4px rgba(0,0,0,0.20);
     transition: left 0.18s;
 }
-.ds-toggle-ctl input:checked + .ds-switch { background: var(--color-primary, #c0123c); }
+.ds-toggle-ctl input:checked + .ds-switch { background: var(--color-primary, #136db9); }
 .ds-toggle-ctl input:checked + .ds-switch::after { left: 19px; }
 
 /* Action button (Set Captions row) */
@@ -505,13 +505,13 @@
 }
 .ds-action-btn:hover {
     background: var(--color-hover-primary, #f0f4ff);
-    border-color: var(--color-primary, #c0123c);
+    border-color: var(--color-primary, #136db9);
     box-shadow: 0 2px 8px rgba(var(--color-primary-rgb,192,18,60), 0.10);
 }
 .ds-action-btn-ico {
     width: 34px; height: 34px;
     border-radius: 7px;
-    background: var(--color-primary, #c0123c);
+    background: var(--color-primary, #136db9);
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
 }
