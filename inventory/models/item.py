@@ -125,8 +125,12 @@ def ensure_inventory_items_table(db_alias: str, force: bool = False) -> bool:
         );
         CREATE INDEX IF NOT EXISTS "idx_inventoryitems_itemcode"
             ON "InventoryItems" ("ItemCode");
+        CREATE INDEX IF NOT EXISTS "idx_inventoryitems_itemcode_lower"
+            ON "InventoryItems" (LOWER("ItemCode"));
         CREATE INDEX IF NOT EXISTS "idx_inventoryitems_itemname"
             ON "InventoryItems" ("ItemName");
+        CREATE INDEX IF NOT EXISTS "idx_inventoryitems_itemname_lower"
+            ON "InventoryItems" (LOWER("ItemName"));
         CREATE INDEX IF NOT EXISTS "idx_inventoryitems_barcode1"
             ON "InventoryItems" ("Unit1Barcode");
         CREATE INDEX IF NOT EXISTS "idx_inventoryitems_itemgroups"
