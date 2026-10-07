@@ -116,6 +116,9 @@ def ensure_inventory_items_table(db_alias: str, force: bool = False) -> bool:
             "ProductDescription"  VARCHAR(250)  NULL,
             "ManufacturerPartNo"  VARCHAR(35)   NULL,
             "AltCodes"            VARCHAR(100)  NULL,
+            "Make"                VARCHAR(50)   NULL,
+            "Model"               VARCHAR(50)   NULL,
+            "Year"                VARCHAR(10)   NULL,
 
             -- Meta
             "Status"              SMALLINT      NULL DEFAULT 1,
@@ -185,6 +188,11 @@ def ensure_inventory_items_table(db_alias: str, force: bool = False) -> bool:
                 ALTER TABLE "InventoryItems" ALTER COLUMN "LocalName" TYPE VARCHAR(100);
             END IF;
         END $$""",
+        # Automotive Fields
+        'ALTER TABLE "InventoryItems" ADD COLUMN IF NOT EXISTS "Make" VARCHAR(50) NULL',
+        'ALTER TABLE "InventoryItems" ADD COLUMN IF NOT EXISTS "Model" VARCHAR(50) NULL',
+        'ALTER TABLE "InventoryItems" ADD COLUMN IF NOT EXISTS "Year" VARCHAR(10) NULL',
+
         # Add trigram indexes for fast ILIKE searches
         'CREATE EXTENSION IF NOT EXISTS pg_trgm;',
         'CREATE INDEX IF NOT EXISTS "idx_items_name_trgm" ON "InventoryItems" USING GIN ("ItemName" gin_trgm_ops);',
@@ -309,6 +317,9 @@ class InventoryItem(models.Model):
     ProductDescription = models.CharField(max_length=250, null=True, blank=True, db_column='ProductDescription')
     ManufacturerPartNo = models.CharField(max_length=35,  null=True, blank=True, db_column='ManufacturerPartNo')
     AltCodes           = models.CharField(max_length=100, null=True, blank=True, db_column='AltCodes')
+    Make               = models.CharField(max_length=50,  null=True, blank=True, db_column='Make')
+    Model              = models.CharField(max_length=50,  null=True, blank=True, db_column='Model')
+    Year               = models.CharField(max_length=10,  null=True, blank=True, db_column='Year')
 
     Status    = models.SmallIntegerField(null=True, blank=True, default=1, db_column='Status')
     CreatedAt = models.DateTimeField(null=True, blank=True, auto_now_add=False, db_column='CreatedAt')

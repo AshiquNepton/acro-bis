@@ -101,6 +101,9 @@ ITEM_FIELD_MAP = {
     'ProductDescription'  : ('ProductDescription',   'str'),
     'ManufacturerPartNo'  : ('ManufacturerPartNo',   'str'),
     'AltCodes'            : ('AltCodes',             'str'),
+    'Make'                : ('Make',                 'str'),
+    'Model'               : ('Model',                'str'),
+    'Year'                : ('Year',                 'str'),
     # multiunit_data stored in Stocks, not InventoryItems — excluded here
 }
 
@@ -337,6 +340,12 @@ def build_item_master_form_config(item_data=None, next_item_code='ITM-0001', opt
             'options': STATUS_OPTIONS,
             'value': d.get('Status', '1'),
         },
+        {'name': 'ItemText', 'type': 'hidden', 'value': d.get('ItemText', '')},
+        {'name': 'ItemGroup1Text', 'type': 'hidden', 'value': d.get('ItemGroup1Text', '')},
+        {'name': 'ItemGroup2Text', 'type': 'hidden', 'value': d.get('ItemGroup2Text', '')},
+        {'name': 'ItemGroup3Text', 'type': 'hidden', 'value': d.get('ItemGroup3Text', '')},
+        {'name': 'ItemGroup4Text', 'type': 'hidden', 'value': d.get('ItemGroup4Text', '')},
+        {'name': 'ItemGroup5Text', 'type': 'hidden', 'value': d.get('ItemGroup5Text', '')},
     ]
 
     # ── 4. Detailed Tabs ──────────────────────────────────────────────────
@@ -558,6 +567,9 @@ def build_item_master_form_config(item_data=None, next_item_code='ITM-0001', opt
                     {'name': 'hdr_alt_codes', 'label': 'Alternate Numbers', 'type': 'section_hdr'},
                     field('ManufacturerPartNo', 'OEM / Manufacturer Part No.', '1', placeholder='e.g. 04465-33450', value=d.get('ManufacturerPartNo', '')),
                     field('AltCodes', 'Alternate Codes', '1', placeholder='Comma-separated aftermarket codes', value=d.get('AltCodes', '')),
+                    field('Make', 'Make', '1', placeholder='e.g. Toyota', value=d.get('Make', '')),
+                    field('Model', 'Model', '1', placeholder='e.g. Camry', value=d.get('Model', '')),
+                    field('Year', 'Year', '1', placeholder='e.g. 2015', value=d.get('Year', '')),
                 ],
             ],
         },

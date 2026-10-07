@@ -24,12 +24,30 @@ document.addEventListener('DOMContentLoaded', function() {
     var aiQueryInp = document.getElementById('id_ai_search_query');
 
     if (nameInp) {
-        // AI translation for short/local name + sync AI query
+        // Sync AI query and ShortName immediately as the user types
+        nameInp.addEventListener('input', function() {
+            var val = this.value || '';
+            // Only auto-fill if user hasn't heavily modified it manually
+            if (aiQueryInp && (!aiQueryInp.dataset.userEdited || aiQueryInp.dataset.userEdited === 'false')) {
+                aiQueryInp.value = val;
+            }
+        });
+
+        // Track if user manually edits the AI query field so we stop auto-syncing
+        if (aiQueryInp) {
+            aiQueryInp.addEventListener('input', function() {
+                this.dataset.userEdited = 'true';
+            });
+        }
+
+        // AI translation for short/local name + sync on blur for fallback
         nameInp.addEventListener('blur', function() {
             var val = this.value || '';
             if (!val) return;
             if (shortInp && !shortInp.value) shortInp.value = val;
-            if (aiQueryInp && !aiQueryInp.value) aiQueryInp.value = val;
+            if (aiQueryInp && (!aiQueryInp.value || (!aiQueryInp.dataset.userEdited || aiQueryInp.dataset.userEdited === 'false'))) {
+                aiQueryInp.value = val;
+            }
             if (localInp && !localInp.value) {
                 fetch('https://api.mymemory.translated.net/get?q=' + encodeURIComponent(val) + '&langpair=en|ar')
                     .then(function(r) { return r.json(); })
@@ -307,7 +325,21 @@ function initSelectItemModal() {
 
             imInitSelectItemEvents();
         },
-        onOpen: function(m) {}
+        onOpen: function(m) {
+            function setField(hidName, inpId) {
+                var el = document.querySelector('input[name="' + hidName + '"]');
+                var inp = document.getElementById(inpId);
+                if (el && inp && el.value) {
+                    inp.value = el.value;
+                }
+            }
+            setField('ItemText', 'im-si-item-inp');
+            setField('ItemGroup1Text', 'im-si-g1-inp');
+            setField('ItemGroup2Text', 'im-si-g2-inp');
+            setField('ItemGroup3Text', 'im-si-g3-inp');
+            setField('ItemGroup4Text', 'im-si-g4-inp');
+            setField('ItemGroup5Text', 'im-si-g5-inp');
+        }
     });
 
     return selectItemModal;
@@ -579,6 +611,19 @@ function imConfirmSelectItem() {
                     el.value = gid;
                     el.dispatchEvent(new Event('change', { bubbles: true }));
                 }
+
+                if (textVal) {
+                    var textEl = document.getElementById('id_' + fname + 'Text');
+                    if (!textEl) {
+                        textEl = document.createElement('input');
+                        textEl.type = 'hidden';
+                        textEl.id = 'id_' + fname + 'Text';
+                        textEl.name = fname + 'Text';
+                        var frm = document.getElementById('item-master-form') || document.forms[0];
+                        if (frm) frm.appendChild(textEl);
+                    }
+                    textEl.value = textVal;
+                }
             }
 
             if (data.field_map) {
@@ -818,14 +863,14 @@ function imFetchProductAI() {
 
             // Populate description
             var descEl = document.getElementById('id_ProductDescription');
-            if (descEl) descEl.value = d.product_description || '';
+            if (descEl) descEl.value = d.ProductDescription || d.product_description || '';
 
             // Populate Brand & Category if empty
             var brandEl = document.getElementById('id_Brand');
-            if (brandEl && !brandEl.value) brandEl.value = d.brand_name || '';
+            if (brandEl && !brandEl.value) brandEl.value = d.BrandName || d.brand_name || '';
 
             var catEl = document.getElementById('id_Category');
-            if (catEl && !catEl.value) catEl.value = d.category_name || '';
+            if (catEl && !catEl.value) catEl.value = d.CategoryName || d.category_name || '';
 
             var originEl = document.getElementById('id_country_of_origin');
             if (originEl && d.country_of_origin) originEl.value = d.country_of_origin;
@@ -871,7 +916,37 @@ function imFetchProductAI() {
 /* ═══════════════════════════════════════════════════════════════════════════
    4. EVENT BINDING & DOM SETUP
    ═══════════════════════════════════════════════════════════════════════════ */
+function imApplyDecimalsAllowed() {
+    var daInp = document.getElementById('id_DecimalsAllowed');
+    if (!daInp) return;
+    var decimals = parseInt(daInp.value, 10);
+    if (isNaN(decimals) || decimals < 0) decimals = 0;
+
+    var numInputs = document.querySelectorAll('input[type="number"]');
+    var blacklist = ['id_WarrantyPeriod', 'id_DecimalsAllowed'];
+    
+    numInputs.forEach(function(inp) {
+        if (blacklist.indexOf(inp.id) !== -1 || inp.classList.contains('im-rm-pct')) return;
+        
+        // Update step and value formatting for amounts, rates, quantities
+        var stepVal = decimals > 0 ? '0.' + '0'.repeat(decimals - 1) + '1' : '1';
+        inp.step = stepVal;
+        
+        var val = parseFloat(inp.value);
+        if (!isNaN(val)) {
+            inp.value = val.toFixed(decimals);
+        }
+    });
+}
+
 function imBindItemEvents() {
+    var daInp = document.getElementById('id_DecimalsAllowed');
+    if (daInp) {
+        daInp.addEventListener('change', imApplyDecimalsAllowed);
+        daInp.addEventListener('blur', imApplyDecimalsAllowed);
+        imApplyDecimalsAllowed(); // Apply on load
+    }
+    
     /* Capture-phase Enter key on Item Name */
     var nameInput = document.getElementById('id_ItemName');
     if (nameInput) {
