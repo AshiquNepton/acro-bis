@@ -993,6 +993,16 @@ function _focusNextFrom(formEl, selector, currentEl) {
     if (!next && sorted.length) next = sorted[0]; /* wrap to first on last field */
     if (next) {
         /* .dp-input-wrap is a div — ensure it can receive focus */
+        /* Switch to the tab that contains this field, if it's inactive */
+        var pane = next.closest('.pf-pane');
+        if (pane && !pane.classList.contains('active') && pane.id) {
+            var formId = (formEl && formEl.id && formEl.id.startsWith('pf-content-')) ? formEl.id.replace('pf-content-', '') : (window.FD_FORM_ID || '');
+            var suffix = pane.id.replace('pf-pane-' + formId + '-', '');
+            if (formId && suffix && typeof window.pfTab === 'function') {
+                window.pfTab(formId, suffix, null);
+            }
+        }
+
         if (next.classList && next.classList.contains('dp-input-wrap')) {
             if (!next.hasAttribute('tabindex')) next.setAttribute('tabindex', '0');
             next.focus();

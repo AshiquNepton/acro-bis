@@ -135,6 +135,10 @@ window._pfConfig = {
                while the current item's data is in the form.             */
             imLockItemCode(true);
             
+            if (typeof imApplyDecimalsAllowed === 'function') {
+                imApplyDecimalsAllowed();
+            }
+
             /* The profile_form.js engine allocates an extra loader slot
                if onPopulate exists, expecting it to do an async sub-load.
                Since ours is synchronous, we must manually consume the slot. */
@@ -326,19 +330,44 @@ function initSelectItemModal() {
             imInitSelectItemEvents();
         },
         onOpen: function(m) {
-            function setField(hidName, inpId) {
+            window._imModalOpening = true;
+            function setField(hidName, inpId, chkId) {
                 var el = document.querySelector('input[name="' + hidName + '"]');
                 var inp = document.getElementById(inpId);
-                if (el && inp && el.value) {
-                    inp.value = el.value;
+                var chk = chkId ? document.getElementById(chkId) : null;
+                
+                if (el && inp) {
+                    var val = el.value || '';
+                    if (val && inp.tagName === 'SELECT') {
+                        var safeVal = val.replace(/"/g, '\\"');
+                        var opt = inp.querySelector('option[value="' + safeVal + '"]');
+                        if (!opt) {
+                            opt = document.createElement('option');
+                            opt.value = val;
+                            opt.textContent = val;
+                            inp.appendChild(opt);
+                        }
+                    }
+                    inp.value = val;
+                    if (typeof window.pfSelSetValue === 'function') {
+                        window.pfSelSetValue(inpId, val);
+                    } else if (window.jQuery && $(inp).data('select2')) {
+                        $(inp).val(val).trigger('change');
+                    }
+                    
+                    if (chk) {
+                        chk.checked = !!val;
+                        chk.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
                 }
             }
             setField('ItemText', 'im-si-item-inp');
             setField('ItemGroup1Text', 'im-si-g1-inp');
             setField('ItemGroup2Text', 'im-si-g2-inp');
-            setField('ItemGroup3Text', 'im-si-g3-inp');
-            setField('ItemGroup4Text', 'im-si-g4-inp');
-            setField('ItemGroup5Text', 'im-si-g5-inp');
+            setField('ItemGroup3Text', 'im-si-g3-inp', 'im-si-g3-chk');
+            setField('ItemGroup4Text', 'im-si-g4-inp', 'im-si-g4-chk');
+            setField('ItemGroup5Text', 'im-si-g5-inp', 'im-si-g5-chk');
+            setTimeout(function() { window._imModalOpening = false; }, 100);
         }
     });
 
@@ -382,6 +411,31 @@ function imInitSelectItemEvents() {
             });
             inp.addEventListener('blur', function() {
                 inp.style.background = '#ffffff';
+            });
+            inp.addEventListener('change', function(e) {
+                if (window._imModalOpening) return;
+                var modalBox = document.getElementById('im-select-item-modal-bd');
+                if (!modalBox) return; // Modal is not open
+                
+                var nextF = fields[idx + 1];
+                if (nextF) {
+                    var nextInp = document.getElementById('im-si-' + nextF.id + '-inp');
+                    var nextChk = document.getElementById('im-si-' + nextF.id + '-chk');
+                    if (nextInp && (!nextChk || nextChk.checked)) {
+                        var wrap = nextInp._pfWrap || (nextInp.closest && nextInp.closest('.pf-sel-wrap'));
+                        if (wrap) {
+                            var trig = wrap.querySelector('.pf-sel-trigger');
+                            if (trig) setTimeout(function() { trig.focus(); }, 10);
+                        } else {
+                            setTimeout(function() { nextInp.focus(); }, 10);
+                        }
+                    }
+                } else {
+                    setTimeout(function() {
+                        var okBtn = document.getElementById('im-si-ok-btn');
+                        if (okBtn) okBtn.focus();
+                    }, 10);
+                }
             });
         }
 
@@ -427,7 +481,8 @@ function imInitSelectItemEvents() {
                             var nextChk = document.getElementById('im-si-' + nextF.id + '-chk');
                             if (nextInp && (!nextChk || nextChk.checked)) nextInp.focus();
                         } else {
-                            imConfirmSelectItem();
+                            var okBtn = document.getElementById('im-si-ok-btn');
+                            if (okBtn) okBtn.focus();
                         }
                     });
                     opt.addEventListener('mouseenter', function() { opt.style.background = '#e3f0ff'; });
@@ -492,7 +547,8 @@ function imInitSelectItemEvents() {
                         var nextChk = document.getElementById('im-si-' + nextF.id + '-chk');
                         if (nextInp && (!nextChk || nextChk.checked)) nextInp.focus();
                     } else {
-                        imConfirmSelectItem();
+                        var okBtn = document.getElementById('im-si-ok-btn');
+                        if (okBtn) okBtn.focus();
                     }
                 } else if (e.key === 'Escape') {
                     imCloseAllSelectItemDropdowns();
@@ -923,7 +979,11 @@ function imApplyDecimalsAllowed() {
     if (isNaN(decimals) || decimals < 0) decimals = 0;
 
     var numInputs = document.querySelectorAll('input[type="number"]');
-    var blacklist = ['id_WarrantyPeriod', 'id_DecimalsAllowed'];
+    var blacklist = [
+        'id_WarrantyPeriod', 'id_DecimalsAllowed',
+        'id_MinStock', 'id_MaxStock', 'id_ReorderQty',
+        'id_SalesQty', 'id_SalesRtnQty', 'id_StockQty'
+    ];
     
     numInputs.forEach(function(inp) {
         if (blacklist.indexOf(inp.id) !== -1 || inp.classList.contains('im-rm-pct')) return;
@@ -946,6 +1006,28 @@ function imBindItemEvents() {
         daInp.addEventListener('blur', imApplyDecimalsAllowed);
         imApplyDecimalsAllowed(); // Apply on load
     }
+
+    var numInputs = document.querySelectorAll('input[type="number"]');
+    var blacklist = [
+        'id_WarrantyPeriod', 'id_DecimalsAllowed',
+        'id_MinStock', 'id_MaxStock', 'id_ReorderQty',
+        'id_SalesQty', 'id_SalesRtnQty', 'id_StockQty'
+    ];
+    
+    document.addEventListener('blur', function(e) {
+        if (e.target && e.target.tagName === 'INPUT' && e.target.type === 'number') {
+            var inp = e.target;
+            if (blacklist.indexOf(inp.id) === -1 && !inp.classList.contains('im-rm-pct')) {
+                var daEl = document.getElementById('id_DecimalsAllowed');
+                var decimals = daEl ? parseInt(daEl.value, 10) : 2;
+                if (isNaN(decimals) || decimals < 0) decimals = 0;
+                var val = parseFloat(inp.value);
+                if (!isNaN(val)) {
+                    inp.value = val.toFixed(decimals);
+                }
+            }
+        }
+    }, true);
     
     /* Capture-phase Enter key on Item Name */
     var nameInput = document.getElementById('id_ItemName');

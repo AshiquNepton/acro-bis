@@ -124,6 +124,7 @@
             size: this.size,
             subtitle: '',
             icon: THEME_ICONS.infinity,
+            staticBackdrop: true,
             tabs: [
                 { id: 'grid_tab', label: this.title }
             ],
@@ -359,7 +360,8 @@
         var self = this;
         var currentVal = this.rows[idx] ? (this.rows[idx].value || '').trim() : '';
         if (!currentVal) {
-            this._doSave();
+            var saveBtn = document.getElementById(this.id + '-btn-save');
+            if (saveBtn) saveBtn.focus();
             return;
         }
         

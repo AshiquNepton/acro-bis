@@ -609,6 +609,9 @@
         if (trig) {
             trig.classList.remove('open');
             trig.setAttribute('aria-expanded', 'false');
+            if (document.activeElement && (popup.contains(document.activeElement) || document.activeElement === document.body)) {
+                trig.focus();
+            }
         }
     }
 
@@ -1131,6 +1134,9 @@ function _closePopup(wrap, popup, trigger) {
     if (trig) {
         trig.classList.remove('open');
         trig.setAttribute('aria-expanded', 'false');
+        if (document.activeElement && (popup.contains(document.activeElement) || document.activeElement === document.body)) {
+            trig.focus();
+        }
     }
 }
 
