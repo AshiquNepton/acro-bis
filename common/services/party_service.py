@@ -94,7 +94,7 @@ def get_party_code_options(mgroup: int, db_alias: str = None) -> list:
         
         with connections[db].cursor() as cur:
             cur.execute(
-                'SELECT "AcCode", "Description" FROM "ChartOfAccounts" WHERE "MGroup" = %s ORDER BY "AccountID" DESC LIMIT 50',
+                'SELECT "AcCode", "Description" FROM "ChartOfAccounts" WHERE "MGroup" = %s ORDER BY "AccountID" DESC LIMIT 1000',
                 [mgroup]
             )
             for row in cur.fetchall():
@@ -196,6 +196,11 @@ def save_party(request, mgroup: int) -> JsonResponse:
 def load_party(request, mgroup: int) -> JsonResponse:
     """Load a single party record by AcCode and mgroup."""
     ac_code = request.GET.get('AcCode', '').strip()
+    
+    # Support for profile_form.js which sends ?field=AcCode&value=...
+    if not ac_code and request.GET.get('field') == 'AcCode':
+        ac_code = request.GET.get('value', '').strip()
+        
     if not ac_code:
         return JsonResponse({'success': False, 'error': 'Account Code required'})
 
@@ -210,9 +215,9 @@ def load_party(request, mgroup: int) -> JsonResponse:
                        c."GroupID", c."Active", c."Address1", v.*
                 FROM "ChartOfAccounts" c
                 LEFT JOIN "CustomerVendor" v ON c."AccountID" = v."AccountID"
-                WHERE c."AcCode" = %s AND c."MGroup" = %s
+                WHERE c."AcCode" ILIKE %s AND c."MGroup" = %s
                 ''',
-                [ac_code, mgroup],
+                [f'%{ac_code}%', mgroup],
             )
             row = cur.fetchone()
 
