@@ -9,8 +9,13 @@ from inventory.models.item import ensure_inventory_items_table
 def inventory_upsert_batch(db_alias: str, db_rows: list, _state={"item_id": None, "a_code_num": None}):
     from django.db import connections
     import re
-    
+    from inventory.models.item import ensure_inventory_items_table
+    from inventory.models.stock import ensure_stocks_table
+
     if not db_rows: return
+
+    ensure_inventory_items_table(db_alias)
+    ensure_stocks_table(db_alias)
     
     if _state["item_id"] is None:
         with connections[db_alias].cursor() as cur:
@@ -30,10 +35,7 @@ def inventory_upsert_batch(db_alias: str, db_rows: list, _state={"item_id": None
         with connections[db_alias].cursor() as cur:
             cur.execute('SELECT "ItemCode", "ItemID" FROM "InventoryItems" WHERE "ItemCode" = ANY(%s)', [provided_codes])
             existing = dict(cur.fetchall())
-            
-    from inventory.models.stock import ensure_stocks_table
-    ensure_stocks_table(db_alias)
-    
+
     sql_statements = []
     sql_params = []
     

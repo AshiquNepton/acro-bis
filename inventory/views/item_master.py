@@ -18,6 +18,8 @@ from common.views.decorators import login_required
 from common.utils.profile_form_helpers import build_form_config, build_hero_config, field
 from common.theme_constants import tb
 from core.crud import BaseCRUD
+from inventory.models.item import ensure_inventory_items_table
+from inventory.models.stock import ensure_stocks_table
 
 logger = logging.getLogger(__name__)
 
@@ -660,22 +662,26 @@ from django.db import connections
 
 def generate_next_item_code(db_alias: str = None) -> str:
     """Generate the next available ItemCode based on the latest entry."""
-    from common.middleware.database_middleware import get_customer_db
     db = db_alias or get_customer_db()
-    
-    with connections[db].cursor() as cur:
-        cur.execute('SELECT "ItemCode" FROM "InventoryItems" ORDER BY "ItemID" DESC LIMIT 1')
-        row = cur.fetchone()
-        
-    if not row or not row[0]: 
+    ensure_inventory_items_table(db)
+
+    try:
+        with connections[db].cursor() as cur:
+            cur.execute('SELECT "ItemCode" FROM "InventoryItems" ORDER BY "ItemID" DESC LIMIT 1')
+            row = cur.fetchone()
+
+        if not row or not row[0]: 
+            return 'ITM-0001'
+
+        code = str(row[0])
+        match = re.search(r'(\d+)$', code)
+        if match:
+            prefix, num_str = code[:match.start()], match.group(1)
+            return f"{prefix}{int(num_str) + 1:0{len(num_str)}d}"
+        return f"{code}-0001"
+    except Exception as e:
+        logger.warning("Error generating next item code: %s", e)
         return 'ITM-0001'
-        
-    code = str(row[0])
-    match = re.search(r'(\d+)$', code)
-    if match:
-        prefix, num_str = code[:match.start()], match.group(1)
-        return f"{prefix}{int(num_str) + 1:0{len(num_str)}d}"
-    return f"{code}-0001"
 
 
 def get_uom_options(request=None):
@@ -745,8 +751,9 @@ def get_rate_captions(db_alias=None) -> dict:
 
 def get_item_data(item_code):
     try:
-        from common.middleware.database_middleware import get_customer_db
         db = get_customer_db()
+        ensure_inventory_items_table(db)
+        ensure_stocks_table(db)
         from core.crud import fetch_one, fetch_tuples
         data = fetch_one(db, 'SELECT * FROM "InventoryItems" WHERE "ItemCode" ILIKE %s', [item_code])
         if not data:
@@ -792,11 +799,13 @@ def get_item_data(item_code):
 
 @login_required
 def item_master_view(request):
+    db = get_customer_db()
+    ensure_inventory_items_table(db)
+    ensure_stocks_table(db)
+
     # Fetch all item codes for the custom dropdown
     item_code_options = []
     try:
-        from common.middleware.database_middleware import get_customer_db
-        db = get_customer_db()
         from core.crud import fetch_tuples
         rows = fetch_tuples(db, 'SELECT "ItemCode", "ItemName" FROM "InventoryItems" ORDER BY "ItemID" DESC LIMIT 50')
         for row in rows:
@@ -834,7 +843,7 @@ def item_master_view(request):
     }
 
     item_code = request.GET.get('item_code', '').strip()
-    next_code = generate_next_item_code() if not item_code else 'ITM-0001'
+    next_code = generate_next_item_code(db) if not item_code else 'ITM-0001'
 
     item_data = get_item_data(item_code) if item_code else {}
 
@@ -964,6 +973,8 @@ def save_item(request):
     """
     try:
         db = get_customer_db()
+        ensure_inventory_items_table(db)
+        ensure_stocks_table(db)
         post = request.POST.dict()
 
         # ── 1. Resolve all type-19 (ItemGroups) fields in one pass ──────────
@@ -1123,6 +1134,8 @@ def load_item(request):
 
     try:
         db = get_customer_db()
+        ensure_inventory_items_table(db)
+        ensure_stocks_table(db)
 
         # ── Resolve lookup key ─────────────────────────────────────────────
         field_param = request.GET.get('field', '').strip()
@@ -1238,10 +1251,8 @@ def lookup_item(request):
     """
     try:
         db = get_customer_db()
-        q  = request.GET.get('q', '').strip()
-
-        from inventory.models.item import ensure_inventory_items_table
         ensure_inventory_items_table(db)
+        q  = request.GET.get('q', '').strip()
 
         from core.crud import fetch_all
         if q:
@@ -1369,6 +1380,8 @@ def verify_barcode(request):
             return JsonResponse({'success': False, 'error': 'No barcode provided'})
             
         db = get_customer_db()
+        ensure_inventory_items_table(db)
+        ensure_stocks_table(db)
         
         from core.crud import fetch_one_tuple, fetch_tuples
         

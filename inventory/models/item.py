@@ -211,7 +211,10 @@ def ensure_inventory_items_table(db_alias: str, force: bool = False) -> bool:
             try:
                 execute_sql(db_alias, sql)
             except Exception:
-                pass  # column may already exist correctly
+                try:
+                    connections[db_alias].rollback()
+                except Exception:
+                    pass
         _ENSURED_ITEM_TABLES.add(db_alias)
         logger.debug('ensure_inventory_items_table: table ready in %s', db_alias)
         return True

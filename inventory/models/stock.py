@@ -25,6 +25,9 @@ def ensure_stocks_table(db_alias: str, force: bool = False) -> bool:
     if not force and db_alias in _ENSURED_STOCK_TABLES:
         return True
 
+    from inventory.models.item import ensure_inventory_items_table
+    ensure_inventory_items_table(db_alias, force=force)
+
     ddl = """
         CREATE TABLE IF NOT EXISTS "Stocks" (
             -- Identity
@@ -139,7 +142,10 @@ def ensure_stocks_table(db_alias: str, force: bool = False) -> bool:
             try:
                 execute_sql(db_alias, sql)
             except Exception:
-                pass  # column may already exist with right type
+                try:
+                    connections[db_alias].rollback()
+                except Exception:
+                    pass
         _ENSURED_STOCK_TABLES.add(db_alias)
         logger.debug('ensure_stocks_table: table ready in %s', db_alias)
         return True
