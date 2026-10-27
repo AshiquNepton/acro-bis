@@ -1046,6 +1046,22 @@ window.addEventListener('resize', _repositionAllSelectPopups);
             sel.dispatchEvent(new Event('change', { bubbles: true }));
             _closePopup(wrap, popup, trigger);
         });
+
+        /* ── List: hover synchronization with highlighted state ── */
+        list.addEventListener('mouseover', function (e) {
+            var item = e.target.closest('.pf-sel-opt');
+            if (!item || item.classList.contains('pf-sel-no-match') || item.classList.contains('pf-sel-disabled')) return;
+            var cur = list.querySelector('.pf-sel-opt.pf-sel-highlighted');
+            if (cur && cur !== item) cur.classList.remove('pf-sel-highlighted');
+            item.classList.add('pf-sel-highlighted');
+        });
+
+        list.addEventListener('mouseleave', function () {
+            var cur = list.querySelector('.pf-sel-opt.pf-sel-highlighted');
+            if (cur) cur.classList.remove('pf-sel-highlighted');
+            var selOpt = list.querySelector('.pf-sel-opt.selected');
+            if (selOpt) selOpt.classList.add('pf-sel-highlighted');
+        });
     }
 
     /* ── Open / close ──────────────────────────────────────── */
@@ -1100,6 +1116,12 @@ function _openPopup(wrap, popup, search, trigger) {
         o.style.display = '';
         o.classList.remove('pf-sel-highlighted');
     });
+
+    var selOpt = popup.querySelector('.pf-sel-opt.selected');
+    if (selOpt) {
+        selOpt.classList.add('pf-sel-highlighted');
+        selOpt.scrollIntoView({ block: 'nearest' });
+    }
 
     var nm = popup.querySelector('.pf-sel-no-match-msg');
     if (nm) nm.remove();

@@ -11,43 +11,50 @@
 (function (global) {
     'use strict';
 
-    /* Official SVGs matching common/theme_constants.py */
-    var THEME_ICONS = {
-        confirm: (
+    /* Unified SVGs matching common/theme_constants.py */
+    var THEME_ICONS = Object.assign({}, global.THEME_ICONS || {}, {
+        confirm: (global.THEME_ICONS && global.THEME_ICONS.confirm) || (
             '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
             '<polyline points="9 11 12 14 22 4"/>' +
             '<path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>' +
             '</svg>'
         ),
-        cancel: (
+        cancel: (global.THEME_ICONS && global.THEME_ICONS.cancel) || (
             '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
             '<circle cx="12" cy="12" r="10"/>' +
             '<line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>' +
             '</svg>'
         ),
-        add: (
+        add: (global.THEME_ICONS && global.THEME_ICONS.add) || (
             '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
             '<circle cx="12" cy="12" r="10"/>' +
             '<line x1="12" y1="8" x2="12" y2="16"/>' +
             '<line x1="8" y1="12" x2="16" y2="12"/>' +
             '</svg>'
         ),
-        edit: (
+        edit: (global.THEME_ICONS && global.THEME_ICONS.edit) || (
             '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
             '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>' +
             '<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>' +
             '</svg>'
         ),
-        remove: (
+        remove: (global.THEME_ICONS && global.THEME_ICONS.remove) || (
             '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
             '<circle cx="12" cy="12" r="10"/>' +
             '<line x1="8" y1="12" x2="16" y2="12"/>' +
             '</svg>'
         ),
-        infinity: (
+        infinity: (global.THEME_ICONS && global.THEME_ICONS.infinity) || (
             '<path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.267-8-12.356-8-5.096 0-5.096 8 0 8 5.096 0 7.261-8 12.356-8z" stroke-width="2"/>'
+        ),
+        price: (global.THEME_ICONS && global.THEME_ICONS.price) || (
+            '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+            '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>' +
+            '<line x1="7" y1="7" x2="7.01" y2="7"/>' +
+            '</svg>'
         )
-    };
+    });
+    global.THEME_ICONS = THEME_ICONS;
 
     /**
      * ── MultiPriceModal ───────────────────────────────────────────────────
@@ -183,11 +190,11 @@
                 '<div class="mp-action-bar">' +
                     '<button type="button" class="pf-tb-btn" id="mp-btn-confirm" title="Confirm">' +
                         '<span class="pf-tb-btn-icon">' + THEME_ICONS.confirm + '</span>' +
-                        '<span style="text-decoration:underline;">C</span>onfirm' +
+                        'Confirm' +
                     '</button>' +
                     '<button type="button" class="pf-tb-btn pf-tb-btn-danger" id="mp-btn-cancel" title="Cancel">' +
                         '<span class="pf-tb-btn-icon">' + THEME_ICONS.cancel + '</span>' +
-                        '<span style="text-decoration:underline;">C</span>ancel' +
+                        'Cancel' +
                     '</button>' +
                 '</div>' +
             '</div>'
@@ -538,7 +545,7 @@
             var hasPrices = p.base_rate && parseFloat(p.base_rate) > 0;
             var priceLbl  = hasPrices
                 ? (p.base_rate ? 'Base: ' + parseFloat(p.base_rate).toFixed(2) : 'Edit')
-                : 'Set Prices';
+                : '';
 
             /* Unit Name cell */
             var nameCell;
@@ -584,11 +591,11 @@
                         '</div>' +
                     '</td>' +
                     '<td style="padding:3px 4px; text-align:center;">' +
-                        '<button type="button" data-mu-price-btn="' + i + '" ' +
-                        'style="height:24px; padding:0 8px; font-size:11px; border:1px solid var(--color-border-light); ' +
+                        '<button type="button" data-mu-price-btn="' + i + '" title="' + (hasPrices ? ('Base: ' + parseFloat(p.base_rate).toFixed(2)) : 'Set Prices') + '" ' +
+                        'style="height:24px; ' + (hasPrices ? 'padding:0 8px;' : 'width:28px; padding:0;') + ' font-size:11px; border:1px solid var(--color-border-light); ' +
                         'border-radius:3px; background:' + (hasPrices ? 'var(--color-primary)' : 'var(--color-bg-tertiary)') + '; ' +
-                        'color:' + (hasPrices ? '#fff' : 'var(--color-text-primary)') + '; cursor:pointer; white-space:nowrap;">' +
-                            (hasPrices ? '✓ ' : '') + _escHtml(priceLbl) +
+                        'color:' + (hasPrices ? '#fff' : 'var(--color-text-primary)') + '; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; gap:4px;">' +
+                            THEME_ICONS.price + (hasPrices ? (' ' + _escHtml(priceLbl)) : '') +
                         '</button>' +
                     '</td>' +
                 '</tr>';

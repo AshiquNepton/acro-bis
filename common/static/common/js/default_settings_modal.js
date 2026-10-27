@@ -173,6 +173,22 @@
                     'true'
                 ) +
             '</div>' +
+            '<div class="utm-sec" style="margin-top:16px;">Item Name Divisions</div>' +
+            '<div class="ds-toggle-row">' +
+              '<div class="ds-toggle-info">' +
+                '<span class="ds-toggle-label">Number of Divisions</span>' +
+                '<span class="ds-toggle-desc">Number of division rows shown in the Item Name entry modal (1\u20135)</span>' +
+              '</div>' +
+              '<div style="padding: 4px 0;">' +
+                '<select id="ds-inv-name-divisions" style="height:32px; border:1px solid var(--color-border-medium,#ddd); border-radius:4px; font-size:13px; padding:0 8px; min-width:80px;">' +
+                  '<option value="1">1</option>' +
+                  '<option value="2">2</option>' +
+                  '<option value="3" selected>3</option>' +
+                  '<option value="4">4</option>' +
+                  '<option value="5">5</option>' +
+                '</select>' +
+              '</div>' +
+            '</div>' +
             _buildSetCaptionsBtn();
     }
 
@@ -200,6 +216,8 @@
             if (mu) mu.checked = (s.inv_item_multiunit_visibility !== 'false');
             var gv = document.getElementById('ds-inv-group');
             if (gv) gv.checked = (s.inv_item_group_visibility !== 'false');
+            var nd = document.getElementById('ds-inv-name-divisions');
+            if (nd) nd.value = (s.inv_item_name_divisions || '3');
         })
         .catch(function (err) { console.error('[DS] load error:', err); });
     }
@@ -212,6 +230,7 @@
         var payload = {
             inv_item_multiunit_visibility: (mu && mu.checked) ? 'true' : 'false',
             inv_item_group_visibility    : (gv && gv.checked) ? 'true' : 'false',
+            inv_item_name_divisions: (function() { var el = document.getElementById('ds-inv-name-divisions'); return el ? el.value : '3'; })()
         };
 
         fetch('/common/ds/save/', {

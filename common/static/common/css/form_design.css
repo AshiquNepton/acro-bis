@@ -94,7 +94,12 @@
     border-left: 3px solid transparent; gap: 6px;
     transition: background .10s, border-color .10s; user-select: none;
 }
-.fd-dd-item:hover { background: var(--color-bg-tertiary); border-left-color: var(--color-primary); }
+.fd-dd-item:hover {
+    background: var(--color-primary);
+    color: #fff;
+    border-left-color: var(--color-primary);
+}
+.fd-dd-item:hover .fd-dd-sub { color: rgba(255,255,255,.72); }
 .fd-dd-item.fd-dd-item-active {
     background: var(--color-primary); color: #fff;
     border-left-color: var(--color-primary); font-weight: 600;

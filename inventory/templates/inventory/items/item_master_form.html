@@ -44,7 +44,6 @@ document.addEventListener('DOMContentLoaded', function() {
         nameInp.addEventListener('blur', function() {
             var val = this.value || '';
             if (!val) return;
-            if (shortInp && !shortInp.value) shortInp.value = val;
             if (aiQueryInp && (!aiQueryInp.value || (!aiQueryInp.dataset.userEdited || aiQueryInp.dataset.userEdited === 'false'))) {
                 aiQueryInp.value = val;
             }
@@ -87,6 +86,8 @@ window.GROUP_CHOICES = {{ group_choices_json|safe|default:"{}" }};
 
 
 window._isFormDirty = false;
+// Number of divisions for item name modal (loaded from Default Settings)
+window._imNameDivisions = 3; // default
 var _imFormInitDone = false;
 document.addEventListener('DOMContentLoaded', function() {
     setTimeout(function() {
@@ -257,9 +258,7 @@ function initSelectItemModal() {
             pane.style.overflow  = 'hidden'; /* clip — action bar must stay fixed at bottom */
 
             function makeRow(id, label, checkId, code, altCode) {
-                var checkHtml = checkId ? 
-                    '<label for="'+checkId+'" style="display:inline-flex; align-items:center; gap:4px; margin-left:6px; cursor:pointer; font-size:11px; color:#555;">' +
-                    '<input type="checkbox" id="'+checkId+'" checked style="margin:0;"> Disable</label>' : '';
+                var checkHtml = '';
                 
                 var optionsHtml = '<option value=""></option>';
                 if (window.GROUP_CHOICES) {
@@ -278,14 +277,19 @@ function initSelectItemModal() {
                     '</div></div>';
             }
 
-            var html = 
+            var numDivisions = window._imNameDivisions || 3;
+            var allRows = [
+                makeRow('im-si-item-inp', 'Item',    null, '29', null),
+                makeRow('im-si-g1-inp',   'Group 1', null, '1',  '30'),
+                makeRow('im-si-g2-inp',   'Group 2', null, '30', '31'),
+                makeRow('im-si-g3-inp',   'Group 3', null, '31', '201'),
+                makeRow('im-si-g4-inp',   'Group 4', null, '201', '202'),
+                makeRow('im-si-g5-inp',   'Group 5', null, '202', '203'),
+            ];
+            var displayedRows = allRows.slice(0, numDivisions);
+            var html =
                 '<div id="im-si-fields-area" style="background:#f0f0f0; padding:18px 20px 14px; display:flex; flex-direction:column; gap:12px; font-family:\'Segoe UI\', Tahoma, Geneva, Verdana, sans-serif; flex:1; min-height:0; overflow-y:auto;">' +
-                    makeRow('im-si-item-inp', 'Item', null, '29', null) +
-                    makeRow('im-si-g1-inp', 'Group 1', null, '1', '30') +
-                    makeRow('im-si-g2-inp', 'Group 2', null, '30', '31') +
-                    makeRow('im-si-g3-inp', 'Group 3', 'im-si-g3-chk', '31', '201') +
-                    makeRow('im-si-g4-inp', 'Group 4', 'im-si-g4-chk', '201', '202') +
-                    makeRow('im-si-g5-inp', 'Group 5', 'im-si-g5-chk', '202', '203') +
+                displayedRows.join('') +
                 '</div>' +
                 '<div class="lm-action-bar" id="im-si-action-bar" style="flex-shrink:0;">' +
                     '<button type="button" class="pf-tb-btn" id="im-si-ok-btn" onclick="imConfirmSelectItem()" title="Confirm">' +
@@ -295,7 +299,7 @@ function initSelectItemModal() {
                                 '<path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>' +
                             '</svg>' +
                         '</span>' +
-                        '<span><span style="text-decoration:underline;">O</span>K</span>' +
+                        '<span>OK</span>' +
                     '</button>' +
                     '<button type="button" class="pf-tb-btn pf-tb-btn-danger" id="im-si-cancel-btn" onclick="imCloseSelectItem()" title="Cancel">' +
                         '<span class="pf-tb-btn-icon">' +
@@ -304,14 +308,15 @@ function initSelectItemModal() {
                                 '<line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>' +
                             '</svg>' +
                         '</span>' +
-                        '<span><span style="text-decoration:underline;">C</span>ancel</span>' +
+                        '<span>Cancel</span>' +
                     '</button>' +
                 '</div>';
 
             pane.innerHTML = html;
 
+            var fieldIds = ['item', 'g1', 'g2', 'g3', 'g4', 'g5'].slice(0, numDivisions);
             if (window.pfSelUpgradeOne) {
-                ['item', 'g1', 'g2', 'g3', 'g4', 'g5'].forEach(function(f) {
+                fieldIds.forEach(function(f) {
                     var sel = document.getElementById('im-si-' + f + '-inp');
                     if (sel) window.pfSelUpgradeOne(sel);
                 });
@@ -319,7 +324,7 @@ function initSelectItemModal() {
 
             // Fallback: If pf_select is missing, use select2 as backup
             if (!window.pfSelUpgradeOne && window.jQuery && $.fn.select2) {
-                ['item', 'g1', 'g2', 'g3', 'g4', 'g5'].forEach(function(f) {
+                fieldIds.forEach(function(f) {
                     var sel = document.getElementById('im-si-' + f + '-inp');
                     if (sel) {
                         $(sel).select2({ width: '100%', dropdownParent: $('#im-select-item-modal'), tags: true });
@@ -485,8 +490,14 @@ function imInitSelectItemEvents() {
                             if (okBtn) okBtn.focus();
                         }
                     });
-                    opt.addEventListener('mouseenter', function() { opt.style.background = '#e3f0ff'; });
-                    opt.addEventListener('mouseleave', function() { opt.style.background = '#fff'; });
+                    opt.addEventListener('mouseenter', function() {
+                        opt.style.background = 'var(--color-primary, #136db9)';
+                        opt.style.color = '#fff';
+                    });
+                    opt.addEventListener('mouseleave', function() {
+                        opt.style.background = '#fff';
+                        opt.style.color = '#222';
+                    });
                 });
             }
             dd.style.display = 'block';
@@ -506,10 +517,12 @@ function imInitSelectItemEvents() {
             var opts = dd.querySelectorAll('.im-si-opt');
             opts.forEach(function(opt, i) {
                 if (i === activeIdx) {
-                    opt.style.background = '#e3f0ff';
+                    opt.style.background = 'var(--color-primary, #136db9)';
+                    opt.style.color = '#fff';
                     opt.scrollIntoView({ block: 'nearest' });
                 } else {
                     opt.style.background = '#fff';
+                    opt.style.color = '#222';
                 }
             });
         }
@@ -579,9 +592,9 @@ function imConfirmSelectItem() {
     var itemVal = (itemInp ? itemInp.value : '').trim();
     var g1Val = (g1Inp ? g1Inp.value : '').trim();
     var g2Val = (g2Inp ? g2Inp.value : '').trim();
-    var g3Val = (g3Chk && g3Chk.checked && g3Inp ? g3Inp.value : '').trim();
-    var g4Val = (g4Chk && g4Chk.checked && g4Inp ? g4Inp.value : '').trim();
-    var g5Val = (g5Chk && g5Chk.checked && g5Inp ? g5Inp.value : '').trim();
+    var g3Val = (g3Inp ? g3Inp.value : '').trim();
+    var g4Val = (g4Inp ? g4Inp.value : '').trim();
+    var g5Val = (g5Inp ? g5Inp.value : '').trim();
 
     var payload = { groups: [] };
     if (itemVal) payload.groups.push({ name: itemVal, category: 29, field: 'Item' });
@@ -608,6 +621,14 @@ function imConfirmSelectItem() {
     }
     
     if (selectItemModal) selectItemModal.close();
+
+    // Pre-fill ShortName (alias) from the combined item name on save
+    var shortField = document.getElementById('id_ShortName');
+    if (shortField && !shortField.value) {
+        shortField.value = combinedName;
+        shortField.dispatchEvent(new Event('input', { bubbles: true }));
+        shortField.dispatchEvent(new Event('change', { bubbles: true }));
+    }
     
     // Advance focus immediately
     var groupSelect = document.getElementById('id_ItemGroup1');
@@ -1098,6 +1119,17 @@ function imBindItemEvents() {
 
     /* Initialize dynamic multi-unit manager for UOM tab */
     initMultiUnitManager();
+
+    // Load number of divisions setting
+    fetch('/common/ds/load/', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.success && d.settings) {
+                var n = parseInt(d.settings.inv_item_name_divisions, 10);
+                if (!isNaN(n) && n >= 1 && n <= 5) window._imNameDivisions = n;
+            }
+        })
+        .catch(function() {});
 }
 
 if (document.readyState !== 'loading') {

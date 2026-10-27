@@ -44,6 +44,7 @@ CAP_CATEGORY    = 'Captions'        # aligned with get_rate_captions()
 SETT_FIELDS = {
     'inv_item_multiunit_visibility': 'true',
     'inv_item_group_visibility':     'true',
+    'inv_item_name_divisions':       '3',
 }
 
 # ─────────────────────────────────────────────────────────────────────────────

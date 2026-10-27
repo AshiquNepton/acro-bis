@@ -114,11 +114,11 @@ def ensure_inventory_items_table(db_alias: str, force: bool = False) -> bool:
 
             -- Product info
             "ProductDescription"  VARCHAR(250)  NULL,
-            "ManufacturerPartNo"  VARCHAR(35)   NULL,
-            "AltCodes"            VARCHAR(100)  NULL,
-            "Make"                VARCHAR(50)   NULL,
-            "Model"               VARCHAR(50)   NULL,
-            "Year"                VARCHAR(10)   NULL,
+            "ManufacturerPartNo"  VARCHAR(255)  NULL,
+            "AltCodes"            VARCHAR(255)  NULL,
+            "Make"                VARCHAR(255)  NULL,
+            "Model"               VARCHAR(255)  NULL,
+            "Year"                VARCHAR(255)  NULL,
 
             -- Meta
             "Status"              SMALLINT      NULL DEFAULT 1,
@@ -189,9 +189,14 @@ def ensure_inventory_items_table(db_alias: str, force: bool = False) -> bool:
             END IF;
         END $$""",
         # Automotive Fields
-        'ALTER TABLE "InventoryItems" ADD COLUMN IF NOT EXISTS "Make" VARCHAR(50) NULL',
-        'ALTER TABLE "InventoryItems" ADD COLUMN IF NOT EXISTS "Model" VARCHAR(50) NULL',
-        'ALTER TABLE "InventoryItems" ADD COLUMN IF NOT EXISTS "Year" VARCHAR(10) NULL',
+        'ALTER TABLE "InventoryItems" ADD COLUMN IF NOT EXISTS "Make" VARCHAR(255) NULL',
+        'ALTER TABLE "InventoryItems" ADD COLUMN IF NOT EXISTS "Model" VARCHAR(255) NULL',
+        'ALTER TABLE "InventoryItems" ADD COLUMN IF NOT EXISTS "Year" VARCHAR(255) NULL',
+        'ALTER TABLE "InventoryItems" ALTER COLUMN "ManufacturerPartNo" TYPE VARCHAR(255)',
+        'ALTER TABLE "InventoryItems" ALTER COLUMN "AltCodes" TYPE VARCHAR(255)',
+        'ALTER TABLE "InventoryItems" ALTER COLUMN "Make" TYPE VARCHAR(255)',
+        'ALTER TABLE "InventoryItems" ALTER COLUMN "Model" TYPE VARCHAR(255)',
+        'ALTER TABLE "InventoryItems" ALTER COLUMN "Year" TYPE VARCHAR(255)',
 
         # Add trigram indexes for fast ILIKE searches
         'CREATE EXTENSION IF NOT EXISTS pg_trgm;',

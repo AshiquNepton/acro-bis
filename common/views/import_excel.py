@@ -119,12 +119,29 @@ def build_import_form_config(import_types: list) -> dict:
     }
 
 
+def _ensure_registered_imports():
+    """Safely register import types from available modules."""
+    try:
+        from inventory.views.import_config import register_inventory_imports
+        register_inventory_imports()
+    except Exception as exc:
+        logger.warning(f"Failed to register inventory imports: {exc}")
+    try:
+        from common.views.employee_import_config import register_employee_imports
+        register_employee_imports()
+    except Exception as exc:
+        logger.warning(f"Failed to register employee imports: {exc}")
+    try:
+        from common.views.party_import_config import register_party_imports
+        register_party_imports()
+    except Exception as exc:
+        logger.warning(f"Failed to register party imports: {exc}")
+
+
 # ── Import page view ──────────────────────────────────────────────────────────
 
 def import_excel_view(request):
-    register_inventory_imports()
-    register_employee_imports()
-    register_party_imports()
+    _ensure_registered_imports()
 
     """
     Renders the generic import-from-Excel page.
@@ -155,9 +172,7 @@ def import_excel_view(request):
 # ── Template download ─────────────────────────────────────────────────────────
 
 def import_template_download(request):
-    register_inventory_imports()
-    register_employee_imports()
-    register_party_imports()
+    _ensure_registered_imports()
 
     """
     GET  /import/template/?type=<key>        (common URL)
@@ -342,28 +357,13 @@ def _resolve_itemgroup_id(db_alias: str, category_id: int, description: str,
     return next_id
 
 
-# -- IMPORT CONFIGURATIONS --
-from common.middleware.database_middleware import get_customer_db
-from common.models.employee import ensure_employees_table
-from common.views.party_master import ensure_party_tables
-from inventory.models.item import ensure_inventory_items_table
-from core.crud import excel_import
-
-@require_http_methods(['POST'])
-
-
-
-
-
 @require_http_methods(['POST'])
 def import_excel_process(request):
     # ── Auth guard — return JSON so JS doesn't receive an HTML redirect ────────
     if not request.session.get('is_authenticated'):
         return JsonResponse({'success': False, 'error': 'Not authenticated. Please log in.'}, status=403)
 
-    register_inventory_imports()
-    register_employee_imports()
-    register_party_imports()
+    _ensure_registered_imports()
 
     """
     POST body (JSON):
@@ -537,7 +537,7 @@ def _coerce_row(row: dict, columns: list) -> dict:
     result = {}
     for col in columns:
         excel_key = col['excel']
-        db_col    = col['db_col']
+        db_col    = col.get('db_col') or col.get('db')
         typ       = col.get('type', 'str')
         required  = col.get('required', False)
 
@@ -551,7 +551,13 @@ def _coerce_row(row: dict, columns: list) -> dict:
 
         if typ == 'int':
             try:
-                result[db_col] = int(float(raw))
+                raw_l = raw.lower()
+                if raw_l in ('male', 'yes', 'true'):
+                    result[db_col] = 1
+                elif raw_l in ('female', 'no', 'false'):
+                    result[db_col] = 0
+                else:
+                    result[db_col] = int(float(raw))
             except ValueError:
                 raise ValueError(f'"{excel_key}": expected integer, got "{raw}"')
 

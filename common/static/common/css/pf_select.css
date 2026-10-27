@@ -124,9 +124,11 @@
     text-overflow: ellipsis;
     transition: background .08s, border-color .08s;
 }
-.pf-sel-opt:hover {
-    background: var(--color-bg-tertiary, #f3f4f6);
-    border-left-color: var(--color-primary, #7c3aed);
+.pf-sel-opt:hover,
+.pf-sel-opt.pf-sel-highlighted {
+    background: var(--color-primary, #7c3aed) !important;
+    color: #fff !important;
+    border-left-color: var(--color-primary, #7c3aed) !important;
 }
 .pf-sel-opt.selected {
     background: var(--color-primary, #7c3aed);
@@ -135,29 +137,25 @@
     font-weight: 600;
 }
 
+/* When another option in the list is hovered or highlighted,
+   the selected item steps down from solid highlight to a soft tint so the
+   currently hovered/highlighted item stands out clearly. */
+.pf-sel-list:hover .pf-sel-opt.selected:not(:hover),
+.pf-sel-list:has(.pf-sel-highlighted) .pf-sel-opt.selected:not(.pf-sel-highlighted) {
+    background: var(--color-hover-primary, #f0f4ff);
+    color: var(--color-primary, #7c3aed);
+    border-left-color: var(--color-primary, #7c3aed);
+    font-weight: 600;
+}
+
 /* No-match message */
 .pf-sel-opt.pf-sel-no-match {
-    color: var(--color-text-muted, #9ca3af);
+    color: var(--color-text-muted, #9ca3af) !important;
     cursor: default;
     font-style: italic;
     border-left-color: transparent !important;
     background: transparent !important;
     font-weight: normal;
-}
-
-/* ── Keyboard-navigation highlight ─────────────────────────── */
-/* Mirrors the hover style so mouse and keyboard feel identical.
-   Declared after :hover so it wins on keyboard-only interaction,
-   but .selected still wins (declared after this block). */
-.pf-sel-opt.pf-sel-highlighted {
-    background: var(--color-bg-tertiary, #f3f4f6);
-    border-left-color: var(--color-primary, #7c3aed);
-}
-/* When the highlighted item is also the currently selected one,
-   keep the solid primary background — don't dim it. */
-.pf-sel-opt.pf-sel-highlighted.selected {
-    background: var(--color-primary, #7c3aed);
-    color: #fff;
 }
 
 /* ── "Add: <query>" custom-value row ────────────────────────── */
@@ -173,8 +171,9 @@
 }
 .pf-sel-add-new:hover,
 .pf-sel-add-new.pf-sel-highlighted {
-    background: var(--color-bg-tertiary, #f3f4f6);
-    border-left-color: var(--color-primary, #7c3aed);
+    background: var(--color-primary, #7c3aed) !important;
+    color: #fff !important;
+    border-left-color: var(--color-primary, #7c3aed) !important;
     opacity: 1;
 }
 
@@ -240,7 +239,8 @@
 }
  
 .pf-mchk-item:hover {
-    background: var(--color-bg-tertiary, #f3f4f6);
+    background: var(--color-primary, #7c3aed);
+    color: #fff;
     border-left-color: var(--color-primary, #7c3aed);
 }
  
@@ -250,8 +250,9 @@
     border-left-color: var(--color-primary, #7c3aed);
 }
  
-.pf-mchk-item.pf-mchk-checked:hover {
-    opacity: 0.9;
+.pf-mchk-popup:hover .pf-mchk-item.pf-mchk-checked:not(:hover) {
+    background: var(--color-hover-primary, #f0f4ff);
+    color: var(--color-primary, #7c3aed);
 }
  
 .pf-mchk-chk {

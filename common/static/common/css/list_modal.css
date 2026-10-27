@@ -208,6 +208,12 @@
     gap: 8px;
     flex-shrink: 0;
 }
+.lm-action-bar .pf-tb-btn {
+    white-space: nowrap;
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+}
 
 /* ── Z-Index Layering: Ensure ListModal sits safely above any other modal ── */
 .utm-bd:has(.utm-modal--standard),

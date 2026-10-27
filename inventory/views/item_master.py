@@ -471,14 +471,16 @@ def build_item_master_form_config(item_data=None, next_item_code='ITM-0001', opt
             'id': 'rate',
             'label': 'Rate & Discounts',
             'columns': [
-                # Column 1: Discounts
+                # Column 1: Discounts (1/3 width)
                 [
                     {'name': 'hdr_discounts', 'label': 'Discounts', 'type': 'section_hdr'},
                     field('PurDiscount', 'Pur Discount', '2', step='0.0001', placeholder='0.0000', value=d.get('PurDiscount', '')),
                     field('Discount',    'Discount',     '2', step='0.0001', placeholder='0.0000', value=d.get('Discount', '')),
                     field('SPDiscount',  'SP Discount',  '2', step='0.0001', placeholder='0.0000', value=d.get('SPDiscount', '')),
                 ],
-                # Column 2: Selling Rates widget (two-way calculator)
+                # Column 2: Empty space (1/3 width)
+                [],
+                # Column 3: Selling Rates widget (two-way calculator) (1/3 width)
                 #   Landing Cost (LUCost) + Rate0–Rate5
                 #   Captions from ChartOfCode (Category LIKE 'Captions%', Code LIKE 'RATE%')
                 [
@@ -565,11 +567,31 @@ def build_item_master_form_config(item_data=None, next_item_code='ITM-0001', opt
             'columns': [
                 [
                     {'name': 'hdr_alt_codes', 'label': 'Alternate Numbers', 'type': 'section_hdr'},
-                    field('ManufacturerPartNo', 'OEM / Manufacturer Part No.', '1', placeholder='e.g. 04465-33450', value=d.get('ManufacturerPartNo', '')),
-                    field('AltCodes', 'Alternate Codes', '1', placeholder='Comma-separated aftermarket codes', value=d.get('AltCodes', '')),
-                    field('Make', 'Make', '1', placeholder='e.g. Toyota', value=d.get('Make', '')),
-                    field('Model', 'Model', '1', placeholder='e.g. Camry', value=d.get('Model', '')),
-                    field('Year', 'Year', '1', placeholder='e.g. 2015', value=d.get('Year', '')),
+                    field('ManufacturerPartNo', 'OEM / Manufacturer Part No.', 'list_modal',
+                          modal_title='OEM / Manufacturer Part Numbers',
+                          column_label='Part Number',
+                          container_style='display:inline-block; width:48%; margin-right:2%; vertical-align:top;',
+                          value=d.get('ManufacturerPartNo', '')),
+                    field('AltCodes', 'Alternate Codes', 'list_modal',
+                          modal_title='Alternate Codes',
+                          column_label='Alternate Code',
+                          container_style='display:inline-block; width:48%; vertical-align:top;',
+                          value=d.get('AltCodes', '')),
+                    field('Make', 'Make', 'list_modal',
+                          modal_title='Makes',
+                          column_label='Make',
+                          container_style='display:inline-block; width:48%; margin-right:2%; vertical-align:top;',
+                          value=d.get('Make', '')),
+                    field('Model', 'Model', 'list_modal',
+                          modal_title='Models',
+                          column_label='Model',
+                          container_style='display:inline-block; width:48%; vertical-align:top;',
+                          value=d.get('Model', '')),
+                    field('Year', 'Year', 'list_modal',
+                          modal_title='Years',
+                          column_label='Year',
+                          container_style='display:inline-block; width:48%; vertical-align:top;',
+                          value=d.get('Year', '')),
                 ],
             ],
         },

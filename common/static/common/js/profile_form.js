@@ -203,7 +203,7 @@
         var grids = paneEl.querySelectorAll('.pf-field-grid[data-col-sizes]');
         grids.forEach(function (grid) {
             if (grid.querySelector('.pf-col')) return;
-            var sizes = (grid.dataset.colSizes || '').split(',').map(Number).filter(Boolean);
+            var sizes = (grid.dataset.colSizes || '').split(',').map(function (s) { return parseInt(s.trim(), 10); }).filter(function (n) { return !isNaN(n); });
             if (!sizes.length) return;
             var children = Array.prototype.slice.call(grid.children);
             if (!children.length) return;
